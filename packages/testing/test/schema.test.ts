@@ -13,6 +13,8 @@ import {
   PRINT_JOB_STATUSES,
   ROUTING_MATCHES,
   STATION_OUTPUT_ROLES,
+  STOCK_COUNT_STATUSES,
+  STOCK_MOVEMENT_KINDS,
   TABLE_STATUSES,
   TICKET_STATUSES,
 } from '@rp/domain';
@@ -52,6 +54,8 @@ describe('Schema contract', () => {
       routing_match: [...ROUTING_MATCHES],
       table_status: [...TABLE_STATUSES],
       payment_policy: [...PAYMENT_POLICIES],
+      stock_movement_kind: [...STOCK_MOVEMENT_KINDS],
+      stock_count_status: [...STOCK_COUNT_STATUSES],
     });
     const perms = await db.query<{ code: string }>('select code from permissions order by code');
     expect(perms.map((p) => p.code)).toEqual([...PERMISSIONS].sort());

@@ -16,6 +16,7 @@ import {
 } from '@rp/domain';
 import type { NewPrintJob, NewTicket, OrderAggregate, Repositories, RoutingSnapshot } from '../ports';
 import { authorize, type RequestContext } from '../principal';
+import { deductStockForSale } from './inventory';
 import { CommitLog, type Dependencies, settleOrderState } from './shared';
 
 /**
@@ -373,6 +374,17 @@ async function sendPendingItems(
     createdAt: now,
   }));
   await tx.production.insertTickets(tickets);
+  // Stock: only products with a recipe consume inventory; never blocks the sale.
+  await deductStockForSale(tx, deps, {
+    branchId: h.branchId,
+    orderId: h.id,
+    orderNumber: h.orderNumber,
+    staffId: ctx.principal.staffId,
+    lines: plan.itemUpdates.map((u) => {
+      const item = agg.items.find((i) => i.id === u.itemId)!;
+      return { productId: item.productId, quantity: item.quantity };
+    }),
+  });
 
   const tableLabel = h.tableId ? ((await tx.config.table(h.tableId))?.label ?? null) : null;
   const jobs: NewPrintJob[] = [];

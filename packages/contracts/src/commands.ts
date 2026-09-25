@@ -1,4 +1,4 @@
-import { PAYMENT_METHODS, TICKET_ACTIONS } from '@rp/domain';
+import { INVENTORY_UNITS, PAYMENT_METHODS, TICKET_ACTIONS } from '@rp/domain';
 import { z } from 'zod';
 
 // Request bodies accepted by the API. One definition, used by the API for
@@ -81,3 +81,55 @@ export const HeartbeatCommand = z.object({
     .default([]),
 });
 export type HeartbeatCommand = z.infer<typeof HeartbeatCommand>;
+
+// ---------------------------------------------------------------------------
+// Inventory and stock taking
+// ---------------------------------------------------------------------------
+const quantity = z.number().finite().min(-1_000_000).max(1_000_000);
+export const SaveInventoryItemCommand = z.object({
+  id: uuid.optional(),
+  branchId: uuid,
+  name: text(80).min(1),
+  sku: text(40).nullish(),
+  category: text(40).nullish(),
+  unit: z.enum(INVENTORY_UNITS),
+  minQuantity: quantity.min(0).default(0),
+  unitCost: minor.min(0).default(0),
+  isActive: z.boolean().default(true),
+});
+export type SaveInventoryItemCommand = z.infer<typeof SaveInventoryItemCommand>;
+
+export const RecordStockMovementCommand = z.object({
+  movementId: uuid,
+  itemId: uuid,
+  kind: z.enum(['receive', 'waste', 'adjust']),
+  quantity,
+  unitCost: minor.min(0).nullish(),
+  reason: text(200).nullish(),
+  reference: text(80).nullish(),
+});
+export type RecordStockMovementCommand = z.infer<typeof RecordStockMovementCommand>;
+
+export const StartStockCountCommand = z.object({
+  countId: uuid,
+  branchId: uuid,
+  note: text(200).nullish(),
+  /** Items to count; all active items when omitted. */
+  itemIds: z.array(uuid).max(1000).nullish(),
+});
+export type StartStockCountCommand = z.infer<typeof StartStockCountCommand>;
+
+export const RecordCountLineCommand = z.object({
+  itemId: uuid,
+  countedQuantity: quantity.min(0).nullable(),
+  reason: text(200).nullish(),
+});
+export type RecordCountLineCommand = z.infer<typeof RecordCountLineCommand>;
+
+export const StockCountDecisionCommand = z.object({ expectedVersion: z.number().int().positive() });
+export type StockCountDecisionCommand = z.infer<typeof StockCountDecisionCommand>;
+
+export const SaveRecipeCommand = z.object({
+  components: z.array(z.object({ itemId: uuid, quantity: quantity.positive() })).max(30),
+});
+export type SaveRecipeCommand = z.infer<typeof SaveRecipeCommand>;

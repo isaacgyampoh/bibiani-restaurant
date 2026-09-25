@@ -8,9 +8,12 @@ import type {
   ConfigurationView,
   CreateStaffCommand,
   CustomerBoardView,
+  DashboardView,
+  ExpoView,
   FloorView,
   FulfilOrderCommand,
   HeartbeatCommand,
+  InventoryView,
   MenuView,
   MeView,
   OperationsView,
@@ -21,10 +24,18 @@ import type {
   PrintQueueView,
   PrintReceiptCommand,
   ReceiptView,
+  RecordCountLineCommand,
   RecordPaymentCommand,
+  RecordStockMovementCommand,
+  SaveInventoryItemCommand,
+  SaveRecipeCommand,
   SendToKitchenCommand,
   SetTableStatusCommand,
+  StartStockCountCommand,
   StationBoardView,
+  StockCountSummaryView,
+  StockCountView,
+  StockMovementView,
   SubmitOrderCommand,
   TicketActionCommand,
   UpdateStaffCommand,
@@ -118,6 +129,36 @@ export class ApiClient {
   fulfilOrder = (orderId: string, cmd: FulfilOrderCommand = {}) =>
     this.request<OrderView>('POST', `/v1/orders/${orderId}/fulfil`, cmd);
   getOrder = (orderId: string) => this.request<OrderView>('GET', `/v1/orders/${orderId}`);
+  dashboard = (branchId: string) => this.request<DashboardView>('GET', `/v1/branches/${branchId}/dashboard`);
+  expo = (branchId: string) => this.request<ExpoView>('GET', `/v1/branches/${branchId}/expo`);
+  inventory = (branchId: string) => this.request<InventoryView>('GET', `/v1/branches/${branchId}/inventory`);
+  stockMovements = (branchId: string, itemId?: string) =>
+    this.request<StockMovementView[]>(
+      'GET',
+      `/v1/branches/${branchId}/stock-movements${itemId ? `?itemId=${itemId}` : ''}`,
+    );
+  saveInventoryItem = (cmd: SaveInventoryItemCommand) =>
+    this.request<{ id: string }>('POST', '/v1/inventory/items', cmd);
+  recordStockMovement = (cmd: RecordStockMovementCommand) =>
+    this.request<{ quantity: number }>('POST', '/v1/inventory/movements', cmd);
+  stockCounts = (branchId: string) =>
+    this.request<StockCountSummaryView[]>('GET', `/v1/branches/${branchId}/stock-counts`);
+  startStockCount = (cmd: StartStockCountCommand) =>
+    this.request<{ countId: string }>('POST', '/v1/stock-counts', cmd);
+  stockCount = (countId: string) => this.request<StockCountView>('GET', `/v1/stock-counts/${countId}`);
+  recordCountLine = (countId: string, cmd: RecordCountLineCommand) =>
+    this.request<{ ok: true }>('POST', `/v1/stock-counts/${countId}/lines`, cmd);
+  decideStockCount = (countId: string, action: 'submit' | 'approve' | 'cancel', expectedVersion: number) =>
+    this.request<{ ok?: true; adjusted?: number }>('POST', `/v1/stock-counts/${countId}/${action}`, {
+      expectedVersion,
+    });
+  recipe = (productId: string) =>
+    this.request<{ itemId: string; name: string; unit: string; quantity: number }[]>(
+      'GET',
+      `/v1/products/${productId}/recipe`,
+    );
+  saveRecipe = (productId: string, cmd: SaveRecipeCommand) =>
+    this.request<{ ok: true }>('POST', `/v1/products/${productId}/recipe`, cmd);
   recentClosedOrders = (branchId: string) =>
     this.request<OrderSummaryView[]>('GET', `/v1/branches/${branchId}/orders/recent`);
   activeOrders = (branchId: string) =>

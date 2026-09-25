@@ -43,6 +43,9 @@ export const OPERATION_FAILED: Record<string, string> = {
   pair_device: 'Pairing did not complete. Please try again.',
   save_config: 'Changes were not saved. Please try again.',
   save_staff: 'Staff changes were not saved. Please try again.',
+  save_stock: 'Stock changes were not saved. Please try again.',
+  stock_count: 'Stock count could not be saved. Please try again.',
+  save_recipe: 'Recipe was not saved. Please try again.',
   default: 'Something went wrong. Please try again.',
 };
 

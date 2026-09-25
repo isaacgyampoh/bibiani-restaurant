@@ -2,6 +2,7 @@ export * from './business-day';
 export * from './documents';
 export * from './enums';
 export * from './errors';
+export * from './inventory';
 export * from './money';
 export * from './order';
 export * from './payment';

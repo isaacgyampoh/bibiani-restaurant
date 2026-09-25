@@ -352,3 +352,142 @@ export interface ConfigurationView {
     branchId: string | null;
   }[];
 }
+
+/** "How is the restaurant doing right now?" — today's business day of one branch. Real data only. */
+export interface DashboardView {
+  branchId: string;
+  businessDay: string;
+  currency: string;
+  sales: {
+    net: number;
+    orders: number;
+    averageOrder: number;
+    byMethod: { method: 'cash' | 'momo' | 'card'; amount: number; count: number }[];
+  };
+  orders: {
+    open: number;
+    preparing: number;
+    ready: number;
+    awaitingPayment: number;
+    completed: number;
+    cancelled: number;
+    takeawayOpen: number;
+  };
+  tables: { occupied: number; total: number };
+  stations: {
+    id: string;
+    name: string;
+    openTickets: number;
+    delayedTickets: number;
+    oldestTicketSeconds: number | null;
+    targetPrepSeconds: number | null;
+    readyToday: number;
+    averagePrepSeconds: number | null;
+  }[];
+  inventory: { lowStockItems: number; openStockCounts: number };
+  recentOrders: OrderSummaryView[];
+  generatedAt: string;
+}
+
+/** Expediter / supervisor board: every active order with the progress of each of its stations. */
+export interface ExpoOrderView {
+  id: string;
+  orderNumber: number;
+  channel: OrderChannel;
+  areaName: string;
+  tableLabel: string | null;
+  customerName: string | null;
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  balanceDue: number;
+  firstSubmittedAt: string | null;
+  elapsedSeconds: number;
+  stationsReady: number;
+  stationsTotal: number;
+  delayed: boolean;
+  /** The not-ready station that has waited longest past its target, if any. */
+  holdingStation: string | null;
+  canHandOver: boolean;
+  stations: {
+    ticketId: string;
+    stationId: string;
+    stationName: string;
+    status: TicketStatus;
+    createdAt: string;
+    readyAt: string | null;
+    elapsedSeconds: number;
+    targetPrepSeconds: number | null;
+    delayed: boolean;
+    items: { name: string; quantity: number; modifiers: string[]; notes: string | null; status: string }[];
+  }[];
+}
+export interface ExpoView {
+  branchId: string;
+  orders: ExpoOrderView[];
+  generatedAt: string;
+}
+
+export interface InventoryItemView {
+  id: string;
+  name: string;
+  sku: string | null;
+  category: string | null;
+  unit: string;
+  quantity: number;
+  minQuantity: number;
+  unitCost: number;
+  value: number;
+  isLow: boolean;
+  isActive: boolean;
+  lastMovementAt: string | null;
+  usedIn: string[];
+}
+export interface InventoryView {
+  branchId: string;
+  currency: string;
+  items: InventoryItemView[];
+  totals: { items: number; lowStock: number; value: number };
+}
+export interface StockMovementView {
+  id: string;
+  itemId: string;
+  itemName: string;
+  unit: string;
+  kind: 'receive' | 'waste' | 'adjust' | 'count' | 'sale';
+  quantityDelta: number;
+  quantityAfter: number;
+  unitCost: number | null;
+  reason: string | null;
+  reference: string | null;
+  staffName: string | null;
+  createdAt: string;
+}
+export interface StockCountSummaryView {
+  id: string;
+  status: 'open' | 'submitted' | 'approved' | 'cancelled';
+  note: string | null;
+  startedAt: string;
+  startedBy: string | null;
+  submittedAt: string | null;
+  approvedAt: string | null;
+  approvedBy: string | null;
+  lines: number;
+  counted: number;
+  variances: number;
+  varianceValue: number;
+}
+export interface StockCountView extends StockCountSummaryView {
+  version: number;
+  items: {
+    itemId: string;
+    name: string;
+    category: string | null;
+    unit: string;
+    systemQuantity: number;
+    currentQuantity: number;
+    countedQuantity: number | null;
+    variance: number | null;
+    varianceValue: number | null;
+    reason: string | null;
+  }[];
+}

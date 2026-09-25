@@ -8,7 +8,23 @@ import {
   SaveConfig,
   UpdateStaff,
 } from './use-cases/administration';
+import {
+  ApproveStockCount,
+  CancelStockCount,
+  GetRecipe,
+  GetStockCount,
+  ListInventory,
+  ListStockCounts,
+  ListStockMovements,
+  RecordCountLine,
+  RecordStockMovement,
+  SaveInventoryItem,
+  SaveRecipe,
+  StartStockCount,
+  SubmitStockCount,
+} from './use-cases/inventory';
 import { FulfilOrder, MarkOrderReady, TransitionTicket } from './use-cases/kitchen';
+import { GetDashboard, GetExpoBoard } from './use-cases/operations';
 import { CancelOrder, GetReceipt, PrintReceipt, VoidItems } from './use-cases/order-corrections';
 import { SendOrderToKitchen, SubmitOrder } from './use-cases/orders';
 import { RecordPayment, RefundPayment, VoidPayment } from './use-cases/payments';
@@ -51,6 +67,21 @@ export function createApplication(deps: Dependencies) {
     getOrder: new GetOrder(deps),
     listActiveOrders: new ListActiveOrders(deps),
     listRecentClosedOrders: new ListRecentClosedOrders(deps),
+    getDashboard: new GetDashboard(deps),
+    getExpoBoard: new GetExpoBoard(deps),
+    listInventory: new ListInventory(deps),
+    listStockMovements: new ListStockMovements(deps),
+    saveInventoryItem: new SaveInventoryItem(deps),
+    recordStockMovement: new RecordStockMovement(deps),
+    listStockCounts: new ListStockCounts(deps),
+    getStockCount: new GetStockCount(deps),
+    startStockCount: new StartStockCount(deps),
+    recordCountLine: new RecordCountLine(deps),
+    submitStockCount: new SubmitStockCount(deps),
+    approveStockCount: new ApproveStockCount(deps),
+    cancelStockCount: new CancelStockCount(deps),
+    getRecipe: new GetRecipe(deps),
+    saveRecipe: new SaveRecipe(deps),
     getStationBoard: new GetStationBoard(deps),
     getCustomerBoard: new GetCustomerBoard(deps),
     recordHeartbeat: new RecordHeartbeat(deps),

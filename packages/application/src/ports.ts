@@ -2,7 +2,10 @@ import type {
   ConfigEntity,
   ConfigurationView,
   CustomerBoardView,
+  DashboardView,
+  ExpoView,
   FloorView,
+  InventoryView,
   MenuView,
   MeView,
   OperationsView,
@@ -10,6 +13,9 @@ import type {
   OrderView,
   PrintQueueView,
   StationBoardView,
+  StockCountSummaryView,
+  StockCountView,
+  StockMovementView,
 } from '@rp/contracts';
 import type {
   DocumentBlock,
@@ -460,6 +466,86 @@ export interface AuditLog {
   append(entry: AuditEntry): Promise<void>;
 }
 
+// ---------------------------------------------------------------------------
+// Inventory (quantities in thousandths of a unit, see @rp/domain inventory)
+// ---------------------------------------------------------------------------
+export interface InventoryItemRecord {
+  id: string;
+  branchId: string;
+  name: string;
+  unit: string;
+  quantity: number; // milli
+  minQuantity: number; // milli
+  unitCost: number;
+  isActive: boolean;
+  version: number;
+}
+export interface StockMovementRecord {
+  id: string;
+  branchId: string;
+  itemId: string;
+  kind: 'receive' | 'waste' | 'adjust' | 'count' | 'sale';
+  delta: number; // milli
+  after: number; // milli
+  unitCost: number | null;
+  reason: string | null;
+  reference: string | null;
+  stockCountId: string | null;
+  orderId: string | null;
+  staffId: string | null;
+}
+export interface StockCountRecord {
+  id: string;
+  branchId: string;
+  status: 'open' | 'submitted' | 'approved' | 'cancelled';
+  version: number;
+  lines: { itemId: string; systemQuantity: number; countedQuantity: number | null; reason: string | null }[];
+}
+export interface InventoryRepository {
+  /** Locks the item row for the rest of the transaction. */
+  lockItem(itemId: string): Promise<InventoryItemRecord | null>;
+  lockItems(itemIds: string[]): Promise<InventoryItemRecord[]>;
+  saveItem(item: {
+    id: string;
+    branchId: string;
+    name: string;
+    sku: string | null;
+    category: string | null;
+    unit: string;
+    minQuantity: number;
+    unitCost: number;
+    isActive: boolean;
+  }): Promise<'created' | 'updated'>;
+  setQuantity(itemId: string, quantity: number): Promise<void>;
+  movementExists(movementId: string): Promise<{ itemId: string } | null>;
+  insertMovements(movements: StockMovementRecord[]): Promise<void>;
+  insertCount(c: {
+    id: string;
+    branchId: string;
+    note: string | null;
+    staffId: string | null;
+    itemIds: string[] | null;
+  }): Promise<number>;
+  lockCount(countId: string): Promise<StockCountRecord | null>;
+  saveCountLine(
+    countId: string,
+    itemId: string,
+    counted: number | null,
+    reason: string | null,
+    staffId: string | null,
+  ): Promise<boolean>;
+  setCountStatus(
+    countId: string,
+    status: StockCountRecord['status'],
+    staffId: string | null,
+    expectedVersion: number,
+  ): Promise<boolean>;
+  /** Stock refresh at approval: the system quantity each line was compared against. */
+  setCountSystemQuantities(countId: string, quantities: Map<string, number>): Promise<void>;
+  recipes(productIds: string[]): Promise<Map<string, { itemId: string; quantity: number }[]>>;
+  setRecipe(productId: string, components: { itemId: string; quantity: number }[]): Promise<void>;
+}
+
 /** Read models: denormalised, screen-shaped queries. */
 export interface ReadModels {
   order(orderId: string): Promise<OrderView | null>;
@@ -472,6 +558,13 @@ export interface ReadModels {
   menu(branchId: string): Promise<MenuView>;
   floor(branchId: string, now: Date): Promise<FloorView>;
   operations(branchId: string, now: Date): Promise<OperationsView>;
+  dashboard(branchId: string, businessDay: string, now: Date): Promise<DashboardView>;
+  expo(branchId: string, now: Date): Promise<ExpoView>;
+  inventory(branchId: string): Promise<InventoryView>;
+  stockMovements(branchId: string, itemId: string | null, limit: number): Promise<StockMovementView[]>;
+  stockCounts(branchId: string): Promise<StockCountSummaryView[]>;
+  stockCount(countId: string): Promise<StockCountView | null>;
+  recipe(productId: string): Promise<{ itemId: string; name: string; unit: string; quantity: number }[]>;
   receiptData(orderId: string): Promise<Omit<ReceiptInput, 'issuedAt'> | null>;
   configuration(): Promise<ConfigurationView>;
   me(principal: { staffId: string | null; deviceId: string | null }): Promise<{
@@ -492,6 +585,7 @@ export interface Repositories {
   audit: AuditLog;
   read: ReadModels;
   admin: AdminRepository;
+  inventory: InventoryRepository;
 }
 
 // ---------------------------------------------------------------------------

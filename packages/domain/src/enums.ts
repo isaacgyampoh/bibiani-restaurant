@@ -119,6 +119,9 @@ export const PERMISSIONS = [
   'config.manage',
   'staff.manage',
   'audit.view',
+  'reports.view',
+  'inventory.manage',
+  'stock.count',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -130,3 +133,23 @@ export const DEVICE_PERMISSIONS: Record<DeviceKind, readonly Permission[]> = {
   print_agent: ['print.agent'],
   customer_display: ['display.view'],
 };
+
+export const STOCK_MOVEMENT_KINDS = ['receive', 'waste', 'adjust', 'count', 'sale'] as const;
+export type StockMovementKind = (typeof STOCK_MOVEMENT_KINDS)[number];
+
+export const STOCK_COUNT_STATUSES = ['open', 'submitted', 'approved', 'cancelled'] as const;
+export type StockCountStatus = (typeof STOCK_COUNT_STATUSES)[number];
+
+export const INVENTORY_UNITS = [
+  'kg',
+  'g',
+  'l',
+  'ml',
+  'pcs',
+  'pack',
+  'bottle',
+  'crate',
+  'bag',
+  'tray',
+] as const;
+export type InventoryUnit = (typeof INVENTORY_UNITS)[number];

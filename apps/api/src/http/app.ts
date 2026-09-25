@@ -11,10 +11,16 @@ import {
   PairDeviceCommand,
   PrintJobResultCommand,
   PrintReceiptCommand,
+  RecordCountLineCommand,
   RecordPaymentCommand,
+  RecordStockMovementCommand,
   RefundPaymentCommand,
+  SaveInventoryItemCommand,
+  SaveRecipeCommand,
   SendToKitchenCommand,
   SetTableStatusCommand,
+  StartStockCountCommand,
+  StockCountDecisionCommand,
   SubmitOrderCommand,
   TicketActionCommand,
   UpdateStaffCommand,
@@ -183,31 +189,39 @@ export function createHttpApp(deps: HttpDependencies) {
   http.use('/v1/*', async (c, next) => {
     const path = c.req.path;
     const name =
-      path === '/v1/orders/submit'
-        ? 'submit_order'
-        : /\/send$/.test(path)
-          ? 'send_to_kitchen'
-          : /\/payments$/.test(path)
-            ? 'record_payment'
-            : /\/void$/.test(path)
-              ? 'void_payment'
-              : /\/refunds$/.test(path)
-                ? 'refund_payment'
-                : /\/actions$/.test(path) || /\/ready$/.test(path)
-                  ? 'ticket_action'
-                  : /\/fulfil$/.test(path)
-                    ? 'fulfil_order'
-                    : /\/cancel$/.test(path)
-                      ? 'cancel_order'
-                      : /\/void-items$/.test(path)
-                        ? 'void_items'
-                        : /\/receipt\/print$/.test(path)
-                          ? 'print_receipt'
-                          : path.startsWith('/v1/admin/staff')
-                            ? 'save_staff'
-                            : path.startsWith('/v1/admin/config')
-                              ? 'save_config'
-                              : 'default';
+      c.req.method !== 'POST'
+        ? 'default'
+        : path.startsWith('/v1/stock-counts')
+          ? 'stock_count'
+          : path.startsWith('/v1/inventory')
+            ? 'save_stock'
+            : /\/recipe$/.test(path)
+              ? 'save_recipe'
+              : path === '/v1/orders/submit'
+                ? 'submit_order'
+                : /\/send$/.test(path)
+                  ? 'send_to_kitchen'
+                  : /\/payments$/.test(path)
+                    ? 'record_payment'
+                    : /\/void$/.test(path)
+                      ? 'void_payment'
+                      : /\/refunds$/.test(path)
+                        ? 'refund_payment'
+                        : /\/actions$/.test(path) || /\/ready$/.test(path)
+                          ? 'ticket_action'
+                          : /\/fulfil$/.test(path)
+                            ? 'fulfil_order'
+                            : /\/cancel$/.test(path)
+                              ? 'cancel_order'
+                              : /\/void-items$/.test(path)
+                                ? 'void_items'
+                                : /\/receipt\/print$/.test(path)
+                                  ? 'print_receipt'
+                                  : path.startsWith('/v1/admin/staff')
+                                    ? 'save_staff'
+                                    : path.startsWith('/v1/admin/config')
+                                      ? 'save_config'
+                                      : 'default';
     c.set('operation', name);
     await next();
   });
@@ -412,6 +426,65 @@ export function createHttpApp(deps: HttpDependencies) {
   );
   v1.get('/branches/:branchId/operations', async (c) =>
     c.json(await deps.app.getOperationsStatus.execute(c.var.ctx, id(c, 'branchId'))),
+  );
+
+  // Restaurant operations: dashboard and expediter board
+  v1.get('/branches/:branchId/dashboard', async (c) =>
+    c.json(await deps.app.getDashboard.execute(c.var.ctx, id(c, 'branchId'))),
+  );
+  v1.get('/branches/:branchId/expo', async (c) =>
+    c.json(await deps.app.getExpoBoard.execute(c.var.ctx, id(c, 'branchId'))),
+  );
+
+  // Inventory and stock taking
+  v1.get('/branches/:branchId/inventory', async (c) =>
+    c.json(await deps.app.listInventory.execute(c.var.ctx, id(c, 'branchId'))),
+  );
+  v1.get('/branches/:branchId/stock-movements', async (c) => {
+    const itemId = c.req.query('itemId');
+    if (itemId && !UUID.test(itemId)) throw new DomainError('VALIDATION_FAILED', 'Invalid item');
+    return c.json(await deps.app.listStockMovements.execute(c.var.ctx, id(c, 'branchId'), itemId ?? null));
+  });
+  v1.post('/inventory/items', async (c) =>
+    c.json(await deps.app.saveInventoryItem.execute(c.var.ctx, await body(c, SaveInventoryItemCommand))),
+  );
+  v1.post('/inventory/movements', async (c) =>
+    c.json(await deps.app.recordStockMovement.execute(c.var.ctx, await body(c, RecordStockMovementCommand))),
+  );
+  v1.get('/branches/:branchId/stock-counts', async (c) =>
+    c.json(await deps.app.listStockCounts.execute(c.var.ctx, id(c, 'branchId'))),
+  );
+  v1.post('/stock-counts', async (c) =>
+    c.json(await deps.app.startStockCount.execute(c.var.ctx, await body(c, StartStockCountCommand))),
+  );
+  v1.get('/stock-counts/:countId', async (c) =>
+    c.json(await deps.app.getStockCount.execute(c.var.ctx, id(c, 'countId'))),
+  );
+  v1.post('/stock-counts/:countId/lines', async (c) =>
+    c.json(
+      await deps.app.recordCountLine.execute(
+        c.var.ctx,
+        id(c, 'countId'),
+        await body(c, RecordCountLineCommand),
+      ),
+    ),
+  );
+  for (const [action, useCase] of [
+    ['submit', deps.app.submitStockCount],
+    ['approve', deps.app.approveStockCount],
+    ['cancel', deps.app.cancelStockCount],
+  ] as const) {
+    v1.post(`/stock-counts/:countId/${action}`, async (c) =>
+      c.json(await useCase.execute(c.var.ctx, id(c, 'countId'), await body(c, StockCountDecisionCommand))),
+    );
+  }
+  v1.get('/products/:productId/recipe', async (c) =>
+    c.json(await deps.app.getRecipe.execute(c.var.ctx, id(c, 'productId'))),
+  );
+  v1.post('/products/:productId/recipe', async (c) =>
+    c.json(
+      await deps.app.saveRecipe.execute(c.var.ctx, id(c, 'productId'), await body(c, SaveRecipeCommand)),
+    ),
   );
 
   // Administration

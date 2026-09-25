@@ -14,6 +14,7 @@ import type {
 } from '@rp/contracts';
 import { balanceDue } from '@rp/domain';
 import { dateOrNull, num, numOrNull, type Sql } from '../db/sql';
+import { createOpsReadModels } from './read-models-ops';
 import { iso } from './util';
 
 type Row = Record<string, unknown>;
@@ -25,6 +26,7 @@ const CLOSED = `('completed', 'cancelled', 'voided')`;
 
 export function createReadModels(sql: Sql): ReadModels {
   return {
+    ...createOpsReadModels(sql),
     async order(orderId): Promise<OrderView | null> {
       const [o] = await sql.query(
         `select o.*, o.business_day::text as business_day_text, a.name as area_name, t.label as table_label, r.currency,

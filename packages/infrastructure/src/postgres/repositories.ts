@@ -20,6 +20,7 @@ import type {
 import { DomainError, type OrderItem, type ProductForSale, type TaxRate } from '@rp/domain';
 import { dateOrNull, num, numOrNull, type Sql } from '../db/sql';
 import { createAdminRepository } from './admin';
+import { createInventoryRepository } from './inventory';
 import { createReadModels } from './read-models';
 import { assignments, json } from './util';
 
@@ -39,6 +40,7 @@ export function createRepositories(sql: Sql): Repositories {
     audit: auditLog(sql),
     read: createReadModels(sql),
     admin: createAdminRepository(sql),
+    inventory: createInventoryRepository(sql),
   };
 }
 
