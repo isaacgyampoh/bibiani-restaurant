@@ -1,0 +1,19 @@
+{
+  "name": "@rp/infrastructure",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@rp/application": "workspace:*",
+    "@rp/domain": "workspace:*",
+    "jose": "6.2.12",
+    "postgres": "3.4.9",
+    "@rp/contracts": "workspace:*"
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "name": "restaurant-platform",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.18.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "pnpm -r build",
+    "ci": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "db:check": "tsx packages/testing/src/check-migrations.ts",
+    "test:hosted": "TEST_TARGET=hosted vitest run --config vitest.hosted.config.ts",
+    "dev:logins": "bash scripts/dev/configure-dev-logins.sh",
+    "security:scan": "node scripts/check-bundle-secrets.mjs",
+    "platform:create-restaurant": "tsx --env-file=.env scripts/platform/create-restaurant.ts",
+    "dev:configure-demo": "tsx --env-file=.env scripts/dev/configure-demo.ts",
+    "dev:api": "pnpm --filter @rp/api dev",
+    "dev:web": "pnpm --filter @rp/web dev",
+    "test:e2e": "pnpm dev:fresh-demo && node --env-file=.env node_modules/@playwright/test/cli.js test",
+    "dev:cleanup-tests": "tsx --env-file=.env scripts/dev/cleanup-test-data.ts",
+    "dev:fresh-demo": "bash scripts/dev/fresh-demo.sh",
+    "dev:agent-smoke": "pnpm --filter @rp/print-agent build && tsx --env-file=.env scripts/dev/print-agent-smoke.ts",
+    "staging:configure": "bash scripts/env/configure-staging.sh",
+    "staging:verify": "bash -c 'eval \"$(grep -E \"^STAGING_(DB_PASSWORD|POOLER_HOST)=\" .env.staging)\"; ADMIN_DATABASE_URL=\"postgresql://postgres.impairlsvhkumjzhjhti:$STAGING_DB_PASSWORD@$STAGING_POOLER_HOST:5432/postgres\" DATABASE_URL=\"$(grep \"^DATABASE_URL=\" .env.staging | cut -d= -f2-)\" tsx scripts/env/verify-environment.ts'",
+    "staging:build": "node scripts/deploy/build-vercel.mjs staging .env.staging",
+    "staging:deploy": "pnpm staging:build && vercel deploy --prebuilt --prod --cwd deploy/staging -e RELEASE=$(cat deploy/staging/release.txt)",
+    "staging:test": "TEST_ENV_FILE=.env.staging TEST_TARGET=hosted bash -c 'for f in packages/testing/test/*.test.ts packages/testing/test-hosted/*.test.ts; do vitest run --config vitest.hosted.config.ts $f || exit 1; done'",
+    "staging:realtime": "TEST_ENV_FILE=.env.staging API_BASE_URL=https://restaurant-management-staging.vercel.app TEST_TARGET=hosted vitest run --config vitest.hosted.config.ts apps/api/test-hosted",
+    "staging:e2e": "bash scripts/env/fresh-restaurant.sh .env.staging https://restaurant-management-staging.vercel.app .staging-accounts.json && E2E_BASE_URL=https://restaurant-management-staging.vercel.app ACCOUNTS_FILE=.staging-accounts.json node --env-file=.env.staging node_modules/@playwright/test/cli.js test",
+    "staging:load": "ACCOUNTS_FILE=.staging-accounts.json API_URL=https://restaurant-management-staging.vercel.app tsx --env-file=.env.staging scripts/perf/load-test.ts",
+    "staging:agent-smoke": "pnpm --filter @rp/print-agent build && API_URL=https://restaurant-management-staging.vercel.app ACCOUNTS_FILE=.staging-accounts.json tsx --env-file=.env.staging scripts/dev/print-agent-smoke.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.14",
+    "@playwright/test": "1.63.0",
+    "@rp/client-core": "workspace:*",
+    "@rp/contracts": "workspace:*",
+    "@rp/domain": "workspace:*",
+    "@rp/infrastructure": "workspace:*",
+    "@supabase/supabase-js": "2.117.1",
+    "@types/node": "24.13.6",
+    "esbuild": "0.28.2",
+    "postgres": "3.4.9",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vitest": "5.0.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}

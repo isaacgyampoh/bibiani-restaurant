@@ -1,0 +1,19 @@
+{
+  "name": "@rp/testing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "@rp/infrastructure": "workspace:*",
+    "@rp/application": "workspace:*",
+    "@rp/domain": "workspace:*",
+    "@rp/contracts": "workspace:*"
+  }
+}

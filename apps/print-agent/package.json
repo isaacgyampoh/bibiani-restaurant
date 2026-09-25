@@ -1,0 +1,22 @@
+{
+  "name": "@rp/print-agent",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx --env-file=.env src/main.ts",
+    "start": "node dist/main.js",
+    "build": "esbuild src/main.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/main.js --sourcemap --banner:js=\"import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);\"",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@rp/client-core": "workspace:*",
+    "@rp/contracts": "workspace:*",
+    "@rp/escpos": "workspace:*",
+    "@supabase/supabase-js": "2.117.1"
+  },
+  "devDependencies": {
+    "@rp/testing": "workspace:*",
+    "@rp/api": "workspace:*"
+  }
+}

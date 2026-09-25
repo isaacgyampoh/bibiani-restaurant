@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Lint and format
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Migrations apply from an empty database; RLS on every table
+        run: pnpm db:check
+
+      - name: Unit + integration tests (real Postgres engine via PGlite)
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: No server credentials in build output (web bundle, API, print agent)
+        run: pnpm security:scan

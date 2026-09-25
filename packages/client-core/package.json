@@ -1,0 +1,16 @@
+{
+  "name": "@rp/client-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@rp/contracts": "workspace:*",
+    "@supabase/supabase-js": "2.117.1"
+  }
+}
