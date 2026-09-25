@@ -25,7 +25,7 @@ Browser build: only `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (public), s
 
 ## 3. First-time setup, in order ☐
 
-1. Create the prod Supabase project (eu-west-1, paid plan). Store the postgres password in the team password manager, not in the repository.
+1. ~~Create the prod Supabase project~~ **Done once (2026-09-25). Use the existing project `lgoirbfyspuflqekrcgp`; do not create new Supabase projects.** Store the postgres password in the team password manager, not in the repository.
 2. Auth settings through the Management API (as done on staging):
    - `password_hibp_enabled=true`
    - `password_min_length=10`

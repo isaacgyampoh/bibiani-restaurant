@@ -97,6 +97,23 @@ export function OrderScreen({
       .reduce((a, m) => a + m.priceDelta, 0);
   const cartEstimate = cart.reduce((acc, l) => acc + unitPrice(l) * l.quantity, 0);
 
+  async function showReceipt() {
+    const r = await api.receipt(orderId);
+    setReceipt(
+      r.document.blocks
+        .map((b) =>
+          'text' in b
+            ? b.text
+            : 'left' in b
+              ? `${b.left}  ${b.right}`
+              : b.type === 'divider'
+                ? '—'.repeat(20)
+                : '',
+        )
+        .filter(Boolean),
+    );
+  }
+
   async function run(label: string, fn: () => Promise<OrderView | unknown>) {
     setBusy(label);
     setError(null);
@@ -434,7 +451,16 @@ export function OrderScreen({
                 onClick={() =>
                   void run('receipt', async () => {
                     setPrinted(null);
-                    const r = await api.printReceipt(orderId, { requestId: uuid() });
+                    const r = await api.printReceipt(orderId, { requestId: uuid() }).catch(async (e) => {
+                      // No printer connected yet (hardware not installed): show the receipt on screen instead.
+                      if (e instanceof Error && /No receipt printer/.test(e.message)) {
+                        await showReceipt();
+                        setPrinted('No receipt printer connected yet: showing the receipt on screen');
+                        return null;
+                      }
+                      throw e;
+                    });
+                    if (!r) return null;
                     setPrinted(
                       r.isReprint
                         ? 'Receipt sent to the printer (marked REPRINT)'
@@ -448,29 +474,7 @@ export function OrderScreen({
                 {order.receiptsPrinted > 0 ? 'Reprint receipt' : 'Print receipt'}
               </button>
             ) : null}
-            <button
-              type="button"
-              className="btn"
-              onClick={() =>
-                void api
-                  .receipt(orderId)
-                  .then((r) =>
-                    setReceipt(
-                      r.document.blocks
-                        .map((b) =>
-                          'text' in b
-                            ? b.text
-                            : 'left' in b
-                              ? `${b.left}  ${b.right}`
-                              : b.type === 'divider'
-                                ? '—'.repeat(20)
-                                : '',
-                        )
-                        .filter(Boolean),
-                    ),
-                  )
-              }
-            >
+            <button type="button" className="btn" onClick={() => void showReceipt()}>
               View receipt
             </button>
             {printed ? (

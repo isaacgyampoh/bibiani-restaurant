@@ -210,7 +210,13 @@ function OrderDetail({ me, orderId, onClose }: { me: MeView; orderId: string; on
                       );
                       return api.getOrder(order.id).then(setOrder);
                     })
-                    .catch(setError)
+                    .catch((e) =>
+                      e instanceof Error && /No receipt printer/.test(e.message)
+                        ? setNotice(
+                            'No receipt printer is connected yet. Use the POS “View receipt” to show it on screen.',
+                          )
+                        : setError(e),
+                    )
                 }
               >
                 {order.receiptsPrinted > 0 ? 'Reprint receipt' : 'Print receipt'}

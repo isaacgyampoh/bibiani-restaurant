@@ -34,7 +34,10 @@
     "staging:realtime": "TEST_ENV_FILE=.env.staging API_BASE_URL=https://restaurant-management-staging.vercel.app TEST_TARGET=hosted vitest run --config vitest.hosted.config.ts apps/api/test-hosted",
     "staging:e2e": "bash scripts/env/fresh-restaurant.sh .env.staging https://restaurant-management-staging.vercel.app .staging-accounts.json && E2E_BASE_URL=https://restaurant-management-staging.vercel.app ACCOUNTS_FILE=.staging-accounts.json node --env-file=.env.staging node_modules/@playwright/test/cli.js test",
     "staging:load": "ACCOUNTS_FILE=.staging-accounts.json API_URL=https://restaurant-management-staging.vercel.app tsx --env-file=.env.staging scripts/perf/load-test.ts",
-    "staging:agent-smoke": "pnpm --filter @rp/print-agent build && API_URL=https://restaurant-management-staging.vercel.app ACCOUNTS_FILE=.staging-accounts.json tsx --env-file=.env.staging scripts/dev/print-agent-smoke.ts"
+    "staging:agent-smoke": "pnpm --filter @rp/print-agent build && API_URL=https://restaurant-management-staging.vercel.app ACCOUNTS_FILE=.staging-accounts.json tsx --env-file=.env.staging scripts/dev/print-agent-smoke.ts",
+    "deploy": "bash -c 'R=production-$(git rev-parse --short HEAD); RELEASE=$R node scripts/deploy/build-vercel.mjs production .env.production && vercel deploy --prebuilt --prod --cwd deploy/production -e RELEASE=$R'",
+    "db:push": "bash -c 'eval \"$(grep -E \"^PROD_(DB_PASSWORD|POOLER_HOST)=\" .env.production)\"; supabase db push --db-url \"postgresql://postgres.lgoirbfyspuflqekrcgp:$PROD_DB_PASSWORD@$PROD_POOLER_HOST:5432/postgres\"'",
+    "demo:seed": "bash -c 'eval \"$(grep -E \"^PROD_(DB_PASSWORD|POOLER_HOST)=\" .env.production)\"; export PLATFORM_DATABASE_URL=\"postgresql://postgres.lgoirbfyspuflqekrcgp:$PROD_DB_PASSWORD@$PROD_POOLER_HOST:5432/postgres\" API_URL=https://bibiani-restaurant.vercel.app; tsx --env-file=.env.production scripts/demo/seed-demo.ts && tsx --env-file=.env.production scripts/demo/seed-demo-inventory.ts'"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",
