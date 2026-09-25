@@ -2,10 +2,9 @@
 
 Date: 2026-09-25. Environments: DEV `nkijnjovztglmwxoemqg` and **STAGING `impairlsvhkumjzhjhti`** (Supabase eu-west-1), with the staging app at `https://restaurant-management-staging.vercel.app` (Vercel, function region dub1).
 
-**Overall verdict: NOT production-ready yet.** Everything software-side that can be tested without hardware passes on deployed staging. Three things block production:
+**Overall verdict: NOT production-ready yet.** Everything software-side that can be tested without hardware passes on deployed staging, and GitHub CI is green. Two things block production:
 1. No physical printer has been tested.
-2. GitHub CI has never run (nothing is committed).
-3. Owner MFA and the PITR/backup setup are not in place.
+2. Owner MFA and the PITR/backup setup are not in place.
 
 **Evidence levels used below:** CODE REVIEW · LOCAL TEST · DEV TEST · STAGING TEST (deployed API + staging database) · REAL BROWSER (Playwright Chromium against deployed staging) · REAL HARDWARE.
 
@@ -30,7 +29,7 @@ Date: 2026-09-25. Environments: DEV `nkijnjovztglmwxoemqg` and **STAGING `impair
 | 17 | Failure recovery | PASS (as designed) | REAL BROWSER on staging (6/6), plus LOCAL TEST for database-down |
 | 18 | Observability | PARTIAL | Health checks and `Server-Timing` exist; log drain, alerting and error tracking are not set up |
 | 19 | Backups | **BLOCKED** | No production project; PITR not enabled; restore not rehearsed |
-| 20 | CI/CD | **BLOCKED** | LOCAL CI green. **GitHub CI never ran**: nothing committed (awaiting approval). Deployment is scripted (`pnpm staging:deploy`), not yet in CI. |
+| 20 | CI/CD | PASS (CI) / PARTIAL (CD) | **GitHub CI green** on `104c03b` (run 36160536012). Staging deployed from that exact commit (release `staging-104c03b`). Deployment is scripted (`pnpm staging:deploy`), not yet automated in CI. |
 | 21 | Known limitations | documented | §21 |
 | 22 | Production deployment plan | written | [11-production-deployment-plan.md](11-production-deployment-plan.md) |
 
@@ -141,7 +140,7 @@ Blocked until the production project exists: PITR, nightly dump and restore dril
 
 ## 20. CI/CD
 - **LOCAL CI:** green. That's lint, typecheck, 14 migrations from empty, 120 tests, builds, and the secret scan.
-- **GITHUB CI:** **not run**. The repository has a remote (`origin`) but **no commits**, and committing needs explicit approval.
+- **GITHUB CI:** **green** on commit `104c03b`, https://github.com/isaacgyampoh/bibiani-restaurant/actions/runs/36160536012. All steps passed on GitHub's runners (frozen-lockfile install, lint, typecheck, migrations from empty, tests, build, secret scan).
 - **DEV VALIDATION:** done in Phase 4.
 - **STAGING VALIDATION:** this report.
 - **HARDWARE VALIDATION:** not done.
@@ -163,7 +162,6 @@ See [11-production-deployment-plan.md](11-production-deployment-plan.md). **Do n
 
 ### Production blockers
 1. **Real printer validation**: the §6 checklist in [06-device-and-printing.md](06-device-and-printing.md) with at least one 80 mm network ESC/POS printer, covering a kitchen ticket and a receipt.
-2. **GitHub CI green** on the committed code (needs commit approval).
-3. **Backups:** production project on a paid plan with PITR, plus a rehearsed restore.
-4. **Owner MFA** (or an explicit, documented risk acceptance by the owner).
-5. **Monitoring/alerting** minimum: uptime check on `/health/ready`, alert on 5xx and dead print jobs.
+2. **Backups:** production project on a paid plan with PITR, plus a rehearsed restore.
+3. **Owner MFA** (or an explicit, documented risk acceptance by the owner).
+4. **Monitoring/alerting** minimum: uptime check on `/health/ready`, alert on 5xx and dead print jobs.
