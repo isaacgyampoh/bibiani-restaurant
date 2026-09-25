@@ -58,6 +58,13 @@ export function compose(env: Record<string, string | undefined> = process.env) {
       .map((o) => o.trim())
       .filter(Boolean),
     release: env.RELEASE ?? 'local',
+    ops: {
+      record: async (kind) => {
+        await db.query('select app.ops_record($1)', [kind]);
+      },
+      health: async () => (await db.query<{ h: unknown }>('select app.ops_health() as h'))[0]?.h,
+    },
+    monitorToken: env.MONITOR_TOKEN,
     readiness: createReadiness({
       db,
       supabaseUrl,

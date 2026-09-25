@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { Application, Logger, RequestContext } from '@rp/application';
 import {
   CancelOrderCommand,
@@ -50,7 +50,13 @@ export interface HttpDependencies {
   release?: string;
   /** Browser origins allowed to call the API (web app). Empty = same-origin only. */
   allowedOrigins?: readonly string[];
+  /** Operational counters and the cross-restaurant health summary (counts only). */
+  ops?: { record(kind: 'http_5xx' | 'auth_failure'): Promise<void>; health(): Promise<unknown> };
+  /** Bearer token for GET /v1/ops/health (external monitor). Unset = endpoint disabled. */
+  monitorToken?: string;
 }
+
+const digest = (value: string) => createHash('sha256').update(value).digest();
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -68,6 +74,14 @@ export function createHttpApp(deps: HttpDependencies) {
     c.set('operation', 'default');
     const started = performance.now();
     const { metrics } = await withRequestMetrics(() => next());
+    const status = c.res.status;
+    if (deps.ops && (status >= 500 || status === 401)) {
+      // Best effort and bounded: monitoring must never break or stall the response.
+      await Promise.race([
+        deps.ops.record(status >= 500 ? 'http_5xx' : 'auth_failure').catch(() => {}),
+        new Promise((resolve) => setTimeout(resolve, 1000)),
+      ]);
+    }
     c.header('x-request-id', correlationId);
     const totalMs = performance.now() - started;
     // Server-side timing for performance measurement (visible to clients and load tests).
@@ -131,6 +145,15 @@ export function createHttpApp(deps: HttpDependencies) {
     if (!deps.readiness) return c.json({ status: 'ready' });
     const report = await deps.readiness();
     return c.json(report, report.status === 'ready' ? 200 : 503);
+  });
+
+  // External monitor: cross-restaurant counts (5xx, auth failures, printing). Token-protected, no tenant data.
+  http.get('/v1/ops/health', async (c) => {
+    const token = c.req.header('authorization')?.replace(/^Bearer /, '') ?? '';
+    if (!deps.ops || !deps.monitorToken || deps.monitorToken.length < 32) return c.notFound();
+    if (!timingSafeEqual(digest(token), digest(deps.monitorToken)))
+      return c.json({ error: 'forbidden' }, 403);
+    return c.json(await deps.ops.health());
   });
 
   // Device pairing is the one unauthenticated write: rate limited per client address.

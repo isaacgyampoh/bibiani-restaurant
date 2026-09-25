@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { ApiError } from '@rp/client-core';
 import type { ApiErrorBody, OrderView } from '@rp/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createHttpHarness, type HttpHarness } from './harness';
+import { createHttpHarness, type HttpHarness, MONITOR_TOKEN } from './harness';
 
 const uuid = () => randomUUID();
 
@@ -37,6 +37,36 @@ describe('HTTP API', () => {
         })
       ).status,
     ).toBe(403);
+  });
+
+  it('ops health: token-protected counts of 5xx, auth failures and printing problems', async () => {
+    expect((await h.http.request('/v1/ops/health')).status).toBe(403);
+    expect(
+      (await h.http.request('/v1/ops/health', { headers: { authorization: 'Bearer wrong' } })).status,
+    ).toBe(403);
+    const before = (await (
+      await h.http.request('/v1/ops/health', { headers: { authorization: `Bearer ${MONITOR_TOKEN}` } })
+    ).json()) as Record<string, number>;
+    await h.http.request(`/v1/branches/${h.f.branchId}/orders`, {
+      headers: { authorization: 'Bearer abc.def.ghi' },
+    }); // 401
+    const res = await h.http.request('/v1/ops/health', {
+      headers: { authorization: `Bearer ${MONITOR_TOKEN}` },
+    });
+    expect(res.status).toBe(200);
+    const after = (await res.json()) as Record<string, number>;
+    expect(Number(after.authFailures)).toBe(Number(before.authFailures) + 1);
+    expect(Object.keys(after)).toEqual(
+      expect.arrayContaining([
+        'http5xx',
+        'printJobsFailedLastHour',
+        'printJobsDeadLastDay',
+        'printJobsRetrying',
+        'printJobsWaitingOver5Min',
+        'agentsOffline',
+        'printersUnhealthy',
+      ]),
+    );
   });
 
   it('health endpoints need no auth', async () => {

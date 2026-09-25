@@ -12,6 +12,7 @@ import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import { createHttpApp } from '../src';
 
 export const SUPABASE_URL = 'https://test-project.supabase.co';
+export const MONITOR_TOKEN = 'monitor-token-for-tests-0123456789abcdef';
 
 export interface HttpHarness {
   db: TestDatabase;
@@ -38,7 +39,19 @@ export async function createHttpHarness(): Promise<HttpHarness> {
     warn: (event: string, fields = {}) => logs.push({ event, fields }),
     error: (event: string, fields = {}) => logs.push({ event, fields }),
   };
-  const http = createHttpApp({ app: t.app, verifier, resolver: t.resolver, logger });
+  const http = createHttpApp({
+    app: t.app,
+    verifier,
+    resolver: t.resolver,
+    logger,
+    monitorToken: MONITOR_TOKEN,
+    ops: {
+      record: async (kind) => {
+        await db.query('select app.ops_record($1)', [kind]);
+      },
+      health: async () => (await db.query<{ h: unknown }>('select app.ops_health() as h'))[0]?.h,
+    },
+  });
   const token = (sub: string, o: { issuer?: string; expiresIn?: string } = {}) =>
     new SignJWT({ role: 'authenticated' })
       .setProtectedHeader({ alg: 'ES256', kid: 'test-key' })

@@ -1,0 +1,63 @@
+# Minimum production monitoring (docs/13-production-go-live-report.md §Monitoring).
+# Runs every 5 minutes. A failed run is the alert: GitHub emails the repository owner.
+# Checks: liveness, readiness (database, schema, Auth keys), and the token-protected ops
+# summary (5xx and auth-failure rates, failed/retrying print jobs, offline agents, unhealthy printers).
+name: Production monitor
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-monitor
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      BASE_URL: ${{ vars.PRODUCTION_URL || 'https://bibiani-restaurant.vercel.app' }}
+      MONITOR_TOKEN: ${{ secrets.MONITOR_TOKEN }}
+      # Alert thresholds (per 15 minutes unless stated)
+      MAX_5XX: 5
+      MAX_AUTH_FAILURES: 50
+      MAX_FAILED_PRINT_JOBS_LAST_HOUR: 3
+    steps:
+      - name: Liveness and readiness (3 attempts, 20 s apart)
+        run: |
+          check() {
+            for attempt in 1 2 3; do
+              code=$(curl -s -o body.json -w '%{http_code}' --max-time 20 "$BASE_URL$1" || echo 000)
+              [ "$code" = 200 ] && { echo "$1 OK"; return 0; }
+              echo "$1 attempt $attempt: HTTP $code"; cat body.json 2>/dev/null; echo
+              [ $attempt -lt 3 ] && sleep 20
+            done
+            echo "::error title=$1 failing::$1 returned HTTP $code three times. See body above (database / schema / auth)."
+            return 1
+          }
+          check /health
+          check /health/ready
+
+      - name: Error rates and printing health
+        run: |
+          [ -n "$MONITOR_TOKEN" ] || { echo "::error::MONITOR_TOKEN secret is not set"; exit 1; }
+          code=$(curl -s -o ops.json -w '%{http_code}' --max-time 20 \
+            -H "authorization: Bearer $MONITOR_TOKEN" "$BASE_URL/v1/ops/health" || echo 000)
+          [ "$code" = 200 ] || { echo "::error::/v1/ops/health returned HTTP $code"; exit 1; }
+          jq . ops.json
+          fail=0
+          alert() { echo "::error title=$1::$2"; fail=1; }
+          v() { jq -r ".$1" ops.json; }
+          [ "$(v http5xx)" -lt "$MAX_5XX" ] || alert "Repeated 5xx" "$(v http5xx) server errors in 15 min"
+          [ "$(v authFailures)" -lt "$MAX_AUTH_FAILURES" ] || alert "Auth failures" "$(v authFailures) authentication failures in 15 min"
+          [ "$(v printJobsFailedLastHour)" -lt "$MAX_FAILED_PRINT_JOBS_LAST_HOUR" ] || alert "Print jobs failing" "$(v printJobsFailedLastHour) failed/dead print jobs in the last hour"
+          [ "$(v printJobsRetrying)" -eq 0 ] || alert "Print retries" "$(v printJobsRetrying) print jobs on their 3rd+ attempt"
+          [ "$(v agentsOffline)" -eq 0 ] || alert "Print agent offline" "$(v agentsOffline) paired print agent(s) offline"
+          [ "$(v printersUnhealthy)" -eq 0 ] || alert "Printer offline" "$(v printersUnhealthy) printer(s) reporting an error"
+          [ "$(v printJobsWaitingOver5Min)" -eq 0 ] || echo "::warning::$(v printJobsWaitingOver5Min) print jobs waiting > 5 min (no agent claiming them?)"
+          exit $fail
