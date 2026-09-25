@@ -348,7 +348,7 @@ function CountDetail({ me, countId }: { me: MeView; countId: string }) {
                             fmt(i.countedQuantity, i.unit)
                           )}
                         </td>
-                        <td className={`num ${variance && variance < 0 ? 'neg' : variance ? 'pos' : ''}`}>
+                        <td className={`num ${variance && variance < 0 ? 'neg' : variance ? 'plus' : ''}`}>
                           {variance === null ? '—' : `${variance > 0 ? '+' : ''}${fmt(variance, i.unit)}`}
                         </td>
                         <td>

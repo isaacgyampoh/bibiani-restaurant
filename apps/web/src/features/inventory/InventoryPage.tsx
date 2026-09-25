@@ -267,7 +267,7 @@ function MovementTable({ rows, showItem }: { rows: StockMovementView[]; showItem
             <td>
               <span className={`pill ${m.kind}`}>{KIND[m.kind]}</span>
             </td>
-            <td className={`num ${m.quantityDelta < 0 ? 'neg' : 'pos'}`}>
+            <td className={`num ${m.quantityDelta < 0 ? 'neg' : 'plus'}`}>
               {m.quantityDelta > 0 ? '+' : ''}
               {qty(m.quantityDelta, m.unit)}
             </td>

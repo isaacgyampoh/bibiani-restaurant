@@ -77,22 +77,32 @@ function StationPicker({ me, branchId }: { me: MeView; branchId: string }) {
   return (
     <div className="kds">
       <div className="bar">
-        Choose station <span className="grow" />
+        {me.kind !== 'device' ? (
+          <button type="button" className="kbtn-minor btn" onClick={() => navigate('/dashboard')}>
+            ←
+          </button>
+        ) : null}
+        <span style={{ fontSize: 24 }}>Kitchen · choose a station</span>
+        <span className="grow" />
+        <button type="button" className="kbtn-minor btn" onClick={() => navigate('/expo')}>
+          Supervisor view
+        </button>
         <span className="small">{me.displayName}</span>
       </div>
-      <div className="page">
+      <div className="station-grid">
         {stations.map((s) => (
           <button
             key={s.id}
             type="button"
-            className="btn big"
+            className="station-tile"
             onClick={() => navigate(`/kds?station=${s.id}`)}
           >
             {s.name}
+            <span>Open the {s.name} screen</span>
           </button>
         ))}
         {stations.length === 0 ? (
-          <div className="muted">Pair this screen as a station display in Admin → Devices.</div>
+          <div className="muted">No kitchen stations yet. Create them in Stations &amp; routing.</div>
         ) : null}
       </div>
     </div>
@@ -185,6 +195,11 @@ function Board({
         <span className="grow" />
         <NoticeCenter state={notices} />
         <ConnectionDot state={feed.connection} />
+        {!isDevice ? (
+          <button type="button" className="kbtn-minor btn" onClick={() => navigate('/kds')}>
+            Stations
+          </button>
+        ) : null}
         {!isDevice ? (
           <button type="button" className="kbtn-minor btn" onClick={() => void signOut()}>
             Sign out

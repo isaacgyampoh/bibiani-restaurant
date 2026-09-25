@@ -74,8 +74,11 @@ export function PosScreen({ me }: { me: MeView }) {
         {till ? (
           <span className="small muted">{till.name}</span>
         ) : (
-          <span className="small" style={{ color: '#ffb4a8' }}>
-            Till not paired
+          <span
+            className="small muted"
+            title="Pair this device as a till in Devices & printing to print receipts on its own printer"
+          >
+            Browser till
           </span>
         )}
         <span className="small">{me.displayName}</span>

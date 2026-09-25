@@ -899,7 +899,7 @@ table.list.clickable tbody tr:hover {
 .neg {
   color: var(--danger);
 }
-.pos {
+.plus {
   color: var(--ok);
 }
 .big-num {
@@ -1542,4 +1542,34 @@ dl.facts dd {
   .hbar-row {
     grid-template-columns: 70px 1fr 110px;
   }
+}
+
+.station-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+  padding: 16px;
+}
+.station-tile {
+  background: #1b2027;
+  color: #fff;
+  border: 1px solid #2c343e;
+  border-left: 6px solid var(--brand);
+  border-radius: 12px;
+  padding: 26px 20px;
+  font-size: 26px;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.station-tile span {
+  font-size: 14px;
+  font-weight: 500;
+  color: #9aa6b4;
+}
+.station-tile:hover {
+  background: #232a33;
 }
