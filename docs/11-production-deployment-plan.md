@@ -1,6 +1,6 @@
 # Production Deployment Plan
 
-> **Status: §3 steps 1–10 EXECUTED on 2026-09-25** on the owner's instruction. Production: Supabase `lgoirbfyspuflqekrcgp`, app `https://restaurant-management-prod-rouge.vercel.app`. Not done: PITR (step 7, paid add-on), custom domain (step 11), first restaurant onboarding, hardware. Production deployment requires explicit approval after staging passes (see [10-production-readiness.md](10-production-readiness.md)). Every step here has been rehearsed on STAGING unless it is marked ☐.
+> **Status:** production is live at `https://bibiani-restaurant.vercel.app`; see [13-production-go-live-report.md](13-production-go-live-report.md) for the launch results, open items and final status. PITR is off by the owner's choice (daily backups only).
 
 ## 1. Target
 
