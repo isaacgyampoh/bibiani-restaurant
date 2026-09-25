@@ -6,7 +6,6 @@ export function Brand() {
   return (
     <div className="auth-brand">
       <img className="brand-logo" src="/logo-192.png" alt="MY FOOD — Chefelisha Restaurant" />
-      <span className="brand-kicker">MY FOOD</span>
       <span className="brand-title">Chefelisha Restaurant</span>
     </div>
   );
