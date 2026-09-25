@@ -35,7 +35,7 @@ Standard commands:
 | Command | What it does |
 |---|---|
 | `pnpm db:push` | apply migrations |
-| `pnpm deploy` | build and deploy |
+| `pnpm release` | build and deploy |
 | `pnpm demo:seed` | create the demo restaurant (refuses if it exists) |
 
 No script creates Supabase or Vercel projects.
