@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react';
 import { linkTo } from '../../infra/router';
 import { api, hasPermission, topics } from '../../infra/session';
 import { useFeed } from '../../infra/use-feed';
-import { ConnectionDot, ErrorBox } from '../../ui/components';
+import { ConnectionDot, duration, ErrorBox } from '../../ui/components';
 import { type Notice, NoticeCenter, useNotices } from '../../ui/notifications';
 
-const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+const clock = duration;
 const where = (o: ExpoOrderView) =>
   o.channel === 'dine_in'
     ? `${o.tableLabel ? `Table ${o.tableLabel}` : o.areaName}`

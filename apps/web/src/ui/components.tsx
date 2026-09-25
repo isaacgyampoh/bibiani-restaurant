@@ -318,6 +318,12 @@ export function PinPad({
 }
 
 export function elapsed(fromIso: string, now: number): string {
-  const s = Math.max(0, Math.floor((now - new Date(fromIso).getTime()) / 1000));
+  return duration(Math.max(0, Math.floor((now - new Date(fromIso).getTime()) / 1000)));
+}
+
+/** m:ss under an hour, then "1h 05m": readable at a glance from across a kitchen. */
+export function duration(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  if (s >= 3600) return `${Math.floor(s / 3600)}h ${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}m`;
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
