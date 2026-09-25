@@ -14,7 +14,13 @@ const secret = process.env.SUPABASE_SECRET_KEY!;
 const email = `warmup-${randomBytes(4).toString('hex')}@devices.example.com`;
 const password = randomBytes(24).toString('base64url');
 const admin = { apikey: secret, 'content-type': 'application/json' };
-const created = (await (await fetch(`${url}/auth/v1/admin/users`, { method: 'POST', headers: admin, body: JSON.stringify({ email, password, email_confirm: true }) })).json()) as { id: string };
+const created = (await (
+  await fetch(`${url}/auth/v1/admin/users`, {
+    method: 'POST',
+    headers: admin,
+    body: JSON.stringify({ email, password, email_confirm: true }),
+  })
+).json()) as { id: string };
 try {
   const client = createClient(url, anon, { auth: { persistSession: false } });
   const { data } = await client.auth.signInWithPassword({ email, password });
