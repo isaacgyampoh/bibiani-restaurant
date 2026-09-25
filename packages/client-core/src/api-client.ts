@@ -2,6 +2,7 @@ import type {
   AgentConfigView,
   ApiErrorBody,
   CancelOrderCommand,
+  ChangePinCommand,
   ClaimedPrintJobView,
   ClaimPrintJobsCommand,
   ConfigEntity,
@@ -39,6 +40,7 @@ import type {
   StockMovementView,
   SubmitOrderCommand,
   TicketActionCommand,
+  TransferOrderCommand,
   UpdateStaffCommand,
   VoidItemsCommand,
 } from '@rp/contracts';
@@ -162,6 +164,22 @@ export class ApiClient {
     );
   saveRecipe = (productId: string, cmd: SaveRecipeCommand) =>
     this.request<{ ok: true }>('POST', `/v1/products/${productId}/recipe`, cmd);
+  transferOrder = (orderId: string, cmd: TransferOrderCommand) =>
+    this.request<OrderView>('POST', `/v1/orders/${orderId}/transfer`, cmd);
+  mergeOrders = (targetOrderId: string, sourceOrderId: string) =>
+    this.request<OrderView>('POST', `/v1/orders/${targetOrderId}/merge`, { sourceOrderId });
+  setPriority = (orderId: string, rush: boolean) =>
+    this.request<OrderView>('POST', `/v1/orders/${orderId}/priority`, { rush });
+  pinSignIn = (pin: string) =>
+    this.request<{
+      session: { accessToken: string; refreshToken: string; expiresAt: number };
+      displayName: string;
+      mustChangePin: boolean;
+    }>('POST', '/v1/auth/pin', { pin });
+  pinRecovery = (email: string) => this.request<{ ok: true }>('POST', '/v1/auth/pin-recovery', { email });
+  changePin = (cmd: ChangePinCommand) => this.request<{ ok: true }>('POST', '/v1/me/pin', cmd);
+  assignPin = (staffId: string, pin: string) =>
+    this.request<{ ok: true }>('POST', `/v1/admin/staff/${staffId}/pin`, { pin });
   recentClosedOrders = (branchId: string) =>
     this.request<OrderSummaryView[]>('GET', `/v1/branches/${branchId}/orders/recent`);
   activeOrders = (branchId: string) =>

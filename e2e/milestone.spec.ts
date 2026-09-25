@@ -64,6 +64,8 @@ async function pairedPage(browser: Browser, deviceName: string): Promise<Page> {
 /** A paired till (POS-01) with a staff member signed in on it: receipts go to the till's printer. */
 async function tillPage(browser: Browser, account: string): Promise<Page> {
   const page = await pairedPage(browser, 'POS-01');
+  // A paired till opens on the staff PIN pad; these accounts sign in with email instead.
+  await page.getByRole('button', { name: 'Manager sign-in (email)' }).click();
   await expect(page.getByText('This till: POS-01')).toBeVisible();
   await page.getByLabel('Email').fill(dev.accounts[account]!.email);
   await page.getByLabel('Password').fill(dev.accounts[account]!.password);
@@ -94,7 +96,7 @@ test.describe
 
     test('Scenario A — Table 12, four stations, split payment, served, completed', async ({ browser }) => {
       const pos = await signedInPage(browser, 'waiter');
-      await pos.getByRole('button', { name: 'Hall' }).click();
+      await pos.getByRole('tab', { name: 'Hall' }).click();
       await pos.locator('.table-card', { hasText: /^12/ }).click();
       await addProduct(pos, 'Jollof Rice', 2);
       await addProduct(pos, 'Grilled Chicken', 2);
@@ -122,15 +124,15 @@ test.describe
         await ticket(kds[station]!).getByRole('button', { name: 'READY' }).click();
       }
       await expect(display.getByRole('region', { name: 'Ready' })).toContainText(orderNumber);
-      await expect(pos.locator('.cart .badge').first()).toHaveText('ready');
+      await expect(pos.locator('.cart .badge').first()).toHaveText('Ready');
 
       await pos.getByRole('button', { name: 'Served' }).click();
-      await expect(pos.locator('.cart .badge').first()).toHaveText('served');
+      await expect(pos.locator('.cart .badge').first()).toHaveText('Served');
       await pos.close();
 
       // Cashier takes a split payment: cash 150.00, then MoMo for the rest.
       const cashier = await tillPage(browser, 'cashier');
-      await cashier.getByRole('button', { name: 'Hall' }).click();
+      await cashier.getByRole('tab', { name: 'Hall' }).click();
       await cashier.locator('.table-card', { hasText: /^12/ }).click();
       await cashier.getByRole('button', { name: 'Take payment' }).click();
       await cashier.getByRole('button', { name: 'SPLIT' }).click();
@@ -144,8 +146,8 @@ test.describe
       await cashier.getByLabel(/Amount for this payment/).fill('110');
       await cashier.getByLabel(/MoMo transaction ID/).fill('MTN-E2E-1');
       await cashier.getByRole('button', { name: 'Record this payment' }).click();
-      await expect(cashier.locator('.cart .badge').first()).toHaveText('completed');
-      await expect(cashier.locator('.cart .badge').nth(1)).toHaveText('paid');
+      await expect(cashier.locator('.cart .badge').first()).toHaveText('Completed');
+      await expect(cashier.locator('.cart .badge').nth(1)).toHaveText('Paid');
       await cashier.getByRole('button', { name: 'Print receipt' }).click();
       // The receipt is queued on POS-01's receipt printer (the till is paired); no error shown.
       await expect
@@ -167,12 +169,12 @@ test.describe
       // Later, from Completed orders: open the closed order and reprint. Queued again as REPRINT,
       // audited, and the sale is unchanged (not reopened, no payment added).
       await cashier.getByRole('button', { name: 'Done' }).click();
-      await cashier.getByRole('button', { name: 'Completed', exact: true }).click();
+      await cashier.getByRole('tab', { name: 'Completed', exact: true }).click();
       await cashier
         .getByRole('row', { name: new RegExp(`^${orderNumber}\\b`) })
         .getByRole('button', { name: 'Open' })
         .click();
-      await expect(cashier.locator('.cart .badge').first()).toHaveText('completed');
+      await expect(cashier.locator('.cart .badge').first()).toHaveText('Completed');
       await cashier.getByRole('button', { name: 'Reprint receipt' }).click();
       await expect(cashier.getByText('Receipt sent to the printer (marked REPRINT)')).toBeVisible();
       await expect
@@ -193,15 +195,15 @@ test.describe
       expect(audit!.n).toBe(1);
       expect(pay!.n).toBe(2); // the cash + MoMo split: reprint added no payment
       await cashier.getByRole('button', { name: 'View receipt' }).click();
-      await expect(cashier.locator('.modal pre')).toContainText('CASH');
-      await expect(cashier.locator('.modal pre')).toContainText('MOBILE MONEY');
+      await expect(cashier.locator('.receipt-paper')).toContainText('CASH');
+      await expect(cashier.locator('.receipt-paper')).toContainText('MOBILE MONEY');
     });
 
     test('Scenario B — Takeaway: cake to two pastry printers, card, ready for pickup, picked up', async ({
       browser,
     }) => {
       const pos = await signedInPage(browser, 'cashier');
-      await pos.getByRole('button', { name: 'Takeaway' }).click();
+      await pos.getByRole('tab', { name: 'Takeaway' }).click();
       await pos.getByRole('button', { name: '+ New takeaway order' }).click();
       await pos.getByLabel('Customer name').fill('Kwame Mensah');
       await addProduct(pos, 'Birthday Cake', 1);
@@ -225,14 +227,14 @@ test.describe
       await pos.getByRole('button', { name: 'Take payment' }).click();
       await pos.getByRole('button', { name: 'CARD' }).click();
       await pos.getByRole('button', { name: 'Complete payment' }).click();
-      await expect(pos.locator('.cart .badge').nth(1)).toHaveText('paid');
+      await expect(pos.locator('.cart .badge').nth(1)).toHaveText('Paid');
 
       for (const station of ['pastry', 'kitchen', 'drinks'] as const) {
         await ticket(kds[station]!).getByRole('button', { name: 'READY' }).click();
       }
       await expect(display.getByRole('region', { name: 'Ready' })).toContainText(orderNumber);
       await pos.getByRole('button', { name: 'Picked up' }).click();
-      await expect(pos.locator('.cart .badge').first()).toHaveText('completed');
+      await expect(pos.locator('.cart .badge').first()).toHaveText('Completed');
       await expect(display.getByRole('region', { name: 'Ready' })).not.toContainText(orderNumber);
 
       // The cake ticket was queued for both pastry printers (product override). No agent runs in this test, so jobs wait in the queue.
@@ -281,7 +283,7 @@ test.describe
           .getByRole('row', { name: /KITCHEN-01/ })
           .locator('.badge')
           .first(),
-      ).toHaveText(/online|offline/);
+      ).toHaveText(/Online|Offline|Not connected/);
       await owner.getByRole('link', { name: 'Menu' }).click();
       await expect(owner.getByRole('row', { name: /Birthday Cake/ })).toContainText('→ Pastry');
       await owner.getByRole('link', { name: 'Stations & routing' }).click();
@@ -294,9 +296,10 @@ test.describe
       await expect(owner.getByRole('row', { name: /Hall/ }).locator('select')).toHaveValue(
         'pay_after_fulfillment',
       );
-      await owner.getByRole('link', { name: 'Staff & roles' }).click();
+      await owner.getByRole('link', { name: 'Staff', exact: true }).click();
       await expect(owner.getByRole('cell', { name: /Cashier/ }).first()).toBeVisible();
-      await expect(owner.getByRole('heading', { name: 'What each role can do' })).toBeVisible();
+      await owner.getByRole('tab', { name: /Roles & permissions/ }).click();
+      await expect(owner.getByRole('cell', { name: 'Take orders' })).toBeVisible();
       await owner.getByRole('link', { name: 'Devices & printing' }).click();
       await expect(owner.getByText('Print jobs not yet printed')).toBeVisible();
     });

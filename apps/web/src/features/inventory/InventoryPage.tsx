@@ -81,7 +81,7 @@ export function InventoryPage({ me }: { me: MeView }) {
         <Skeleton rows={8} />
       ) : (
         <>
-          <div className="stats">
+          <div className="metrics">
             <Stat label="Stock items" value={inv.totals.items} />
             <Stat
               label="Low stock"

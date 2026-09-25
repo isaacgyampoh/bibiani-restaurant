@@ -3,69 +3,125 @@ import { type ReactNode, useState } from 'react';
 import { linkTo, useLocation } from '../infra/router';
 import { hasPermission, signOut } from '../infra/session';
 
+/* One consistent 18px line-icon set for navigation only. */
+const I = (d: string) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden
+  >
+    <path d={d} />
+  </svg>
+);
+const ICON = {
+  dashboard: I('M3 3h8v8H3zM13 3h8v5h-8zM13 10h8v11h-8zM3 13h8v8H3z'),
+  pos: I('M4 4h16v12H4zM8 20h8M12 16v4'),
+  orders: I('M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01'),
+  kitchen: I('M6 3v8a3 3 0 0 0 6 0V3M9 3v18M17 3c-2 2-2 6 0 8v10'),
+  expo: I('M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9'),
+  display: I('M3 5h18v11H3zM8 21h8'),
+  stock: I('M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8'),
+  count: I('M9 3h6l1 2h3v16H5V5h3zM9 12l2 2 4-4'),
+  menu: I('M4 5h16M4 12h16M4 19h10'),
+  routing: I('M4 6h6l4 6h6M14 12l-4 6H4M18 9l3 3-3 3'),
+  floor: I('M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'),
+  devices: I('M6 9V3h12v6M6 18H4v-7h16v7h-2M8 14h8v7H8z'),
+  staff: I('M16 21v-2a4 4 0 0 0-8 0v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'),
+  reports: I('M4 20V10M10 20V4M16 20v-7M22 20H2'),
+  settings: I('M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0M14 4v4M8 10v4M16 16v4'),
+};
+
 export interface NavItem {
   path: string;
   label: string;
-  icon: string;
-  /** Any one of these permissions shows the item. */
+  icon: keyof typeof ICON;
+  /** Any one of these permissions shows the item (the server still checks every action). */
   anyOf: string[];
-  /** Opens as a full-screen operational view (POS, kitchen, display). */
+  /** Opens a full-screen operational view (POS, kitchen, supervisor, display). */
   fullScreen?: boolean;
 }
 
 export const NAV: { title: string; items: NavItem[] }[] = [
   {
-    title: 'Service',
+    title: 'Operations',
     items: [
-      { path: '/dashboard', label: 'Dashboard', icon: '◧', anyOf: ['reports.view'] },
-      { path: '/pos', label: 'POS', icon: '▦', anyOf: ['order.create'], fullScreen: true },
-      { path: '/orders', label: 'Orders', icon: '☰', anyOf: ['order.view'] },
-      { path: '/kds', label: 'Kitchen', icon: '♨', anyOf: ['kitchen.operate'], fullScreen: true },
+      { path: '/dashboard', label: 'Dashboard', icon: 'dashboard', anyOf: ['reports.view'] },
+      { path: '/pos', label: 'POS', icon: 'pos', anyOf: ['order.create'], fullScreen: true },
+      { path: '/orders', label: 'Orders', icon: 'orders', anyOf: ['order.view'] },
+      { path: '/kds', label: 'Kitchen', icon: 'kitchen', anyOf: ['kitchen.operate'], fullScreen: true },
       {
         path: '/expo',
         label: 'Supervisor',
-        icon: '✓',
+        icon: 'expo',
         anyOf: ['kitchen.operate', 'order.fulfil'],
         fullScreen: true,
       },
       {
         path: '/display',
         label: 'Customer display',
-        icon: '▭',
+        icon: 'display',
         anyOf: ['reports.view', 'config.manage'],
         fullScreen: true,
       },
     ],
   },
   {
-    title: 'Stock',
+    title: 'Inventory',
     items: [
-      { path: '/inventory', label: 'Inventory', icon: '▤', anyOf: ['inventory.manage', 'stock.count'] },
-      { path: '/stock-takes', label: 'Stock taking', icon: '✎', anyOf: ['stock.count', 'inventory.manage'] },
+      { path: '/inventory', label: 'Stock', icon: 'stock', anyOf: ['inventory.manage', 'stock.count'] },
+      {
+        path: '/stock-takes',
+        label: 'Stock taking',
+        icon: 'count',
+        anyOf: ['stock.count', 'inventory.manage'],
+      },
     ],
   },
   {
-    title: 'Setup',
+    title: 'Menu & setup',
     items: [
-      { path: '/menu', label: 'Menu', icon: '❏', anyOf: ['menu.manage'] },
-      { path: '/routing', label: 'Stations & routing', icon: '⇉', anyOf: ['menu.manage', 'config.manage'] },
-      { path: '/floor', label: 'Floor & tables', icon: '▣', anyOf: ['config.manage'] },
-      { path: '/staff', label: 'Staff & roles', icon: '☺', anyOf: ['staff.manage'] },
-      { path: '/devices', label: 'Devices & printing', icon: '⎙', anyOf: ['device.manage', 'print.manage'] },
+      { path: '/menu', label: 'Menu & recipes', icon: 'menu', anyOf: ['menu.manage'] },
+      {
+        path: '/routing',
+        label: 'Stations & routing',
+        icon: 'routing',
+        anyOf: ['menu.manage', 'config.manage'],
+      },
+      { path: '/floor', label: 'Floor & tables', icon: 'floor', anyOf: ['config.manage'] },
+      {
+        path: '/devices',
+        label: 'Devices & printing',
+        icon: 'devices',
+        anyOf: ['device.manage', 'print.manage'],
+      },
     ],
   },
   {
-    title: 'Business',
+    title: 'Management',
     items: [
-      { path: '/reports', label: 'Reports', icon: '◔', anyOf: ['reports.view'] },
-      { path: '/settings', label: 'Settings', icon: '⚙', anyOf: ['config.manage'] },
+      { path: '/staff', label: 'Staff', icon: 'staff', anyOf: ['staff.manage'] },
+      { path: '/reports', label: 'Reports', icon: 'reports', anyOf: ['reports.view'] },
+      { path: '/settings', label: 'Settings', icon: 'settings', anyOf: ['config.manage'] },
     ],
   },
 ];
 
 export const allowed = (me: MeView, item: NavItem) => item.anyOf.some((p) => hasPermission(me, p));
+export const initials = (name: string) =>
+  name
+    .replace(/[^\p{L}\s]/gu, '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
 
-/** Back-office layout: sidebar navigation + page header. Operational screens (POS, KDS) are full screen. */
+/** Back-office layout: sidebar navigation + page header. Operational screens are full screen. */
 export function Shell({
   me,
   title,
@@ -86,7 +142,10 @@ export function Shell({
       <aside className="sidebar" aria-label="Main navigation">
         <div className="brand">
           <img className="logo-img" src="/logo-64.png" alt="" />
-          <span className="name">{me.restaurant.name}</span>
+          <div className="brand-name">
+            <span className="brand-kicker">MY FOOD</span>
+            <span className="brand-title">{me.restaurant.name}</span>
+          </div>
         </div>
         <nav>
           {NAV.map((group) => {
@@ -100,14 +159,13 @@ export function Shell({
                     key={i.path}
                     href={i.path}
                     className={`nav-item ${path.startsWith(i.path) ? 'active' : ''}`}
+                    aria-current={path.startsWith(i.path) ? 'page' : undefined}
                     onClick={(e) => {
                       setOpen(false);
                       linkTo(i.path)(e);
                     }}
                   >
-                    <span className="icon" aria-hidden>
-                      {i.icon}
-                    </span>
+                    {ICON[i.icon]}
                     {i.label}
                     {i.fullScreen ? (
                       <span className="fs" aria-hidden>
@@ -121,7 +179,13 @@ export function Shell({
           })}
         </nav>
         <div className="me">
-          <div className="who">{me.displayName}</div>
+          <span className="avatar" aria-hidden>
+            {initials(me.displayName)}
+          </span>
+          <div className="who">
+            {me.displayName}
+            <span>Signed in</span>
+          </div>
           <button type="button" className="link" onClick={() => void signOut()}>
             Sign out
           </button>
@@ -136,7 +200,7 @@ export function Shell({
             <h1>{title}</h1>
             {subtitle ? <div className="sub">{subtitle}</div> : null}
           </div>
-          {actions}
+          {actions ? <div className="actions">{actions}</div> : null}
         </header>
         <div className="content">{children}</div>
       </div>
@@ -157,8 +221,8 @@ export function Empty({
   return (
     <div className="empty">
       <div className="empty-title">{title}</div>
-      {children ? <div className="muted">{children}</div> : null}
-      {action ? <div style={{ marginTop: 12 }}>{action}</div> : null}
+      {children ? <div>{children}</div> : null}
+      {action ? <div>{action}</div> : null}
     </div>
   );
 }
@@ -174,6 +238,7 @@ export function Skeleton({ rows = 3 }: { rows?: number }) {
   );
 }
 
+/** One figure in a metrics strip. `tone` only when the number needs attention. */
 export function Stat({
   label,
   value,
@@ -187,18 +252,19 @@ export function Stat({
   tone?: 'ok' | 'warn' | 'danger' | 'info';
   href?: string;
 }) {
+  const cls = `metric ${tone === 'danger' ? 'alert' : tone === 'warn' ? 'attention' : ''}`;
   const body = (
     <>
-      <div className="stat-label">{label}</div>
-      <div className="stat-value">{value}</div>
-      {hint ? <div className="stat-hint">{hint}</div> : null}
+      <div className="metric-label">{label}</div>
+      <div className="metric-value">{value}</div>
+      {hint ? <div className="metric-hint">{hint}</div> : null}
     </>
   );
   return href ? (
-    <a className={`stat ${tone ?? ''}`} href={href} onClick={linkTo(href)}>
+    <a className={cls} href={href} onClick={linkTo(href)}>
       {body}
     </a>
   ) : (
-    <div className={`stat ${tone ?? ''}`}>{body}</div>
+    <div className={cls}>{body}</div>
   );
 }

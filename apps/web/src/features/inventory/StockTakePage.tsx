@@ -214,23 +214,23 @@ function CountDetail({ me, countId }: { me: MeView; countId: string }) {
         <Skeleton rows={8} />
       ) : (
         <>
-          <div className="stats">
-            <div className="stat">
-              <div className="stat-label">Counted</div>
-              <div className="stat-value">
+          <div className="metrics">
+            <div className="metric">
+              <div className="metric-label">Counted</div>
+              <div className="metric-value">
                 {count.counted} / {count.lines}
               </div>
             </div>
-            <div className={`stat ${count.variances ? 'warn' : ''}`}>
-              <div className="stat-label">Variances</div>
-              <div className="stat-value">{count.variances}</div>
-              <div className="stat-hint">
+            <div className={`metric ${count.variances ? 'attention' : ''}`}>
+              <div className="metric-label">Variances</div>
+              <div className="metric-value">{count.variances}</div>
+              <div className="metric-hint">
                 {missingReasons ? `${missingReasons} without a reason` : 'all explained'}
               </div>
             </div>
-            <div className={`stat ${count.varianceValue < 0 ? 'danger' : ''}`}>
-              <div className="stat-label">Variance value</div>
-              <div className="stat-value">{money(count.varianceValue)}</div>
+            <div className={`metric ${count.varianceValue < 0 ? 'alert' : ''}`}>
+              <div className="metric-label">Variance value</div>
+              <div className="metric-value">{money(count.varianceValue)}</div>
             </div>
           </div>
           <section className="card">

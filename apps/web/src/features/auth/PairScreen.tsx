@@ -2,6 +2,7 @@ import { type FormEvent, useState } from 'react';
 import { navigate } from '../../infra/router';
 import { pairDevice } from '../../infra/session';
 import { ErrorBox } from '../../ui/components';
+import { Brand } from './LoginScreen';
 
 /** Run on the device itself. A manager generates the one-time code in Admin → Devices. */
 export function PairScreen({ onPaired }: { onPaired: () => void }) {
@@ -32,26 +33,32 @@ export function PairScreen({ onPaired }: { onPaired: () => void }) {
   }
 
   return (
-    <div className="page" style={{ maxWidth: 460, margin: '8vh auto' }}>
-      <img className="brand-logo" src="/logo-192.png" alt="" />
-      <h1 style={{ margin: 0 }}>Set up this device</h1>
-      <p className="muted">
-        Enter the 8-character code shown in Admin → Devices. Codes work once and expire after 10 minutes.
-      </p>
-      <form className="panel" onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <input
-          aria-label="Pairing code"
-          value={code}
-          onChange={(e) => setCode(e.target.value.toUpperCase())}
-          placeholder="e.g. K7M4Q2RT"
-          style={{ fontSize: 32, letterSpacing: '0.2em', textAlign: 'center', fontWeight: 800 }}
-          maxLength={12}
-        />
-        <ErrorBox error={error} />
-        <button className="btn primary big" disabled={busy || code.length < 6} type="submit">
-          {busy ? 'Pairing…' : 'Pair device'}
-        </button>
-      </form>
+    <div className="auth">
+      <div className="auth-card">
+        <Brand />
+        <h1>Set up this device</h1>
+        <p className="lead">
+          Enter the 8-character code from Devices &amp; printing. A code works once and expires after 10
+          minutes.
+        </p>
+        <form className="form" onSubmit={submit}>
+          <input
+            aria-label="Pairing code"
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            placeholder="e.g. K7M4Q2RT"
+            style={{ height: 64, fontSize: 28, letterSpacing: '0.2em', textAlign: 'center', fontWeight: 800 }}
+            maxLength={12}
+          />
+          <ErrorBox error={error} />
+          <button className="btn primary lg block" disabled={busy || code.length < 6} type="submit">
+            {busy ? 'Pairing…' : 'Pair device'}
+          </button>
+        </form>
+        <div className="auth-foot">
+          <a href="/login">← Back to sign in</a>
+        </div>
+      </div>
     </div>
   );
 }

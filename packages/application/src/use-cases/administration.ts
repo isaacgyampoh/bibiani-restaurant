@@ -9,7 +9,7 @@ import {
   type PairingCodeView,
   type UpdateStaffCommand,
 } from '@rp/contracts';
-import { DomainError, type Permission } from '@rp/domain';
+import { assertAcceptablePin, DomainError, type Permission } from '@rp/domain';
 import { authorize, type RequestContext } from '../principal';
 import { CommitLog, type Dependencies } from './shared';
 
@@ -141,15 +141,30 @@ export class CreateStaff {
     const email = cmd.email.trim().toLowerCase();
     const staffId = this.deps.ids.uuid();
     // The login lives in the identity provider; if saving the staff record fails we remove it again.
+    if (cmd.pin) assertAcceptablePin(cmd.pin);
+    // Without a back-office password the login gets a random one nobody knows (PIN-only staff).
+    const password = cmd.password ?? required(this.deps.secrets, 'secret generator').password();
     const { id: userId } = await auth.createUser({
       email,
-      password: cmd.password,
+      password,
       metadata: { restaurant_id: ctx.principal.restaurantId, staff_id: staffId },
     });
     try {
       await this.deps.uow.run(ctx.principal.restaurantId, async (tx) => {
         await tx.admin.insertStaff({ id: staffId, userId, displayName: cmd.displayName, email });
         await tx.admin.setStaffRoles(staffId, cmd.roleIds, cmd.branchId ?? null);
+        if (cmd.pin) {
+          const lookup = required(this.deps.pinHasher, 'PIN hasher').lookup(
+            ctx.principal.restaurantId,
+            cmd.pin,
+          );
+          const taken = await tx.pins.staffByLookup(lookup);
+          if (taken)
+            throw new DomainError('PIN_IN_USE', 'This PIN is already in use. Please choose another PIN.', {
+              field: 'pin',
+            });
+          await tx.pins.setPin(staffId, lookup, true, this.deps.clock.now());
+        }
         await tx.audit.append({
           branchId: cmd.branchId ?? null,
           actorStaffId: ctx.principal.staffId,
@@ -162,6 +177,7 @@ export class CreateStaff {
             email,
             roleIds: cmd.roleIds,
             branchId: cmd.branchId ?? null,
+            pinAssigned: Boolean(cmd.pin),
           },
           correlationId: ctx.correlationId,
         });

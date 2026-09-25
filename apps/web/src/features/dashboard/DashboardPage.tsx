@@ -46,7 +46,7 @@ export function DashboardPage({ me }: { me: MeView }) {
         <Skeleton rows={6} />
       ) : (
         <>
-          <div className="stats">
+          <div className="metrics">
             <Stat
               label="Sales today"
               value={money(d.sales.net)}

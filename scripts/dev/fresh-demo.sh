@@ -5,6 +5,6 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 export OWNER_EMAIL="owner.$(openssl rand -hex 3)@staff.example.com"
 export OWNER_PASSWORD="$(openssl rand -hex 12)"
-pnpm -s platform:create-restaurant --name "Bibiani Restaurant (DEV)" --slug "bibiani-dev-$(openssl rand -hex 3)" \
+pnpm -s platform:create-restaurant --name "Chefelisha Restaurant (DEV)" --slug "bibiani-dev-$(openssl rand -hex 3)" \
   --owner-email "$OWNER_EMAIL" --owner-name "Owner" --start 5001 | tail -1
 pnpm -s dev:configure-demo | tail -1

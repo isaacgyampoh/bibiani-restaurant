@@ -1,5 +1,5 @@
 import type { MeView } from '@rp/contracts';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { api, topics } from '../../infra/session';
 import { useFeed } from '../../infra/use-feed';
 
@@ -20,21 +20,29 @@ export function CustomerDisplay({ me }: { me: MeView }) {
   }, [me.kind]);
 
   const board = feed.data;
+  const [clock, setClock] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setClock(new Date()), 15_000);
+    return () => clearInterval(t);
+  }, []);
   return (
     <div className="board">
       <header>
-        <span>
-          <img className="logo-img" src="/logo-192.png" alt="" />
-          {me.restaurant.name}
-        </span>
-        <button
-          type="button"
-          className="fullscreen"
-          onClick={() => void document.documentElement.requestFullscreen?.()}
-        >
-          Full screen
-        </button>
-        <span style={{ fontSize: 18, opacity: 0.6 }}>{feed.connection === 'live' ? '' : 'Updating…'}</span>
+        <img className="logo-img" src="/logo-192.png" alt="" />
+        <div className="names">
+          <span className="brand-kicker">MY FOOD</span>
+          <span className="brand-title">{me.restaurant.name}</span>
+        </div>
+        <span className="clock">{clock.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        {!document.fullscreenElement ? (
+          <button
+            type="button"
+            className="fullscreen"
+            onClick={() => void document.documentElement.requestFullscreen?.()}
+          >
+            Full screen
+          </button>
+        ) : null}
       </header>
       <div className="cols">
         <section className="col preparing" aria-label="Preparing">
@@ -45,6 +53,7 @@ export function CustomerDisplay({ me }: { me: MeView }) {
                 {o.orderNumber}
               </span>
             ))}
+            {board && board.preparing.length === 0 ? <span className="none">—</span> : null}
           </div>
         </section>
         <section className="col ready" aria-label="Ready">
@@ -55,9 +64,13 @@ export function CustomerDisplay({ me }: { me: MeView }) {
                 {o.orderNumber}
               </span>
             ))}
+            {board && board.ready.length === 0 ? (
+              <span className="none">Your number appears here when it is ready</span>
+            ) : null}
           </div>
         </section>
       </div>
+      <footer>{feed.connection === 'live' ? 'Food is better than love' : 'Updating…'}</footer>
     </div>
   );
 }

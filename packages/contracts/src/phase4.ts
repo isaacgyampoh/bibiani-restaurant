@@ -40,7 +40,13 @@ export type PairDeviceCommand = z.infer<typeof PairDeviceCommand>;
 export const CreateStaffCommand = z.object({
   displayName: text(80).min(1),
   email: z.email().max(200),
-  password: z.string().min(10).max(128),
+  /** Back-office password (managers/owners). Staff who only use tills sign in with their PIN. */
+  password: z.string().min(10).max(128).nullish(),
+  /** First PIN, assigned by the owner; the staff member replaces it on first sign-in. */
+  pin: z
+    .string()
+    .regex(/^\d{4,6}$/)
+    .nullish(),
   roleIds: z.array(uuid).min(1).max(10),
   branchId: uuid.nullish(),
 });

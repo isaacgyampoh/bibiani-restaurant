@@ -73,7 +73,7 @@ export function ExpoScreen({ me }: { me: MeView }) {
   const notices = useNotices(feed.data, diff);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
-  const [filter, setFilter] = useState<'all' | 'ready' | 'late'>('all');
+  const [filter, setFilter] = useState<'all' | 'ready' | 'late' | 'rush'>('all');
   const [tick, setTick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setTick((n) => n + 1), 1000);
@@ -96,7 +96,7 @@ export function ExpoScreen({ me }: { me: MeView }) {
   }
 
   const orders = (feed.data?.orders ?? []).filter((o) =>
-    filter === 'ready' ? o.canHandOver : filter === 'late' ? o.delayed : true,
+    filter === 'ready' ? o.canHandOver : filter === 'late' ? o.delayed : filter === 'rush' ? o.isRush : true,
   );
   const all = feed.data?.orders ?? [];
   const canKitchen = hasPermission(me, 'kitchen.operate');
@@ -108,22 +108,31 @@ export function ExpoScreen({ me }: { me: MeView }) {
           ←
         </a>
         <span className="title">Supervisor</span>
-        <div className="seg">
-          {(
-            [
-              ['all', `All ${all.length}`],
-              ['ready', `Ready ${all.filter((o) => o.canHandOver).length}`],
-              ['late', `Late ${all.filter((o) => o.delayed).length}`],
-            ] as const
-          ).map(([k, label]) => (
-            <button key={k} type="button" className={filter === k ? 'on' : ''} onClick={() => setFilter(k)}>
-              {label}
-            </button>
-          ))}
-        </div>
         <span className="grow" />
         <NoticeCenter state={notices} />
         <ConnectionDot state={feed.connection} />
+      </div>
+      <div className="expo-summary" role="tablist" aria-label="Filter orders">
+        {(
+          [
+            ['all', 'In the kitchen', all.length, ''],
+            ['ready', 'Ready to hand over', all.filter((o) => o.canHandOver).length, 'ready'],
+            ['late', 'Late', all.filter((o) => o.delayed).length, 'late'],
+            ['rush', 'Rush', all.filter((o) => o.isRush).length, ''],
+          ] as const
+        ).map(([k, label, n, tone]) => (
+          <button
+            key={k}
+            type="button"
+            role="tab"
+            aria-selected={filter === k}
+            className={filter === k ? 'on' : ''}
+            onClick={() => setFilter(k)}
+          >
+            <div className="k">{label}</div>
+            <div className={`v ${n ? tone : ''}`}>{n}</div>
+          </button>
+        ))}
       </div>
       <ErrorBox error={error ?? feed.error} />
       {feed.connection === 'polling' ? (
@@ -141,6 +150,7 @@ export function ExpoScreen({ me }: { me: MeView }) {
               <header>
                 <span className="num">#{o.orderNumber}</span>
                 <span className="where">{where(o)}</span>
+                {o.isRush ? <span className="rush-tag">RUSH</span> : null}
                 <span className="grow" />
                 <span className={`timer ${o.delayed ? 'late' : ''}`}>{clock(elapsed)}</span>
               </header>
@@ -212,7 +222,7 @@ export function ExpoScreen({ me }: { me: MeView }) {
                 {o.canHandOver && canFulfil ? (
                   <button
                     type="button"
-                    className="btn primary"
+                    className="btn go lg"
                     disabled={!!busy}
                     onClick={() => void run(o.id, () => api.fulfilOrder(o.id))}
                   >

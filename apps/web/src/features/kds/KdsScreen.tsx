@@ -1,6 +1,6 @@
 import { ApiError } from '@rp/client-core';
 import type { MeView, StationBoardView, StationTicketView } from '@rp/contracts';
-import type { TicketAction } from '@rp/domain';
+import { formatMinor, type TicketAction } from '@rp/domain';
 import { useEffect, useState } from 'react';
 import { navigate } from '../../infra/router';
 import { api, signOut, topics } from '../../infra/session';
@@ -14,6 +14,13 @@ const whereOf = (t: StationTicketView) =>
       ? `Table ${t.tableLabel}`
       : t.areaName
     : `Takeaway${t.customerName ? ` · ${t.customerName}` : ''}`;
+const STATE: Record<string, string> = {
+  new: 'New',
+  accepted: 'Accepted',
+  in_preparation: 'Cooking',
+  on_hold: 'Paused',
+  ready: 'Ready',
+};
 
 /** What changed on this station since the last authoritative reload. */
 function kitchenDiff(
@@ -29,7 +36,7 @@ function kitchenDiff(
     if (!p) {
       out.push({
         kind: knownOrders.has(t.orderNumber) ? 'added' : 'new',
-        title: `#${t.orderNumber} · ${whereOf(t)}`,
+        title: `#${t.orderNumber} · ${whereOf(t)}${t.isRush ? ' · RUSH' : ''}`,
         detail: items,
       });
       continue;
@@ -50,47 +57,59 @@ function kitchenDiff(
     }
     if (p.status === 'ready' && t.status !== 'ready' && t.status !== 'completed')
       out.push({ kind: 'recalled', title: `#${t.orderNumber} recalled`, detail: whereOf(t) });
+    if (!p.isRush && t.isRush)
+      out.push({ kind: 'delayed', title: `#${t.orderNumber} is now RUSH`, detail: whereOf(t) });
   }
   return out;
 }
 
 /**
- * Station screen. Shows only this station's tickets (enforced by the server:
- * a paired KDS cannot read or act on another station). Actions go through the
- * API; the screen never writes data itself.
+ * Station screen. Shows only this station's tickets (enforced by the server: a paired KDS cannot
+ * read or act on another station). Actions go through the API; the screen never writes data itself.
  */
 export function KdsScreen({ me, stationParam }: { me: MeView; stationParam: string | null }) {
   const stationId = me.device?.stationId ?? stationParam;
   const branchId = me.device?.branchId ?? me.branches[0]?.id ?? '';
   if (!stationId) return <StationPicker me={me} branchId={branchId} />;
-  return <Board stationId={stationId} branchId={branchId} isDevice={me.kind === 'device'} />;
+  return <Board me={me} stationId={stationId} branchId={branchId} isDevice={me.kind === 'device'} />;
+}
+
+function useStations(branchId: string, enabled: boolean) {
+  const [stations, setStations] = useState<{ id: string; name: string }[] | null>(null);
+  useEffect(() => {
+    if (!enabled) return;
+    api
+      .configuration()
+      .then((c) =>
+        setStations(
+          (c.stations as { id: string; name: string; branchId: string; isActive: boolean }[]).filter(
+            (s) => s.branchId === branchId && s.isActive,
+          ),
+        ),
+      )
+      .catch(() => setStations([]));
+  }, [branchId, enabled]);
+  return stations;
 }
 
 function StationPicker({ me, branchId }: { me: MeView; branchId: string }) {
-  const [stations, setStations] = useState<{ id: string; name: string }[]>([]);
-  useEffect(() => {
-    api
-      .configuration()
-      .then((c) => setStations(c.stations.filter((s) => s.branchId === branchId && s.isActive) as never))
-      .catch(() => undefined);
-  }, [branchId]);
+  const stations = useStations(branchId, true);
   return (
     <div className="kds">
       <div className="bar">
-        {me.kind !== 'device' ? (
-          <button type="button" className="kbtn-minor btn" onClick={() => navigate('/dashboard')}>
-            ←
-          </button>
-        ) : null}
-        <span style={{ fontSize: 24 }}>Kitchen · choose a station</span>
+        <button type="button" className="dark-btn" onClick={() => navigate('/dashboard')} aria-label="Back">
+          ←
+        </button>
+        <span className="title">Kitchen</span>
+        <span className="count">Choose your station</span>
         <span className="grow" />
-        <button type="button" className="kbtn-minor btn" onClick={() => navigate('/expo')}>
+        <button type="button" className="dark-btn" onClick={() => navigate('/expo')}>
           Supervisor view
         </button>
-        <span className="small">{me.displayName}</span>
+        <span className="count">{me.displayName}</span>
       </div>
       <div className="station-grid">
-        {stations.map((s) => (
+        {stations?.map((s) => (
           <button
             key={s.id}
             type="button"
@@ -101,19 +120,21 @@ function StationPicker({ me, branchId }: { me: MeView; branchId: string }) {
             <span>Open the {s.name} screen</span>
           </button>
         ))}
-        {stations.length === 0 ? (
-          <div className="muted">No kitchen stations yet. Create them in Stations &amp; routing.</div>
-        ) : null}
       </div>
+      {stations && stations.length === 0 ? (
+        <div className="kds-empty">No kitchen stations yet. Create them in Stations &amp; routing.</div>
+      ) : null}
     </div>
   );
 }
 
 function Board({
+  me,
   stationId,
   branchId,
   isDevice,
 }: {
+  me: MeView;
   stationId: string;
   branchId: string;
   isDevice: boolean;
@@ -123,6 +144,7 @@ function Board({
     pollMs: 20_000, // safety poll: a silently dead socket cannot hide tickets for long
   });
   const notices = useNotices(feed.data, kitchenDiff);
+  const stations = useStations(branchId, !isDevice);
   const [now, setNow] = useState(Date.now());
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -187,40 +209,56 @@ function Board({
       }
     : null;
   const target = board?.station.targetPrepSeconds ?? null;
+  const money = (m: number) => formatMinor(m, board?.station.currency ?? 'GHS');
   return (
     <div className="kds">
       <div className="bar">
-        <span style={{ fontSize: 26 }}>{board?.station.name ?? 'Kitchen'}</span>
-        <span className="muted small">{board ? `${board.tickets.length} open` : ''}</span>
+        {!isDevice ? (
+          <button
+            type="button"
+            className="dark-btn"
+            onClick={() => navigate('/kds')}
+            aria-label="All stations"
+          >
+            ←
+          </button>
+        ) : null}
+        <span className="title">{board?.station.name ?? 'Kitchen'}</span>
+        <span className="count">{board ? `${board.tickets.length} open` : ''}</span>
+        {!isDevice && stations && stations.length > 1 ? (
+          <div className="seg dark">
+            {stations.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                className={s.id === stationId ? 'on' : ''}
+                onClick={() => navigate(`/kds?station=${s.id}`)}
+              >
+                {s.name}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <span className="grow" />
         <NoticeCenter state={notices} />
         <ConnectionDot state={feed.connection} />
         {!isDevice ? (
-          <button type="button" className="kbtn-minor btn" onClick={() => navigate('/kds')}>
-            Stations
-          </button>
-        ) : null}
-        {!isDevice ? (
-          <button type="button" className="kbtn-minor btn" onClick={() => void signOut()}>
+          <button type="button" className="dark-btn" onClick={() => void signOut()}>
             Sign out
           </button>
-        ) : null}
+        ) : (
+          <span className="count">{me.device?.name}</span>
+        )}
       </div>
       {board?.printerAlerts.map((a) => (
         <div key={a.printerId} className="alert">
-          PRINTER PROBLEM: {a.printerName} — {a.deadJobs + a.failedJobs} ticket(s) not printed
+          Printer problem: {a.printerName} — {a.deadJobs + a.failedJobs} ticket(s) not printed
           {a.lastError ? ` (${a.lastError})` : ''}. Tickets are still shown here.
         </div>
       ))}
-      {error ? (
-        <div className="alert" style={{ background: '#8a5a00' }}>
-          {error}
-        </div>
-      ) : null}
+      {error ? <div className="alert warn">{error}</div> : null}
       {feed.connection === 'polling' ? (
-        <div className="alert" style={{ background: '#5a4400' }}>
-          Connection lost — refreshing every 20 s until it returns
-        </div>
+        <div className="alert warn">Kitchen connection lost. Reconnecting… (screen refreshes every 20 s)</div>
       ) : null}
       <div className="tickets">
         {board?.tickets.map((t) => {
@@ -230,7 +268,7 @@ function Board({
           return (
             <article
               key={t.id}
-              className={`ticket ${t.status} ${late ? 'late' : ''}`}
+              className={`ticket ${t.status} ${late ? 'late' : ''} ${t.isRush ? 'rush' : ''}`}
               aria-label={`Order ${t.orderNumber}`}
             >
               <header>
@@ -241,6 +279,11 @@ function Board({
                 {t.channel === 'dine_in'
                   ? `${t.areaName}${t.tableLabel ? ` · Table ${t.tableLabel}` : ''}`
                   : `Takeaway${t.customerName ? ` · ${t.customerName}` : ''}`}
+                <span className="t-status">
+                  {late ? 'Late · ' : ''}
+                  {STATE[t.status] ?? t.status} ·{' '}
+                  {new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
               </div>
               <ul>
                 {t.items.map((i) => (
@@ -248,7 +291,8 @@ function Board({
                     key={i.id}
                     className={i.status === 'voided' || i.status === 'cancelled' ? 'voided' : ''}
                   >
-                    {i.quantity} × {i.name}
+                    <span className="qtyx">{i.quantity} ×</span> {i.name}
+                    {i.lineTotal !== null ? <span className="price">{money(i.lineTotal)}</span> : null}
                     {i.modifiers.map((m) => (
                       <span key={m} className="mod">
                         + {m}
@@ -257,12 +301,8 @@ function Board({
                     {i.notes ? <span className="note">! {i.notes}</span> : null}
                   </li>
                 ))}
-                {t.orderNotes ? (
-                  <li>
-                    <span className="note">NOTE: {t.orderNotes}</span>
-                  </li>
-                ) : null}
               </ul>
+              {t.orderNotes ? <div className="order-note">Note: {t.orderNotes}</div> : null}
               <div className="actions">
                 {t.status === 'new' || t.status === 'accepted' ? (
                   <button
@@ -329,9 +369,7 @@ function Board({
         })}
       </div>
       {board && board.tickets.length === 0 ? (
-        <div className="page muted" style={{ fontSize: 22 }}>
-          No open tickets
-        </div>
+        <div className="kds-empty">No open tickets. New orders appear here the moment they are sent.</div>
       ) : null}
     </div>
   );

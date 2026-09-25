@@ -109,7 +109,7 @@ test.describe
       browser,
     }) => {
       const owner = await signIn(browser, 'owner');
-      await owner.getByRole('link', { name: 'Inventory' }).click();
+      await owner.getByRole('link', { name: 'Stock', exact: true }).click();
       const name = `Rice ${randomUUID().slice(0, 4)}`;
       await owner.getByRole('button', { name: '+ Add stock item' }).click();
       await owner.getByLabel('Name').fill(name);
@@ -142,7 +142,7 @@ test.describe
       await owner.getByRole('button', { name: 'Approve and adjust stock' }).click();
       await expect(owner.getByText(/Approved/).first()).toBeVisible();
 
-      await owner.getByRole('link', { name: 'Inventory' }).click();
+      await owner.getByRole('link', { name: 'Stock', exact: true }).click();
       await expect(
         owner
           .locator('table.list')

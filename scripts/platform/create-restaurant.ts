@@ -4,7 +4,7 @@
  * (PLATFORM_DATABASE_URL; in DEV the test admin login) and the server-side
  * auth key. Never exposed through the restaurant-facing API.
  *
- *   pnpm platform:create-restaurant --name "Bibiani Restaurant" --slug bibiani \
+ *   pnpm platform:create-restaurant --name "Chefelisha Restaurant" --slug bibiani \
  *     --owner-email owner@example.com --owner-name "Owner" [--branch Main --code MAIN --start 5001] \
  *     [--send-password-email https://app.example.com]
  *

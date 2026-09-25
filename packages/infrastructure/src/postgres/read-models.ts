@@ -616,9 +616,10 @@ export function createReadModels(sql: Sql): ReadModels {
              from routing_rules r order by r.match, r.priority desc`),
         q(`select r.id, r.name, r.is_system, coalesce(array_agg(rp.permission_code) filter (where rp.permission_code is not null), '{}') as permissions
              from roles r left join role_permissions rp on rp.role_id = r.id group by r.id order by r.name`),
-        q(`select s.id, s.display_name, s.email, s.is_active,
+        q(`select s.id, s.display_name, s.email, s.is_active, s.pin_lookup is not null as has_pin, s.pin_must_change, s.activated_at,
                     coalesce(array_agg(sr.role_id) filter (where sr.role_id is not null), '{}') as role_ids, min(sr.branch_id::text) as branch_id
-             from staff s left join staff_roles sr on sr.staff_id = s.id group by s.id order by s.display_name`),
+             from staff s left join staff_roles sr on sr.staff_id = s.id
+             group by s.id order by s.is_active desc, s.display_name`),
         q(`select * from modifier_groups order by name`),
         q(`select * from modifiers order by sort_order, name`),
       ]);
@@ -668,6 +669,8 @@ export function createReadModels(sql: Sql): ReadModels {
           isActive: Boolean(st.is_active),
           roleIds: st.role_ids as string[],
           branchId: sn(st.branch_id),
+          pin: st.has_pin ? (st.pin_must_change ? 'awaiting_activation' : 'active') : 'none',
+          activatedAt: isoOf(st.activated_at),
         })),
       };
     },

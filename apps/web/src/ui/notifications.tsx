@@ -137,13 +137,13 @@ export function NoticeCenter({ state }: { state: ReturnType<typeof useNotices> }
   }, [state.sound]);
   return (
     <>
-      <button type="button" className="kbtn-minor btn" onClick={state.toggleSound} aria-pressed={state.sound}>
-        {state.sound ? '🔔 Sound on' : '🔕 Sound off'}
+      <button type="button" className="dark-btn" onClick={state.toggleSound} aria-pressed={state.sound}>
+        {state.sound ? 'Sound on' : 'Sound off'}
       </button>
       <div className="notice-center">
         <button
           type="button"
-          className="kbtn-minor btn"
+          className="dark-btn"
           onClick={() => {
             setOpen(!open);
             if (!open) state.markAllRead();

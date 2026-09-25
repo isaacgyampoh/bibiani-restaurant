@@ -5,6 +5,7 @@ import { navigate } from '../../infra/router';
 import { api, hasPermission, topics } from '../../infra/session';
 import { useFeed } from '../../infra/use-feed';
 import { Badge, ConnectionDot, ErrorBox, Modal } from '../../ui/components';
+import { ReceiptModal } from '../../ui/Receipt';
 import { Empty, Shell, Skeleton } from '../../ui/Shell';
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -47,7 +48,7 @@ export function OrdersPage({ me }: { me: MeView }) {
       <ErrorBox error={feed.error} />
       <section className="card">
         <div className="toolbar">
-          <div className="seg light">
+          <div className="seg">
             <button type="button" className={tab === 'open' ? 'on' : ''} onClick={() => setTab('open')}>
               Open {active.data ? `(${active.data.length})` : ''}
             </button>
@@ -124,6 +125,7 @@ function OrderDetail({ me, orderId, onClose }: { me: MeView; orderId: string; on
   const [order, setOrder] = useState<OrderView | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [showReceipt, setShowReceipt] = useState(false);
   useEffect(() => {
     api.getOrder(orderId).then(setOrder).catch(setError);
   }, [orderId]);
@@ -222,6 +224,9 @@ function OrderDetail({ me, orderId, onClose }: { me: MeView; orderId: string; on
                 {order.receiptsPrinted > 0 ? 'Reprint receipt' : 'Print receipt'}
               </button>
             ) : null}
+            <button type="button" className="btn" onClick={() => setShowReceipt(true)}>
+              View receipt
+            </button>
             {!closed && hasPermission(me, 'order.create') ? (
               <button
                 type="button"
@@ -238,6 +243,9 @@ function OrderDetail({ me, orderId, onClose }: { me: MeView; orderId: string; on
           </div>
         </div>
       )}
+      {showReceipt && order ? (
+        <ReceiptModal orderId={order.id} onClose={() => setShowReceipt(false)} />
+      ) : null}
     </Modal>
   );
 }

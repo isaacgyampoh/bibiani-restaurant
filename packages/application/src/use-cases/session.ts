@@ -8,12 +8,21 @@ export class GetMe {
   constructor(private readonly deps: Dependencies) {}
 
   async execute(ctx: RequestContext, displayName: string): Promise<MeView> {
-    const info = await this.deps.uow.run(ctx.principal.restaurantId, (tx) =>
-      tx.read.me({ staffId: ctx.principal.staffId, deviceId: ctx.deviceId }),
-    );
+    const [info, staff] = await this.deps.uow.run(ctx.principal.restaurantId, async (tx) => [
+      await tx.read.me({ staffId: ctx.principal.staffId, deviceId: ctx.deviceId }),
+      ctx.principal.staffId ? await tx.pins.staffById(ctx.principal.staffId) : null,
+    ]);
     const permissions: Record<string, string[]> = {};
     for (const g of ctx.principal.grants) permissions[g.branchId ?? '*'] = [...g.permissions].sort();
-    return { kind: ctx.principal.kind, displayName, permissions, ...info };
+    return {
+      kind: ctx.principal.kind,
+      displayName,
+      permissions,
+      ...info,
+      staffId: ctx.principal.staffId,
+      pin: staff ? { hasPin: staff.hasPin, mustChange: staff.mustChange } : null,
+      signedInWith: ctx.authMethod ?? 'password',
+    };
   }
 }
 

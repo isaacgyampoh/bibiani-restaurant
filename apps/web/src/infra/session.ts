@@ -22,11 +22,22 @@ supabase.auth.onAuthStateChange((_event, session) => {
 
 const POS_DEVICE_KEY = 'rp.posDevice';
 
+interface TillIdentity {
+  id: string;
+  name: string;
+  /** The till's own device login (rotating refresh token): unlocks staff sessions by PIN. */
+  refreshToken?: string;
+}
+
 /** A paired POS till: identifies the terminal (x-device-id) while staff sign in on it. */
-export function posDevice(): { id: string; name: string } | null {
+export function posDevice(): { id: string; name: string; pinReady: boolean } | null {
+  const t = readTill();
+  return t ? { id: t.id, name: t.name, pinReady: Boolean(t.refreshToken) } : null;
+}
+function readTill(): TillIdentity | null {
   try {
     const raw = localStorage.getItem(POS_DEVICE_KEY);
-    return raw ? (JSON.parse(raw) as { id: string; name: string }) : null;
+    return raw ? (JSON.parse(raw) as TillIdentity) : null;
   } catch {
     return null;
   }
@@ -89,8 +100,14 @@ export async function pairDevice(code: string): Promise<PairDeviceResult> {
   if (!res.ok) throw new Error(body?.error?.message ?? 'Pairing failed');
   const result = body as PairDeviceResult;
   if (result.device.kind === 'pos') {
-    // A till only needs its identity; people sign in on it with their own accounts.
-    localStorage.setItem(POS_DEVICE_KEY, JSON.stringify({ id: result.device.id, name: result.device.name }));
+    // A till keeps its own device login (kept apart from staff sessions) so staff can unlock it with
+    // their PIN; staff then act as themselves on this terminal.
+    const till: TillIdentity = {
+      id: result.device.id,
+      name: result.device.name,
+      refreshToken: result.session.refreshToken,
+    };
+    localStorage.setItem(POS_DEVICE_KEY, JSON.stringify(till));
     await supabase.auth.signOut();
   } else {
     await supabase.auth.setSession({
@@ -99,6 +116,56 @@ export async function pairDevice(code: string): Promise<PairDeviceResult> {
     });
   }
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Till login + staff PINs
+// ---------------------------------------------------------------------------
+let tillAccess: { token: string; expiresAt: number } | null = null;
+let tillRefresh: Promise<string> | null = null;
+
+/** Access token of the till's own device login (refresh token rotates; one refresh at a time). */
+async function tillToken(): Promise<string> {
+  if (tillAccess && tillAccess.expiresAt - 60 > Date.now() / 1000) return tillAccess.token;
+  tillRefresh ??= (async () => {
+    const till = readTill();
+    if (!till?.refreshToken) throw new Error('This till is not set up for PIN sign-in. Pair it again.');
+    const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_ANON_KEY, 'content-type': 'application/json' },
+      body: JSON.stringify({ refresh_token: till.refreshToken }),
+    });
+    const body = (await res.json().catch(() => ({}))) as {
+      access_token?: string;
+      refresh_token?: string;
+      expires_at?: number;
+    };
+    if (!res.ok || !body.access_token || !body.refresh_token) {
+      if (res.status === 400 || res.status === 401)
+        throw new Error('This till was removed or its login expired. Ask a manager to pair it again.');
+      throw new Error('No connection to the server. Check the network and try again.');
+    }
+    localStorage.setItem(POS_DEVICE_KEY, JSON.stringify({ ...till, refreshToken: body.refresh_token }));
+    tillAccess = { token: body.access_token, expiresAt: body.expires_at ?? Date.now() / 1000 + 3000 };
+    return body.access_token;
+  })().finally(() => {
+    tillRefresh = null;
+  });
+  return tillRefresh;
+}
+
+/** API calls made by the till itself (PIN sign-in, PIN recovery), not by a staff member. */
+export const tillApi = new ApiClient({ baseUrl: API_URL, getAccessToken: tillToken, deviceId: null });
+
+/** Unlocks a staff session on this till with the staff member's PIN. */
+export async function signInWithPin(pin: string): Promise<{ displayName: string; mustChangePin: boolean }> {
+  const r = await tillApi.pinSignIn(pin);
+  const { error } = await supabase.auth.setSession({
+    access_token: r.session.accessToken,
+    refresh_token: r.session.refreshToken,
+  });
+  if (error) throw new Error('Sign-in could not be completed. Try again.');
+  return { displayName: r.displayName, mustChangePin: r.mustChangePin };
 }
 
 export function branchSignal(topic: string): ChangeSignal {

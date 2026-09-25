@@ -230,6 +230,11 @@ export interface MeView {
   /** Permissions per branch (null key = all branches). The UI uses this only to hide what the server would refuse. */
   permissions: Record<string, string[]>;
   device: { id: string; kind: string; name: string; branchId: string; stationId: string | null } | null;
+  staffId: string | null;
+  /** Staff PIN state (never the PIN): whether one is set, and whether the person must choose their own now. */
+  pin: { hasPin: boolean; mustChange: boolean } | null;
+  /** How this session was opened: PIN sessions on a till cannot use back-office administration. */
+  signedInWith: 'password' | 'pin' | 'email_link';
 }
 
 export interface MenuView {
@@ -371,6 +376,9 @@ export interface ConfigurationView {
     isActive: boolean;
     roleIds: string[];
     branchId: string | null;
+    /** PIN state only (never the PIN): none, assigned but not yet replaced by the staff member, or active. */
+    pin: 'none' | 'awaiting_activation' | 'active';
+    activatedAt: string | null;
   }[];
 }
 

@@ -2,9 +2,9 @@ import type { ConfigEntity, ConfigurationView, MeView } from '@rp/contracts';
 import { type FormEvent, useMemo, useState } from 'react';
 import { explainRoute, routingFrom } from '../../infra/routing';
 import { hasPermission } from '../../infra/session';
-import { ErrorBox } from '../../ui/components';
+import { ErrorBox, Field, FormSection, useToast } from '../../ui/components';
 import { Empty, Shell, Skeleton } from '../../ui/Shell';
-import { DevicesTab, FloorTab, PrintQueueTab, StaffTab, StationsTab } from '../admin/AdminScreen';
+import { DevicesTab, FloorTab, PrintQueueTab, StationsTab } from '../admin/AdminScreen';
 import { useConfiguration } from '../menu/MenuPage';
 
 type Row = Record<string, unknown>;
@@ -113,6 +113,56 @@ export function RoutingPage({ me }: { me: MeView }) {
       ) : (
         <>
           <RouteMap config={config} branchId={branchId} />
+          <section className="card">
+            <div className="card-head">
+              <h2>Kitchen screen settings</h2>
+            </div>
+            <table className="list">
+              <thead>
+                <tr>
+                  <th>Station</th>
+                  <th>Target time</th>
+                  <th>Show prices on screen</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(config.stations as Row[])
+                  .filter((st) => st.branchId === branchId)
+                  .map((st) => (
+                    <tr key={str(st.id)}>
+                      <td>
+                        <strong>{str(st.name)}</strong>
+                      </td>
+                      <td className="muted">
+                        {st.targetPrepSeconds ? `${Math.round(Number(st.targetPrepSeconds) / 60)} min` : '—'}
+                      </td>
+                      <td>
+                        <label className="check">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(st.showPrices)}
+                            onChange={(e) =>
+                              void saveBool('station', {
+                                id: st.id,
+                                branchId: st.branchId,
+                                name: st.name,
+                                code: st.code,
+                                targetPrepSeconds: st.targetPrepSeconds ?? null,
+                                autoReady: Boolean(st.autoReady),
+                                isActive: Boolean(st.isActive),
+                                sortOrder: Number(st.sortOrder ?? 0),
+                                showPrices: e.target.checked,
+                              })
+                            }
+                          />
+                          {st.showPrices ? 'Prices shown' : 'Hidden'}
+                        </label>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </section>
           <StationsTab
             config={config}
             branchId={branchId}
@@ -133,86 +183,6 @@ export function FloorPage({ me }: { me: MeView }) {
     <Shell me={me} title="Floor & tables" subtitle="Service areas, their payment rule, and tables.">
       <ErrorBox error={error} />
       {!config ? <Skeleton rows={6} /> : <FloorTab config={config} branchId={branchId} save={saveBool} />}
-    </Shell>
-  );
-}
-
-const PERMISSION_LABEL: [string, string][] = [
-  ['order.create', 'Take orders'],
-  ['order.send', 'Send to kitchen'],
-  ['order.view', 'See orders'],
-  ['order.fulfil', 'Serve / hand over'],
-  ['order.cancel', 'Cancel orders'],
-  ['order.void', 'Void items'],
-  ['payment.record', 'Take payments'],
-  ['payment.void', 'Void payments'],
-  ['payment.refund', 'Refund'],
-  ['receipt.print', 'Print receipts'],
-  ['kitchen.operate', 'Kitchen screen'],
-  ['reports.view', 'Dashboard & reports'],
-  ['inventory.manage', 'Manage stock'],
-  ['stock.count', 'Count stock'],
-  ['menu.manage', 'Edit menu & routing'],
-  ['config.manage', 'Floor & settings'],
-  ['device.manage', 'Devices'],
-  ['print.manage', 'Print queue'],
-  ['staff.manage', 'Staff & roles'],
-  ['audit.view', 'Audit history'],
-];
-
-export function StaffPage({ me }: { me: MeView }) {
-  const branchId = me.branches[0]?.id ?? '';
-  const { config, error, setError, reload } = useSetup();
-  const roles = (config?.roles ?? []).filter(
-    (r) => !['Kitchen display', 'Customer display'].includes(r.name),
-  );
-  return (
-    <Shell
-      me={me}
-      title="Staff & roles"
-      subtitle="Who can sign in, and what each role is allowed to do. The server checks every action."
-    >
-      <ErrorBox error={error} />
-      {!config ? (
-        <Skeleton rows={6} />
-      ) : (
-        <>
-          <StaffTab config={config} branchId={branchId} reload={reload} onError={setError} />
-          <section className="card">
-            <div className="card-head">
-              <h2>What each role can do</h2>
-            </div>
-            <div className="table-scroll">
-              <table className="list matrix">
-                <thead>
-                  <tr>
-                    <th />
-                    {roles.map((r) => (
-                      <th key={r.id}>{r.name}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {PERMISSION_LABEL.map(([code, label]) => (
-                    <tr key={code}>
-                      <td>{label}</td>
-                      {roles.map((r) => (
-                        <td key={r.id} className="center">
-                          {r.permissions.includes(code) ? (
-                            <span className="yes">✓</span>
-                          ) : (
-                            <span className="no">·</span>
-                          )}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </>
-      )}
     </Shell>
   );
 }
@@ -266,80 +236,94 @@ function BranchForm({
   branch: Row;
   save: (e: ConfigEntity, r: Row) => Promise<string | null>;
 }) {
+  const toast = useToast();
+  const [r, setR] = useState({
+    name: config.restaurant.name,
+    phone: config.restaurant.phone ?? '',
+    receiptFooter: config.restaurant.receiptFooter ?? '',
+  });
   const [f, setF] = useState({
     name: str(branch.name),
     address: str(branch.address),
     timezone: str(branch.timezone),
     businessDayCutoff: str(branch.businessDayCutoff),
   });
-  const [saved, setSaved] = useState(false);
+  const [busy, setBusy] = useState(false);
   async function submit(e: FormEvent) {
     e.preventDefault();
-    setSaved(false);
-    if (
-      await save('branch', {
+    setBusy(true);
+    const ok =
+      (await save('restaurant', {
+        name: r.name,
+        phone: r.phone || null,
+        receiptFooter: r.receiptFooter || null,
+      })) &&
+      (await save('branch', {
         id: branch.id,
         name: f.name,
         address: f.address || null,
         timezone: f.timezone,
         businessDayCutoff: f.businessDayCutoff,
-      })
-    )
-      setSaved(true);
+      }));
+    setBusy(false);
+    if (ok) toast('Settings saved');
   }
   return (
-    <div className="grid-2">
-      <section className="card">
-        <div className="card-head">
-          <h2>Restaurant</h2>
-        </div>
-        <dl className="facts">
-          <dt>Name</dt>
-          <dd>{config.restaurant.name}</dd>
-          <dt>Currency</dt>
-          <dd>{config.restaurant.currency}</dd>
-          <dt>Order numbers</dt>
-          <dd>Start at {str(branch.orderNumberStart)} every business day, shared by all tills</dd>
-        </dl>
-      </section>
-      <section className="card">
-        <div className="card-head">
-          <h2>Branch</h2>
-        </div>
-        <form className="form" onSubmit={submit}>
-          <label>
-            Branch name
+    <section className="card">
+      <form className="card-body" onSubmit={submit}>
+        <FormSection title="Restaurant" description="Shown on every screen and printed on receipts.">
+          <Field label="Restaurant name" required>
+            <input required value={r.name} onChange={(e) => setR({ ...r, name: e.target.value })} />
+          </Field>
+          <Field label="Phone" hint="Printed on receipts.">
+            <input
+              value={r.phone}
+              onChange={(e) => setR({ ...r, phone: e.target.value })}
+              placeholder="+233 …"
+            />
+          </Field>
+          <Field label="Receipt message" hint="The last line of every receipt.">
+            <input
+              value={r.receiptFooter}
+              onChange={(e) => setR({ ...r, receiptFooter: e.target.value })}
+              placeholder="Thank you! Food is better than love."
+            />
+          </Field>
+          <dl className="facts">
+            <dt>Currency</dt>
+            <dd>{config.restaurant.currency}</dd>
+          </dl>
+        </FormSection>
+        <FormSection title="Branch" description="Address and how the business day works.">
+          <Field label="Branch name" required>
             <input required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
-          </label>
-          <label>
-            Address (printed on receipts)
+          </Field>
+          <Field label="Address" hint="Printed on receipts.">
             <input value={f.address} onChange={(e) => setF({ ...f, address: e.target.value })} />
-          </label>
+          </Field>
           <div className="form-row">
-            <label>
-              Time zone
+            <Field label="Time zone">
               <input value={f.timezone} onChange={(e) => setF({ ...f, timezone: e.target.value })} />
-            </label>
-            <label>
-              Business day ends at
+            </Field>
+            <Field label="Business day ends at" hint="Orders before this time count for the previous day.">
               <input
                 type="time"
                 value={f.businessDayCutoff}
                 onChange={(e) => setF({ ...f, businessDayCutoff: e.target.value })}
               />
-            </label>
+            </Field>
           </div>
-          <div className="small muted">
-            Orders after midnight but before this time count towards the previous day (late service).
-          </div>
-          <div className="row end">
-            {saved ? <span className="small ok-text">Saved</span> : null}
-            <button type="submit" className="btn primary">
-              Save settings
-            </button>
-          </div>
-        </form>
-      </section>
-    </div>
+          <dl className="facts">
+            <dt>Order numbers</dt>
+            <dd>Start at {str(branch.orderNumberStart)} each business day, shared by all tills</dd>
+          </dl>
+        </FormSection>
+        <div className="form-actions">
+          <button type="submit" className="btn primary" disabled={busy}>
+            {busy ? 'Saving…' : 'Save settings'}
+          </button>
+        </div>
+      </form>
+    </section>
   );
 }

@@ -1,7 +1,7 @@
 /**
- * Creates the client DEMO restaurant, "Bibiani Restaurant — Demo", in the ONE Supabase project, with a
+ * Creates the client DEMO restaurant, "Chefelisha Restaurant — Demo", in the ONE Supabase project, with a
  * real Supabase Auth demo login and realistic data (menu, stations, routing, staff, today's orders at
- * every stage, payments). It is a separate restaurant, isolated by RLS from the real Bibiani Restaurant.
+ * every stage, payments). It is a separate restaurant, isolated by RLS from the real Chefelisha Restaurant.
  *
  * Everything after the restaurant row is created through the restaurant-facing API as the demo
  * account: validated, permission-checked and audited like any real use.
@@ -230,7 +230,7 @@ for (const [displayName, roleName] of [
 ] as const) {
   await api.createStaff({
     displayName,
-    email: `${displayName.split(' ')[0]!.toLowerCase()}@demo.bibiani.test`,
+    email: `${displayName.split(' ')[0]!.toLowerCase()}@demo.chefelisha.test`,
     password: randomBytes(24).toString('base64url'),
     roleIds: [role(roleName)],
     branchId,

@@ -2,6 +2,7 @@ import type { MeView } from '@rp/contracts';
 import { useCallback, useEffect, useState } from 'react';
 import { LoginScreen } from './features/auth/LoginScreen';
 import { PairScreen } from './features/auth/PairScreen';
+import { PinSetupScreen } from './features/auth/PinSetupScreen';
 import { SetPasswordScreen } from './features/auth/SetPasswordScreen';
 import { DashboardPage } from './features/dashboard/DashboardPage';
 import { CustomerDisplay } from './features/display/CustomerDisplay';
@@ -13,7 +14,8 @@ import { MenuPage } from './features/menu/MenuPage';
 import { OrdersPage } from './features/orders/OrdersPage';
 import { PosScreen } from './features/pos/PosScreen';
 import { ReportsPage } from './features/reports/ReportsPage';
-import { DevicesPage, FloorPage, RoutingPage, SettingsPage, StaffPage } from './features/setup/SetupPages';
+import { DevicesPage, FloorPage, RoutingPage, SettingsPage } from './features/setup/SetupPages';
+import { StaffPage } from './features/staff/StaffPage';
 import { navigate, useLocation } from './infra/router';
 import { api, currentSession, hasPermission, supabase } from './infra/session';
 import { ErrorBox } from './ui/components';
@@ -58,7 +60,9 @@ export function App() {
     void loadMe();
     const { data } = supabase.auth.onAuthStateChange((event) => {
       // Opened from a password email: always ask for the new password, wherever the link landed.
-      if (event === 'PASSWORD_RECOVERY') navigate('/set-password', true);
+      // (PIN recovery links land on /reset-pin and stay there.)
+      if (event === 'PASSWORD_RECOVERY' && window.location.pathname !== '/reset-pin')
+        navigate('/set-password', true);
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') void loadMe();
     });
     return () => data.subscription.unsubscribe();
@@ -70,19 +74,38 @@ export function App() {
 
   if (path === '/pair') return <PairScreen onPaired={loadMe} />;
   if (path === '/set-password') return <SetPasswordScreen onDone={loadMe} />;
-  if (!checked) return <div className="page muted">Loading…</div>;
+  if (!checked)
+    return (
+      <div className="auth">
+        <img className="brand-logo" src="/logo-192.png" alt="MY FOOD — Chefelisha Restaurant" />
+      </div>
+    );
   if (!me) {
     return (
-      <div>
+      <>
         {error ? (
-          <div className="page">
+          <div style={{ position: 'fixed', top: 16, left: 16, right: 16, zIndex: 5 }}>
             <ErrorBox error={error} />
           </div>
         ) : null}
         <LoginScreen onSignedIn={loadMe} />
-      </div>
+      </>
     );
   }
+  // PIN set-up comes before anything else: from an emailed link, on first sign-in, or on request.
+  if (path === '/reset-pin') return <PinSetupScreen me={me} reason="recovery" onDone={loadMe} />;
+  if (me.pin?.mustChange) return <PinSetupScreen me={me} reason="activation" onDone={loadMe} />;
+  if (path === '/my-pin')
+    return (
+      <PinSetupScreen
+        me={me}
+        reason="change"
+        onDone={() => {
+          navigate('/', true);
+          void loadMe();
+        }}
+      />
+    );
   if (path.startsWith('/kds')) return <KdsScreen me={me} stationParam={query.get('station')} />;
   if (path.startsWith('/display')) return <CustomerDisplay me={me} />;
   if (path.startsWith('/expo')) return <ExpoScreen me={me} />;

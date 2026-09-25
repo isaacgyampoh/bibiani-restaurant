@@ -81,7 +81,7 @@ export function ReportsPage({ me }: { me: MeView }) {
         </section>
       ) : (
         <>
-          <div className="stats">
+          <div className="metrics">
             <Stat
               label="Net sales"
               value={money(report.totals.net)}
