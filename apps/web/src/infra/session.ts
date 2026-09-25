@@ -44,6 +44,26 @@ export async function signInStaff(email: string, password: string): Promise<void
     );
 }
 
+/** Emails a link to /set-password. Same answer whether or not the address has an account. */
+export async function requestPasswordReset(email: string): Promise<void> {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/set-password`,
+  });
+  if (error && error.status !== 400 && error.status !== 404) throw new Error(error.message);
+}
+
+/** Sets the password for the account signed in through a reset / invitation link. */
+export async function setNewPassword(password: string): Promise<void> {
+  const { error } = await supabase.auth.updateUser({ password });
+  if (!error) return;
+  if (error.code === 'weak_password')
+    throw new Error(
+      'Choose a stronger password: at least 10 characters, and not one known from data breaches.',
+    );
+  if (error.code === 'same_password') throw new Error('Choose a password you have not used here before.');
+  throw new Error(error.message);
+}
+
 export async function signOut(): Promise<void> {
   await supabase.auth.signOut();
 }

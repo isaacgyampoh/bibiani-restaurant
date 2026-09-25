@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AdminScreen } from './features/admin/AdminScreen';
 import { LoginScreen } from './features/auth/LoginScreen';
 import { PairScreen } from './features/auth/PairScreen';
+import { SetPasswordScreen } from './features/auth/SetPasswordScreen';
 import { CustomerDisplay } from './features/display/CustomerDisplay';
 import { KdsScreen } from './features/kds/KdsScreen';
 import { PosScreen } from './features/pos/PosScreen';
@@ -47,6 +48,8 @@ export function App() {
   useEffect(() => {
     void loadMe();
     const { data } = supabase.auth.onAuthStateChange((event) => {
+      // Opened from a password email: always ask for the new password, wherever the link landed.
+      if (event === 'PASSWORD_RECOVERY') navigate('/set-password', true);
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') void loadMe();
     });
     return () => data.subscription.unsubscribe();
@@ -57,6 +60,7 @@ export function App() {
   }, [checked, me, path]);
 
   if (path === '/pair') return <PairScreen onPaired={loadMe} />;
+  if (path === '/set-password') return <SetPasswordScreen onDone={loadMe} />;
   if (!checked) return <div className="page muted">Loading…</div>;
   if (!me) {
     return (

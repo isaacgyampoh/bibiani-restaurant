@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react';
-import { posDevice, signInStaff } from '../../infra/session';
+import { posDevice, requestPasswordReset, signInStaff } from '../../infra/session';
 import { ErrorBox } from '../../ui/components';
 
 export function LoginScreen({ onSignedIn }: { onSignedIn: () => void }) {
@@ -7,7 +7,25 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: () => void }) {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [resetSent, setResetSent] = useState(false);
   const till = posDevice();
+
+  async function forgot() {
+    if (!email.trim()) {
+      setError(new Error('Enter your email first, then press "Forgot password?"'));
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await requestPasswordReset(email.trim());
+      setResetSent(true);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -53,6 +71,15 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: () => void }) {
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
+      {resetSent ? (
+        <div className="small" role="status">
+          If {email.trim()} has an account, an email with a link to set a new password is on its way.
+        </div>
+      ) : (
+        <button type="button" className="link small" disabled={busy} onClick={() => void forgot()}>
+          Forgot password?
+        </button>
+      )}
       <a className="muted small" href="/pair">
         Set up this device (pairing code)
       </a>
