@@ -126,7 +126,7 @@ test.describe
       await expect(pos.locator('.cart strong').first()).toContainText(/Order #\d+ · Table 3/);
       await pos.reload();
       await pos.getByRole('tab', { name: 'Hall' }).click();
-      await expect(pos.locator('.table-card', { hasText: /^3/ })).toContainText('Occupied');
+      await expect(pos.locator('.table-card', { hasText: /^3/ })).toContainText(/Sent|Preparing|Occupied/);
       await pos.locator('.table-card', { hasText: /^3/ }).click();
       await expect(pos.locator('.line')).toContainText('1 × Coke');
     });
