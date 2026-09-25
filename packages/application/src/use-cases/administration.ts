@@ -23,6 +23,8 @@ const ENTITY_PERMISSION: Record<ConfigEntity, Permission> = {
   category: 'menu.manage',
   product: 'menu.manage',
   taxRate: 'menu.manage',
+  modifierGroup: 'menu.manage',
+  modifier: 'menu.manage',
   branchProduct: 'menu.manage',
   device: 'device.manage',
   role: 'staff.manage',

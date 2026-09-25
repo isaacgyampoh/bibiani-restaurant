@@ -122,6 +122,22 @@ export const ConfigSchemas = {
     requiresPreparation: z.boolean().default(true),
     isActive: z.boolean().default(true),
     taxRateIds: z.array(uuid).max(5).default([]),
+    /** Replaces the product's modifier groups when given; left unchanged when omitted. */
+    modifierGroupIds: z.array(uuid).max(10).optional(),
+  }),
+  modifierGroup: z.object({
+    id,
+    name: text(60).min(1),
+    minSelect: z.number().int().min(0).max(10).default(0),
+    maxSelect: z.number().int().min(1).max(20).nullish(),
+  }),
+  modifier: z.object({
+    id,
+    groupId: uuid,
+    name: text(60).min(1),
+    priceDelta: z.number().int().min(-10_000_000).max(10_000_000).default(0),
+    sortOrder: z.number().int().default(0),
+    isActive: z.boolean().default(true),
   }),
   branchProduct: z.object({
     branchId: uuid,

@@ -578,6 +578,8 @@ export function createReadModels(sql: Sql): ReadModels {
         rules,
         roles,
         staff,
+        modifierGroups,
+        modifiers,
       ] = await Promise.all([
         q(`select id, name, currency, timezone from restaurants where id = app.current_restaurant_id()`),
         q(
@@ -587,7 +589,8 @@ export function createReadModels(sql: Sql): ReadModels {
         q(`select * from dining_tables order by length(label), label`),
         q(`select * from categories order by sort_order, name`),
         q(`select * from tax_rates order by apply_order, name`),
-        q(`select p.*, coalesce((select json_agg(tax_rate_id) from product_taxes pt where pt.product_id = p.id), '[]') as tax_rate_ids
+        q(`select p.*, coalesce((select json_agg(tax_rate_id) from product_taxes pt where pt.product_id = p.id), '[]') as tax_rate_ids,
+                  coalesce((select json_agg(group_id order by sort_order) from product_modifier_groups pm where pm.product_id = p.id), '[]') as modifier_group_ids
              from products p where p.deleted_at is null order by p.name`),
         q(`select * from stations order by sort_order, name`),
         q(`select d.id, d.branch_id, d.kind, d.name, d.station_id, d.receipt_printer_id, d.is_active, d.auth_user_id is not null as paired,
@@ -601,6 +604,8 @@ export function createReadModels(sql: Sql): ReadModels {
         q(`select s.id, s.display_name, s.email, s.is_active,
                     coalesce(array_agg(sr.role_id) filter (where sr.role_id is not null), '{}') as role_ids, min(sr.branch_id::text) as branch_id
              from staff s left join staff_roles sr on sr.staff_id = s.id group by s.id order by s.display_name`),
+        q(`select * from modifier_groups order by name`),
+        q(`select * from modifiers order by sort_order, name`),
       ]);
       const camel = (rows: Record<string, unknown>[]) =>
         rows.map((r) =>
@@ -631,6 +636,8 @@ export function createReadModels(sql: Sql): ReadModels {
         devices: camel(devices),
         stationOutputs: camel(outputs),
         routingRules: camel(rules),
+        modifierGroups: camel(modifierGroups),
+        modifiers: camel(modifiers).map((m) => ({ ...m, priceDelta: Number(m.priceDelta) })),
         roles: roles.map((r) => ({
           id: s(r.id),
           name: s(r.name),

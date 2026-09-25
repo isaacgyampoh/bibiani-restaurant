@@ -237,4 +237,61 @@ describe('Administration: configuration, staff, device pairing', () => {
     expect(by('GRILL-PRINTER-01').printer).toMatchObject({ healthy: false, lastError: 'ECONNREFUSED' });
     expect(by('POS-01').status).toBe('never_seen');
   });
+  it('modifier groups and modifiers are managed in admin, shown on the POS menu and priced on orders', async () => {
+    const owner = await t.as(f.authUsers.manager);
+    const { id: groupId } = await t.app.saveConfig.execute(owner, 'modifierGroup', {
+      name: 'Spice level',
+      minSelect: 0,
+      maxSelect: 1,
+    });
+    const { id: extraHot } = await t.app.saveConfig.execute(owner, 'modifier', {
+      groupId,
+      name: 'Extra hot',
+      priceDelta: 200,
+    });
+    await t.app.saveConfig.execute(owner, 'product', {
+      id: f.products.chicken,
+      categoryId: (
+        await db.query<{ category_id: string }>('select category_id from products where id = $1', [
+          f.products.chicken,
+        ])
+      )[0]!.category_id,
+      name: 'Grilled Chicken',
+      basePrice: 6000,
+      modifierGroupIds: [groupId],
+    });
+    const config = await t.app.getConfiguration.execute(owner);
+    expect(config.modifierGroups.some((g) => g.id === groupId)).toBe(true);
+    expect(config.modifiers.find((m) => m.id === extraHot)).toMatchObject({
+      name: 'Extra hot',
+      priceDelta: 200,
+    });
+    expect(config.products.find((p) => p.id === f.products.chicken)?.modifierGroupIds).toEqual([groupId]);
+
+    const menu = await t.app.getMenu.execute(owner, f.branchId);
+    const chicken = menu.products.find((p) => p.id === f.products.chicken)!;
+    expect(chicken.modifierGroups.map((g) => g.name)).toEqual(['Spice level']);
+    const order = await t.app.submitOrder.execute(await t.as(f.authUsers.cashier, f.devices.pos), {
+      orderId: uuid(),
+      branchId: f.branchId,
+      areaId: f.areas.takeaway,
+      items: [line(f.products.chicken, 1, { modifierIds: [extraHot] })],
+      send: { submissionId: uuid() },
+    });
+    expect(order.grandTotal).toBe(6200);
+
+    // Saving a product without modifierGroupIds leaves its groups alone.
+    await t.app.saveConfig.execute(owner, 'product', {
+      id: f.products.chicken,
+      categoryId: chicken.categoryId,
+      name: 'Grilled Chicken',
+      basePrice: 6000,
+    });
+    const again = await t.app.getMenu.execute(owner, f.branchId);
+    expect(again.products.find((p) => p.id === f.products.chicken)!.modifierGroups).toHaveLength(1);
+
+    await expect(
+      t.app.saveConfig.execute(await t.as(f.authUsers.cashier), 'modifier', { groupId, name: 'Mild' }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+  });
 });

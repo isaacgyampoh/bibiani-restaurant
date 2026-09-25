@@ -76,6 +76,20 @@ const ENTITIES: Record<ConfigEntity, EntityMap> = {
       isActive: 'is_active',
     },
   },
+  modifierGroup: {
+    table: 'modifier_groups',
+    columns: { name: 'name', minSelect: 'min_select', maxSelect: 'max_select' },
+  },
+  modifier: {
+    table: 'modifiers',
+    columns: {
+      groupId: 'group_id',
+      name: 'name',
+      priceDelta: 'price_delta',
+      sortOrder: 'sort_order',
+      isActive: 'is_active',
+    },
+  },
   branchProduct: {
     table: 'branch_products',
     columns: {
@@ -187,6 +201,15 @@ export function createAdminRepository(sql: Sql): AdminRepository {
           `insert into product_taxes (restaurant_id, product_id, tax_rate_id)
            select app.current_restaurant_id(), $1, value::uuid from jsonb_array_elements_text($2::text::jsonb)`,
           [id, json(record.taxRateIds)],
+        );
+      }
+      if (entity === 'product' && Array.isArray(record.modifierGroupIds)) {
+        await sql.query('delete from product_modifier_groups where product_id = $1', [id]);
+        await sql.query(
+          `insert into product_modifier_groups (restaurant_id, product_id, group_id, sort_order)
+           select app.current_restaurant_id(), $1, value::uuid, ordinality::int
+             from jsonb_array_elements_text($2::text::jsonb) with ordinality`,
+          [id, json(record.modifierGroupIds)],
         );
       }
       if (entity === 'routingRule' && Array.isArray(record.extraPrinterIds)) {

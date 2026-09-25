@@ -340,6 +340,8 @@ export interface ConfigurationView {
   devices: Record<string, unknown>[];
   stationOutputs: Record<string, unknown>[];
   routingRules: Record<string, unknown>[];
+  modifierGroups: Record<string, unknown>[];
+  modifiers: Record<string, unknown>[];
   roles: { id: string; name: string; isSystem: boolean; permissions: string[] }[];
   staff: {
     id: string;
