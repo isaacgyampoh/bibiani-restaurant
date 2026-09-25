@@ -2726,9 +2726,6 @@ input.needs {
   height: 36px;
   border-radius: 50%;
 }
-.auth {
-  background: radial-gradient(circle at 50% 0%, rgba(227, 33, 41, 0.06), transparent 55%), var(--bg);
-}
 .auth-card {
   border-top: 4px solid var(--brand);
 }
