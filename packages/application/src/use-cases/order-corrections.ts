@@ -15,6 +15,7 @@ import {
 } from '@rp/domain';
 import type { NewPrintJob, OrderAggregate, Repositories } from '../ports';
 import { authorize, type RequestContext } from '../principal';
+import { reverseStockForOrder } from './inventory';
 import { CommitLog, type Dependencies, settleOrderState } from './shared';
 
 /**
@@ -63,6 +64,14 @@ export class CancelOrder {
         agg.header.version,
       );
       agg.header.version += 1;
+      // Stock the order's sales took goes back (compensating movements; at most once per item).
+      const stockReturned = await reverseStockForOrder(tx, this.deps, {
+        orderId,
+        relatedOrderIds: await tx.orders.mergedFrom(orderId),
+        orderNumber: agg.header.orderNumber,
+        staffId: ctx.principal.staffId,
+        reason: cmd.reason,
+      });
       await tx.audit.append({
         branchId: agg.header.branchId,
         actorStaffId: ctx.principal.staffId,
@@ -71,7 +80,7 @@ export class CancelOrder {
         entityType: 'order',
         entityId: orderId,
         before: { status: agg.header.status },
-        after: { status: 'cancelled', items: itemIds.length },
+        after: { status: 'cancelled', items: itemIds.length, stockItemsReturned: stockReturned.length },
         reason: cmd.reason,
         correlationId: ctx.correlationId,
       });

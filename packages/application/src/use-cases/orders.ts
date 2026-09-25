@@ -200,6 +200,8 @@ export class SubmitOrder {
         readyAt: null,
         fulfilledAt: null,
         completedAt: null,
+        isRush: false,
+        mergedIntoOrderId: null,
       },
       items: [],
       payments: [],

@@ -60,6 +60,12 @@ export type UpdateStaffCommand = z.infer<typeof UpdateStaffCommand>;
 // ---------------------------------------------------------------------------
 const id = uuid.optional();
 export const ConfigSchemas = {
+  restaurant: z.object({
+    id,
+    name: text(80).min(1),
+    phone: text(40).nullish(),
+    receiptFooter: text(200).nullish(),
+  }),
   branch: z.object({
     id,
     name: text(80).min(1),
@@ -154,6 +160,8 @@ export const ConfigSchemas = {
     autoReady: z.boolean().default(false),
     isActive: z.boolean().default(true),
     sortOrder: z.number().int().default(0),
+    /** Show authoritative line prices on this station's screen and tickets. */
+    showPrices: z.boolean().optional(),
   }),
   device: z.object({
     id,

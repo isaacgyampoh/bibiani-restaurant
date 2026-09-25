@@ -5,6 +5,7 @@ import { DomainError, ROLE_TEMPLATES } from '@rp/domain';
 import {
   cryptoSecrets,
   type Database,
+  HmacPinHasher,
   PgIdentityRegistry,
   PgPrincipalResolver,
   PgUnitOfWork,
@@ -380,6 +381,8 @@ export function createTestApp(db: Database, options: { decorate?: RepositoryDeco
     identity: new PgIdentityRegistry(db),
     secrets: cryptoSecrets,
     deviceAccountDomain: 'devices.example.com',
+    pinHasher: new HmacPinHasher('test-pepper-0123456789abcdef0123456789abcdef'),
+    publicUrl: 'https://app.test',
     uow: new PgUnitOfWork(db, {
       decorate: options.decorate,
       // Hosted runs execute ~140 ms away from the database (production API is co-located), so
@@ -431,6 +434,19 @@ export class LocalAuthDirectory implements AuthDirectory {
   }
   async updatePassword(id: string, password: string) {
     for (const u of this.users.values()) if (u.id === id) u.password = password;
+  }
+  readonly sessions: string[] = [];
+  readonly recoveryEmails: { email: string; redirectTo: string }[] = [];
+  async createSession(userId: string) {
+    this.sessions.push(userId);
+    return {
+      accessToken: `local.${userId}`,
+      refreshToken: randomUUID(),
+      expiresAt: Math.floor(Date.now() / 1000) + 3600,
+    };
+  }
+  async sendRecoveryEmail(email: string, redirectTo: string) {
+    this.recoveryEmails.push({ email, redirectTo });
   }
   async signIn(email: string, password: string) {
     const u = this.users.get(email);

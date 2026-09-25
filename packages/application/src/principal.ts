@@ -59,4 +59,9 @@ export interface RequestContext {
   correlationId: string;
   /** Device the staff member is operating (validated server-side), or the device principal itself. */
   deviceId: string | null;
+  /**
+   * How the staff session was established: 'password', 'pin' (unlocked on a registered till) or
+   * 'email_link' (recovery / invitation link). Absent for internal calls and tests (treated as password).
+   */
+  authMethod?: 'password' | 'pin' | 'email_link';
 }

@@ -2,6 +2,8 @@ import { createRemoteJWKSet, type JWTVerifyGetKey, jwtVerify } from 'jose';
 
 export interface VerifiedToken {
   authUserId: string;
+  /** How the session was established (Supabase `amr`): password, otp (PIN session), recovery (email link). */
+  authMethods: string[];
 }
 
 export interface AccessTokenVerifier {
@@ -37,7 +39,11 @@ export class JwksTokenVerifier implements AccessTokenVerifier {
       });
       if (typeof payload.sub !== 'string' || payload.sub.length === 0)
         throw new InvalidTokenError('missing subject');
-      return { authUserId: payload.sub };
+      const amr = Array.isArray(payload.amr) ? (payload.amr as { method?: unknown }[]) : [];
+      return {
+        authUserId: payload.sub,
+        authMethods: amr.map((a) => String(a?.method ?? '')).filter(Boolean),
+      };
     } catch (error) {
       if (error instanceof InvalidTokenError) throw error;
       throw new InvalidTokenError((error as Error).message);

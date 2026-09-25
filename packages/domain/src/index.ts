@@ -7,6 +7,7 @@ export * from './money';
 export * from './order';
 export * from './payment';
 export * from './payment-policy';
+export * from './pin';
 export * from './print-job';
 export * from './roles';
 export * from './routing';

@@ -29,6 +29,11 @@ export const DOMAIN_ERROR_CODES = [
   'NOTHING_TO_VOID',
   'PAIRING_CODE_INVALID',
   'UNAUTHENTICATED',
+  'PIN_INVALID',
+  'PIN_IN_USE',
+  'RATE_LIMITED',
+  'UNAVAILABLE',
+  'ORDER_NOT_MOVABLE',
 ] as const;
 export type DomainErrorCode = (typeof DOMAIN_ERROR_CODES)[number];
 

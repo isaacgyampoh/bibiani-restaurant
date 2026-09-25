@@ -348,6 +348,49 @@ export class SaveRecipe {
 }
 
 /**
+ * Called inside the cancellation transaction: returns to stock exactly what the ledger shows the
+ * sales of this order (and of orders merged into it) took. Compensating 'sale_reversal' movements;
+ * the original sales stay in the ledger. The database refuses a second reversal per order and item,
+ * so a repeated cancellation can never return stock twice.
+ */
+export async function reverseStockForOrder(
+  tx: Repositories,
+  deps: Pick<Dependencies, 'ids'>,
+  input: {
+    orderId: string;
+    relatedOrderIds: string[];
+    orderNumber: number;
+    staffId: string | null;
+    reason: string;
+  },
+): Promise<string[]> {
+  const taken = await tx.inventory.saleTotals([input.orderId, ...input.relatedOrderIds]);
+  const itemIds = [...taken.entries()].filter(([, q]) => q < 0).map(([id]) => id);
+  if (itemIds.length === 0) return [];
+  const items = await tx.inventory.lockItems(itemIds);
+  const movements: StockMovementRecord[] = items.map((item) => {
+    const back = -(taken.get(item.id) ?? 0);
+    return {
+      id: deps.ids.uuid(),
+      branchId: item.branchId,
+      itemId: item.id,
+      kind: 'sale_reversal',
+      delta: back,
+      after: item.quantity + back,
+      unitCost: null,
+      reason: `Order cancelled: ${input.reason}`,
+      reference: `Order #${input.orderNumber}`,
+      stockCountId: null,
+      orderId: input.orderId,
+      staffId: input.staffId,
+    };
+  });
+  const reversed = new Set(await tx.inventory.insertReversals(movements));
+  for (const m of movements) if (reversed.has(m.itemId)) await tx.inventory.setQuantity(m.itemId, m.after);
+  return [...reversed];
+}
+
+/**
  * Called inside the order-submission transaction: deducts stock for the lines just sent, for
  * products that have a recipe. Never blocks a sale (stock may go negative: the count corrects it).
  */

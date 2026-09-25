@@ -4,6 +4,8 @@
  * printer family without touching the order system.
  */
 
+import { LOGO_BITS_BASE64, LOGO_HEIGHT, LOGO_WIDTH } from './logo';
+
 export type Block =
   | {
       type: 'text';
@@ -14,6 +16,7 @@ export type Block =
     }
   | { type: 'columns'; left: string; right: string; bold?: boolean }
   | { type: 'divider' }
+  | { type: 'logo' }
   | { type: 'feed'; lines: number }
   | { type: 'cut' };
 
@@ -86,6 +89,15 @@ export function wrap(text: string, width: number): string[] {
   return lines;
 }
 
+let logoCache: Uint8Array | null = null;
+function logoBits(): Uint8Array {
+  if (!logoCache) {
+    const raw = atob(LOGO_BITS_BASE64);
+    logoCache = Uint8Array.from(raw, (c) => c.charCodeAt(0));
+  }
+  return logoCache;
+}
+
 export function render(doc: Document, options: RenderOptions): Uint8Array {
   const cols = charsPerLine(options.paperWidthMm);
   const out: number[] = [...CMD.init];
@@ -135,6 +147,16 @@ export function render(doc: Document, options: RenderOptions): Uint8Array {
         push(...CMD.align(0));
         line('-'.repeat(cols));
         break;
+      case 'logo': {
+        // Raster bit image (GS v 0), centred: the real brand logo, 1 bit per dot.
+        const bits = logoBits();
+        const widthBytes = LOGO_WIDTH / 8;
+        push(...CMD.align(1), 0x1d, 0x76, 0x30, 0x00);
+        push(widthBytes & 0xff, widthBytes >> 8, LOGO_HEIGHT & 0xff, LOGO_HEIGHT >> 8);
+        for (const b of bits) out.push(b);
+        push(0x0a, ...CMD.align(0));
+        break;
+      }
       case 'feed':
         push(...CMD.feed(block.lines));
         break;

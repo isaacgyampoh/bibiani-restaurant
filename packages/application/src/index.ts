@@ -28,6 +28,7 @@ import { GetDashboard, GetExpoBoard, GetSalesReport } from './use-cases/operatio
 import { CancelOrder, GetReceipt, PrintReceipt, VoidItems } from './use-cases/order-corrections';
 import { SendOrderToKitchen, SubmitOrder } from './use-cases/orders';
 import { RecordPayment, RefundPayment, VoidPayment } from './use-cases/payments';
+import { AssignStaffPin, ChangeOwnPin, PinSignIn, RequestPinRecovery } from './use-cases/pins';
 import {
   ClaimPrintJobs,
   GetAgentConfig,
@@ -45,6 +46,7 @@ import {
 } from './use-cases/queries';
 import { GetFloor, GetMe, GetMenu, GetOperationsStatus, SetTableStatus } from './use-cases/session';
 import type { Dependencies } from './use-cases/shared';
+import { MergeOrders, SetOrderPriority, TransferOrder } from './use-cases/table-ops';
 
 export * from './ports';
 export * from './principal';
@@ -70,6 +72,13 @@ export function createApplication(deps: Dependencies) {
     getDashboard: new GetDashboard(deps),
     getExpoBoard: new GetExpoBoard(deps),
     getSalesReport: new GetSalesReport(deps),
+    transferOrder: new TransferOrder(deps),
+    mergeOrders: new MergeOrders(deps),
+    setOrderPriority: new SetOrderPriority(deps),
+    pinSignIn: new PinSignIn(deps),
+    changeOwnPin: new ChangeOwnPin(deps),
+    assignStaffPin: new AssignStaffPin(deps),
+    requestPinRecovery: new RequestPinRecovery(deps),
     listInventory: new ListInventory(deps),
     listStockMovements: new ListStockMovements(deps),
     saveInventoryItem: new SaveInventoryItem(deps),

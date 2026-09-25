@@ -131,6 +131,8 @@ export interface OrderHeader {
   readyAt: Date | null;
   fulfilledAt: Date | null;
   completedAt: Date | null;
+  isRush: boolean;
+  mergedIntoOrderId: string | null;
 }
 
 export interface StoredPayment extends PaymentRecord {
@@ -146,7 +148,7 @@ export interface OrderAggregate {
 
 export type NewOrderHeader = Omit<
   OrderHeader,
-  'version' | 'firstSubmittedAt' | 'readyAt' | 'fulfilledAt' | 'completedAt'
+  'version' | 'firstSubmittedAt' | 'readyAt' | 'fulfilledAt' | 'completedAt' | 'isRush' | 'mergedIntoOrderId'
 > & { createdByStaffId: string | null; createdByDeviceId: string | null; clientCreatedAt: Date | null };
 
 export type OrderHeaderPatch = Partial<
@@ -164,7 +166,17 @@ export type OrderHeaderPatch = Partial<
     | 'fulfilledAt'
     | 'completedAt'
   >
-> & { cancelledAt?: Date; cancelReason?: string; cancelledByStaffId?: string | null };
+> & {
+  cancelledAt?: Date;
+  cancelReason?: string;
+  cancelledByStaffId?: string | null;
+  areaId?: string;
+  channel?: OrderChannel;
+  tableId?: string | null;
+  customerName?: string | null;
+  isRush?: boolean;
+  mergedIntoOrderId?: string;
+};
 
 export interface ItemStatusUpdate {
   itemId: string;
@@ -392,6 +404,17 @@ export interface OrderRepository {
     s: Omit<SubmissionRecord, 'seq'> & { staffId: string | null; deviceId: string | null; submittedAt: Date },
   ): Promise<number>;
   appendEvent(event: OrderEvent): Promise<void>;
+  /** Orders that were merged into this one (their stock sales count as this order's). */
+  mergedFrom(orderId: string): Promise<string[]>;
+  /**
+   * Moves every item, round (submission), kitchen ticket and payment of `fromId` onto `toId`,
+   * renumbering rounds and line positions after the target's. Kitchen tickets take the target's number.
+   */
+  moveContents(
+    fromId: string,
+    toId: string,
+    toOrderNumber: number,
+  ): Promise<{ items: number; payments: number }>;
 }
 
 export interface ConfigurationReader {
@@ -485,7 +508,7 @@ export interface StockMovementRecord {
   id: string;
   branchId: string;
   itemId: string;
-  kind: 'receive' | 'waste' | 'adjust' | 'count' | 'sale';
+  kind: 'receive' | 'waste' | 'adjust' | 'count' | 'sale' | 'sale_reversal';
   delta: number; // milli
   after: number; // milli
   unitCost: number | null;
@@ -544,6 +567,13 @@ export interface InventoryRepository {
   /** Stock refresh at approval: the system quantity each line was compared against. */
   setCountSystemQuantities(countId: string, quantities: Map<string, number>): Promise<void>;
   recipes(productIds: string[]): Promise<Map<string, { itemId: string; quantity: number }[]>>;
+  /** Net stock taken by sales of these orders, per item (milli, negative), from the ledger. */
+  saleTotals(orderIds: string[]): Promise<Map<string, number>>;
+  /**
+   * Inserts reversal movements; a reversal that already exists for (order, item) is skipped by the
+   * database. Returns the item ids actually reversed now.
+   */
+  insertReversals(movements: StockMovementRecord[]): Promise<string[]>;
   setRecipe(productId: string, components: { itemId: string; quantity: number }[]): Promise<void>;
 }
 
@@ -588,6 +618,7 @@ export interface Repositories {
   read: ReadModels;
   admin: AdminRepository;
   inventory: InventoryRepository;
+  pins: PinRepository;
 }
 
 // ---------------------------------------------------------------------------
@@ -608,6 +639,40 @@ export interface AuthDirectory {
   deleteUser(id: string): Promise<void>;
   updatePassword(id: string, password: string): Promise<void>;
   signIn(email: string, password: string): Promise<AuthSession>;
+  /** Server-side session for an existing user (PIN sign-in on a registered till). */
+  createSession(userId: string): Promise<AuthSession>;
+  /** Emails a single-use recovery link to `email`, landing on `redirectTo`. */
+  sendRecoveryEmail(email: string, redirectTo: string): Promise<void>;
+}
+
+/** Keyed one-way PIN digest (HMAC with a server-only secret). Deterministic per restaurant. */
+export interface PinHasher {
+  lookup(restaurantId: string, pin: string): string;
+}
+
+export interface PinStaff {
+  staffId: string;
+  userId: string | null;
+  displayName: string;
+  email: string | null;
+  isActive: boolean;
+  mustChange: boolean;
+  hasPin: boolean;
+}
+export interface PinRepository {
+  staffByLookup(lookup: string): Promise<PinStaff | null>;
+  staffById(staffId: string): Promise<PinStaff | null>;
+  staffByEmail(email: string): Promise<PinStaff | null>;
+  setPin(staffId: string, lookup: string, mustChange: boolean, now: Date): Promise<void>;
+  activate(staffId: string, now: Date): Promise<void>;
+  recordAttempt(a: {
+    deviceId: string | null;
+    staffId: string | null;
+    succeeded: boolean;
+    at: Date;
+  }): Promise<void>;
+  /** Failed attempt times since `since`, newest first. */
+  failures(scope: { deviceId: string } | 'restaurant', since: Date): Promise<Date[]>;
 }
 
 // ---------------------------------------------------------------------------

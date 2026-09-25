@@ -21,6 +21,7 @@ import { DomainError, type OrderItem, type ProductForSale, type TaxRate } from '
 import { dateOrNull, num, numOrNull, type Sql } from '../db/sql';
 import { createAdminRepository } from './admin';
 import { createInventoryRepository } from './inventory';
+import { createPinRepository } from './pins';
 import { createReadModels } from './read-models';
 import { assignments, json } from './util';
 
@@ -41,6 +42,7 @@ export function createRepositories(sql: Sql): Repositories {
     read: createReadModels(sql),
     admin: createAdminRepository(sql),
     inventory: createInventoryRepository(sql),
+    pins: createPinRepository(sql),
   };
 }
 
@@ -73,6 +75,8 @@ function mapHeader(r: Row): OrderHeader {
     readyAt: dateOrNull(r.ready_at),
     fulfilledAt: dateOrNull(r.fulfilled_at),
     completedAt: dateOrNull(r.completed_at),
+    isRush: Boolean(r.is_rush),
+    mergedIntoOrderId: sn(r.merged_into_order_id),
   };
 }
 
@@ -308,6 +312,36 @@ function orderRepository(sql: Sql): OrderRepository {
         });
       }
       return num(rows[0]!.version);
+    },
+
+    async mergedFrom(orderId) {
+      const rows = await sql.query('select id from orders where merged_into_order_id = $1', [orderId]);
+      return rows.map((r) => s(r.id));
+    },
+
+    async moveContents(fromId, toId, toOrderNumber) {
+      await sql.query(
+        `update order_submissions set order_id = $2,
+                seq = seq + (select coalesce(max(seq), 0) from order_submissions where order_id = $2)
+         where order_id = $1`,
+        [fromId, toId],
+      );
+      const items = await sql.query(
+        `update order_items set order_id = $2,
+                position = position + (select coalesce(max(position), 0) from order_items where order_id = $2)
+         where order_id = $1 returning id`,
+        [fromId, toId],
+      );
+      await sql.query('update production_tickets set order_id = $2, order_number = $3 where order_id = $1', [
+        fromId,
+        toId,
+        toOrderNumber,
+      ]);
+      const payments = await sql.query('update payments set order_id = $2 where order_id = $1 returning id', [
+        fromId,
+        toId,
+      ]);
+      return { items: items.length, payments: payments.length };
     },
 
     async activeOrderIdForTable(tableId) {

@@ -13,6 +13,10 @@ interface EntityMap {
 }
 
 const ENTITIES: Record<ConfigEntity, EntityMap> = {
+  restaurant: {
+    table: 'restaurants',
+    columns: { name: 'name', phone: 'phone', receiptFooter: 'receipt_footer' },
+  },
   branch: {
     table: 'branches',
     columns: {
@@ -110,6 +114,7 @@ const ENTITIES: Record<ConfigEntity, EntityMap> = {
       autoReady: 'auto_ready',
       isActive: 'is_active',
       sortOrder: 'sort_order',
+      showPrices: 'show_prices',
     },
   },
   device: {
@@ -191,6 +196,15 @@ export function createAdminRepository(sql: Sql): AdminRepository {
     },
 
     async save(entity, record) {
+      if (entity === 'restaurant') {
+        // The one restaurant row of the current tenant: update only, never insert.
+        await sql.query(
+          `update restaurants set name = $1, phone = $2, receipt_footer = $3 where id = app.current_restaurant_id()`,
+          [record.name, record.phone ?? null, record.receiptFooter ?? null],
+        );
+        const [r] = await sql.query<{ id: string }>('select app.current_restaurant_id() as id');
+        return r!.id;
+      }
       const map = ENTITIES[entity];
       const id = await upsert(sql, map, record);
 

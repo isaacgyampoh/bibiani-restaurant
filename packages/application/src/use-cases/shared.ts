@@ -17,6 +17,7 @@ import type {
   OrderAggregate,
   OrderHeader,
   OrderHeaderPatch,
+  PinHasher,
   Repositories,
   SecretGenerator,
   UnitOfWork,
@@ -35,6 +36,10 @@ export interface Dependencies {
   secrets?: SecretGenerator;
   /** Email domain for device logins (never receives mail). */
   deviceAccountDomain?: string;
+  /** Staff PIN digests (needs the server-only PIN_PEPPER). PIN features are off without it. */
+  pinHasher?: PinHasher;
+  /** Public web address, for links in emails (e.g. PIN recovery). */
+  publicUrl?: string;
 }
 
 /**

@@ -14,6 +14,7 @@ import { authorize, type RequestContext } from '../principal';
 import { CommitLog, type Dependencies } from './shared';
 
 const ENTITY_PERMISSION: Record<ConfigEntity, Permission> = {
+  restaurant: 'config.manage',
   branch: 'config.manage',
   area: 'config.manage',
   table: 'config.manage',
@@ -31,7 +32,7 @@ const ENTITY_PERMISSION: Record<ConfigEntity, Permission> = {
 };
 
 /** Restaurant-wide configuration requires the permission for every branch (a null-branch grant). */
-function authorizeRestaurantWide(ctx: RequestContext, permission: Permission): void {
+export function authorizeRestaurantWide(ctx: RequestContext, permission: Permission): void {
   const ok = ctx.principal.grants.some((g) => g.branchId === null && g.permissions.has(permission));
   if (!ok) throw new DomainError('FORBIDDEN', 'You do not have permission to do this', { permission });
 }

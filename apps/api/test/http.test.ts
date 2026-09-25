@@ -69,6 +69,25 @@ describe('HTTP API', () => {
     );
   });
 
+  it('a PIN session runs the till but cannot use back-office administration', async () => {
+    const station = { branchId: h.f.branchId, name: `Bar ${uuid().slice(0, 4)}`, code: 'BAR2' };
+    const post = async (amr: string[]) =>
+      h.http.request('/v1/admin/config/station', {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${await h.token(h.f.authUsers.manager, { amr })}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(station),
+      });
+    expect((await post(['otp'])).status).toBe(403);
+    expect((await post(['password'])).status).toBe(200);
+    const menu = await h.http.request(`/v1/branches/${h.f.branchId}/menu`, {
+      headers: { authorization: `Bearer ${await h.token(h.f.authUsers.manager, { amr: ['otp'] })}` },
+    });
+    expect(menu.status).toBe(200);
+  });
+
   it('health endpoints need no auth', async () => {
     expect((await h.http.request('/health')).status).toBe(200);
   });

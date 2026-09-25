@@ -32,6 +32,7 @@ function summary(o: Row): OrderSummaryView {
     id: s(o.id),
     orderNumber: num(o.order_number),
     channel: o.channel as OrderSummaryView['channel'],
+    isRush: Boolean(o.is_rush),
     areaId: s(o.area_id),
     tableId: sn(o.table_id),
     areaName: s(o.area_name),
@@ -319,7 +320,7 @@ export function createOpsReadModels(sql: Sql): OpsModels {
         `select o.*, a.name as area_name, t.label as table_label
          from orders o join operational_areas a on a.id = o.area_id left join dining_tables t on t.id = o.table_id
          where o.branch_id = $1 and o.status in ('submitted', 'in_preparation', 'partially_ready', 'ready')
-         order by coalesce(o.first_submitted_at, o.created_at)
+         order by o.is_rush desc, coalesce(o.first_submitted_at, o.created_at)
          limit 60`,
         [branchId],
       );
@@ -385,6 +386,7 @@ export function createOpsReadModels(sql: Sql): OpsModels {
           id: s(o.id),
           orderNumber: num(o.order_number),
           channel: o.channel as ExpoOrderView['channel'],
+          isRush: Boolean(o.is_rush),
           areaName: s(o.area_name),
           tableLabel: sn(o.table_label),
           customerName: sn(o.customer_name),

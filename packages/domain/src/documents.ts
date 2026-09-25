@@ -17,6 +17,8 @@ export type DocumentBlock =
     }
   | { type: 'columns'; left: string; right: string; bold?: boolean }
   | { type: 'divider' }
+  /** The restaurant logo: raster on thermal printers, the image in browser print. */
+  | { type: 'logo' }
   | { type: 'feed'; lines: number }
   | { type: 'cut' };
 
@@ -84,6 +86,7 @@ export function kitchenTicketDocument(t: KitchenTicketInput): PrintDocument {
 // ---------------------------------------------------------------------------
 export interface ReceiptInput {
   restaurantName: string;
+  restaurantPhone?: string | null;
   branchName: string;
   branchAddress: string | null;
   currency: string;
@@ -97,6 +100,7 @@ export interface ReceiptInput {
   items: {
     quantity: number;
     name: string;
+    unitPrice?: number;
     lineTotal: number;
     modifiers: { name: string; priceDelta: number }[];
     voided: boolean;
@@ -127,10 +131,11 @@ export function receiptDocument(r: ReceiptInput): PrintDocument {
     year: 'numeric',
   }).format(r.issuedAt);
   const blocks: DocumentBlock[] = [
+    { type: 'logo' },
     { type: 'text', text: r.restaurantName.toUpperCase(), align: 'center', size: 'tall', bold: true },
-    { type: 'text', text: r.branchName, align: 'center' },
   ];
   if (r.branchAddress) blocks.push({ type: 'text', text: r.branchAddress, align: 'center' });
+  if (r.restaurantPhone) blocks.push({ type: 'text', text: `Tel: ${r.restaurantPhone}`, align: 'center' });
   blocks.push(
     { type: 'divider' },
     {
@@ -152,6 +157,8 @@ export function receiptDocument(r: ReceiptInput): PrintDocument {
 
   for (const item of r.items.filter((i) => !i.voided)) {
     blocks.push({ type: 'columns', left: `${item.quantity} x ${item.name}`, right: money(item.lineTotal) });
+    if (item.quantity > 1 && item.unitPrice !== undefined)
+      blocks.push({ type: 'text', text: `   @ ${money(item.unitPrice)} each` });
     for (const m of item.modifiers) {
       blocks.push({ type: 'text', text: `   + ${m.name}${m.priceDelta ? ` (${money(m.priceDelta)})` : ''}` });
     }

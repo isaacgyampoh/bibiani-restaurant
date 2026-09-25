@@ -134,7 +134,7 @@ export const DEVICE_PERMISSIONS: Record<DeviceKind, readonly Permission[]> = {
   customer_display: ['display.view'],
 };
 
-export const STOCK_MOVEMENT_KINDS = ['receive', 'waste', 'adjust', 'count', 'sale'] as const;
+export const STOCK_MOVEMENT_KINDS = ['receive', 'waste', 'adjust', 'count', 'sale', 'sale_reversal'] as const;
 export type StockMovementKind = (typeof STOCK_MOVEMENT_KINDS)[number];
 
 export const STOCK_COUNT_STATUSES = ['open', 'submitted', 'approved', 'cancelled'] as const;

@@ -83,6 +83,9 @@ export interface OrderView {
   readyAt: string | null;
   fulfilledAt: string | null;
   completedAt: string | null;
+  isRush: boolean;
+  /** Set when this order was merged into another one (it is then closed). */
+  mergedIntoOrderId: string | null;
   /** Receipts queued so far; the next print is a REPRINT when this is above zero. */
   receiptsPrinted: number;
   items: OrderItemView[];
@@ -94,6 +97,7 @@ export interface OrderSummaryView {
   id: string;
   orderNumber: number;
   channel: OrderChannel;
+  isRush: boolean;
   areaId: string;
   tableId: string | null;
   areaName: string;
@@ -121,6 +125,7 @@ export interface StationTicketView {
   createdAt: string;
   startedAt: string | null;
   readyAt: string | null;
+  isRush: boolean;
   items: {
     id: string;
     quantity: number;
@@ -128,11 +133,20 @@ export interface StationTicketView {
     modifiers: string[];
     notes: string | null;
     status: OrderItemStatus;
+    /** Authoritative line total from the order, only when the station is set to show prices. */
+    lineTotal: number | null;
   }[];
 }
 
 export interface StationBoardView {
-  station: { id: string; name: string; branchId: string; targetPrepSeconds: number | null };
+  station: {
+    id: string;
+    name: string;
+    branchId: string;
+    targetPrepSeconds: number | null;
+    showPrices: boolean;
+    currency: string;
+  };
   tickets: StationTicketView[];
   /** Print problems for this station's printers, so cooks know when paper is not coming. */
   printerAlerts: {
@@ -329,7 +343,14 @@ export interface PairDeviceResult {
 }
 
 export interface ConfigurationView {
-  restaurant: { id: string; name: string; currency: string; timezone: string };
+  restaurant: {
+    id: string;
+    name: string;
+    currency: string;
+    timezone: string;
+    phone: string | null;
+    receiptFooter: string | null;
+  };
   branches: Record<string, unknown>[];
   areas: Record<string, unknown>[];
   tables: Record<string, unknown>[];
@@ -394,6 +415,7 @@ export interface ExpoOrderView {
   id: string;
   orderNumber: number;
   channel: OrderChannel;
+  isRush: boolean;
   areaName: string;
   tableLabel: string | null;
   customerName: string | null;
@@ -453,7 +475,7 @@ export interface StockMovementView {
   itemId: string;
   itemName: string;
   unit: string;
-  kind: 'receive' | 'waste' | 'adjust' | 'count' | 'sale';
+  kind: 'receive' | 'waste' | 'adjust' | 'count' | 'sale' | 'sale_reversal';
   quantityDelta: number;
   quantityAfter: number;
   unitCost: number | null;

@@ -14,6 +14,7 @@ const KIND: Record<StockMovementView['kind'], string> = {
   adjust: 'Adjustment',
   count: 'Stock count',
   sale: 'Sold',
+  sale_reversal: 'Returned (order cancelled)',
 };
 const qty = (n: number, unit: string) => `${Number(n.toFixed(3)).toLocaleString()} ${unit}`;
 const when = (iso: string | null) =>

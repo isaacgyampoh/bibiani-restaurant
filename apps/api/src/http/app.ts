@@ -1,14 +1,20 @@
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { Application, Logger, RequestContext } from '@rp/application';
 import {
+  AssignPinCommand,
   CancelOrderCommand,
+  ChangePinCommand,
   ClaimPrintJobsCommand,
   CONFIG_ENTITIES,
   type ConfigEntity,
   CreateStaffCommand,
   FulfilOrderCommand,
   HeartbeatCommand,
+  MergeOrderCommand,
+  OrderPriorityCommand,
   PairDeviceCommand,
+  PinRecoveryCommand,
+  PinSignInCommand,
   PrintJobResultCommand,
   PrintReceiptCommand,
   RecordCountLineCommand,
@@ -23,6 +29,7 @@ import {
   StockCountDecisionCommand,
   SubmitOrderCommand,
   TicketActionCommand,
+  TransferOrderCommand,
   UpdateStaffCommand,
   VoidItemsCommand,
   VoidPaymentCommand,
@@ -64,6 +71,7 @@ export interface HttpDependencies {
 
 const digest = (value: string) => createHash('sha256').update(value).digest();
 
+const PASSWORD_ONLY: ReadonlySet<string> = new Set(['staff.manage', 'device.manage', 'config.manage']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
@@ -241,7 +249,25 @@ export function createHttpApp(deps: HttpDependencies) {
       deps.logger.warn('auth.denied', { correlationId: c.var.correlationId, reason: resolved.reason });
       throw new DomainError('FORBIDDEN', 'This account has no access here', { reason: resolved.reason });
     }
-    const principal = resolved.principal;
+    const methods = verified.authMethods;
+    const authMethod =
+      methods.includes('recovery') || methods.includes('invite')
+        ? ('email_link' as const)
+        : methods.includes('otp') || methods.includes('magiclink')
+          ? ('pin' as const)
+          : ('password' as const);
+    // A PIN unlocks the till, not the back office: staff, device and settings management need a
+    // password sign-in, whatever the staff member's role.
+    const principal =
+      authMethod === 'pin' && resolved.principal.kind === 'staff'
+        ? {
+            ...resolved.principal,
+            grants: resolved.principal.grants.map((g) => ({
+              branchId: g.branchId,
+              permissions: new Set([...g.permissions].filter((perm) => !PASSWORD_ONLY.has(perm))),
+            })),
+          }
+        : resolved.principal;
     let deviceId: string | null = principal.kind === 'device' ? principal.deviceId : null;
     const operating = c.req.header('x-device-id');
     if (principal.kind === 'staff' && operating) {
@@ -253,7 +279,7 @@ export function createHttpApp(deps: HttpDependencies) {
       }
       deviceId = operating;
     }
-    c.set('ctx', { principal, correlationId: c.var.correlationId, deviceId });
+    c.set('ctx', { principal, correlationId: c.var.correlationId, deviceId, authMethod });
     c.set('displayName', resolved.displayName);
     await next();
   });
@@ -426,6 +452,54 @@ export function createHttpApp(deps: HttpDependencies) {
   );
   v1.get('/branches/:branchId/operations', async (c) =>
     c.json(await deps.app.getOperationsStatus.execute(c.var.ctx, id(c, 'branchId'))),
+  );
+
+  // Floor operations
+  v1.post('/orders/:orderId/transfer', async (c) =>
+    c.json(
+      await deps.app.transferOrder.execute(c.var.ctx, id(c, 'orderId'), await body(c, TransferOrderCommand)),
+    ),
+  );
+  v1.post('/orders/:orderId/merge', async (c) =>
+    c.json(
+      await deps.app.mergeOrders.execute(
+        c.var.ctx,
+        id(c, 'orderId'),
+        (await body(c, MergeOrderCommand)).sourceOrderId,
+      ),
+    ),
+  );
+  v1.post('/orders/:orderId/priority', async (c) =>
+    c.json(
+      await deps.app.setOrderPriority.execute(
+        c.var.ctx,
+        id(c, 'orderId'),
+        (await body(c, OrderPriorityCommand)).rush,
+      ),
+    ),
+  );
+
+  // Staff PINs (sign-in happens on a registered till: the caller is the till's device login)
+  const pinLimiter = new RateLimiter(20, 60_000);
+  v1.post('/auth/pin', async (c) => {
+    if (!pinLimiter.allow(c.var.ctx.deviceId ?? 'none'))
+      throw new DomainError('RATE_LIMITED', 'Too many attempts. Wait a minute and try again.');
+    return c.json(await deps.app.pinSignIn.execute(c.var.ctx, (await body(c, PinSignInCommand)).pin));
+  });
+  v1.post('/auth/pin-recovery', async (c) =>
+    c.json(await deps.app.requestPinRecovery.execute(c.var.ctx, (await body(c, PinRecoveryCommand)).email)),
+  );
+  v1.post('/me/pin', async (c) =>
+    c.json(await deps.app.changeOwnPin.execute(c.var.ctx, await body(c, ChangePinCommand))),
+  );
+  v1.post('/admin/staff/:staffId/pin', async (c) =>
+    c.json(
+      await deps.app.assignStaffPin.execute(
+        c.var.ctx,
+        id(c, 'staffId'),
+        (await body(c, AssignPinCommand)).pin,
+      ),
+    ),
   );
 
   // Restaurant operations: dashboard and expediter board

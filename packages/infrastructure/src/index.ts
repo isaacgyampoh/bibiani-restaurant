@@ -1,4 +1,5 @@
 export * from './auth/identity-registry';
+export * from './auth/pin-hasher';
 export * from './auth/principal-resolver';
 export * from './auth/supabase-auth-directory';
 export * from './auth/token-verifier';

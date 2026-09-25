@@ -3,6 +3,7 @@ import {
   createJsonLogger,
   createPostgresDatabase,
   cryptoSecrets,
+  HmacPinHasher,
   JwksTokenVerifier,
   PgIdentityRegistry,
   PgPrincipalResolver,
@@ -39,6 +40,9 @@ export function compose(env: Record<string, string | undefined> = process.env) {
     identity: new PgIdentityRegistry(db),
     secrets: cryptoSecrets,
     deviceAccountDomain: env.DEVICE_ACCOUNT_DOMAIN ?? 'devices.example.com',
+    // Staff PINs are digested with a server-only secret; without it PIN sign-in is simply off.
+    pinHasher: env.PIN_PEPPER ? new HmacPinHasher(env.PIN_PEPPER) : undefined,
+    publicUrl: env.PUBLIC_URL?.replace(/\/$/, ''),
     uow: new PgUnitOfWork(db, {
       statementTimeoutMs: Number(env.DB_STATEMENT_TIMEOUT_MS ?? 8000),
       lockTimeoutMs: Number(env.DB_LOCK_TIMEOUT_MS ?? 4000),

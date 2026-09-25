@@ -129,6 +129,30 @@ export type RecordCountLineCommand = z.infer<typeof RecordCountLineCommand>;
 export const StockCountDecisionCommand = z.object({ expectedVersion: z.number().int().positive() });
 export type StockCountDecisionCommand = z.infer<typeof StockCountDecisionCommand>;
 
+// ---------------------------------------------------------------------------
+// Floor operations and staff PINs
+// ---------------------------------------------------------------------------
+export const TransferOrderCommand = z.object({
+  areaId: uuid,
+  tableId: uuid.nullish(),
+  customerName: text(80).nullish(),
+});
+export type TransferOrderCommand = z.infer<typeof TransferOrderCommand>;
+export const MergeOrderCommand = z.object({ sourceOrderId: uuid });
+export type MergeOrderCommand = z.infer<typeof MergeOrderCommand>;
+export const OrderPriorityCommand = z.object({ rush: z.boolean() });
+export type OrderPriorityCommand = z.infer<typeof OrderPriorityCommand>;
+
+const pin = z.string().regex(/^\d{4,6}$/, 'A PIN is 4 to 6 digits');
+export const PinSignInCommand = z.object({ pin: z.string().max(12) });
+export type PinSignInCommand = z.infer<typeof PinSignInCommand>;
+export const ChangePinCommand = z.object({ currentPin: z.string().max(12).nullish(), newPin: pin });
+export type ChangePinCommand = z.infer<typeof ChangePinCommand>;
+export const AssignPinCommand = z.object({ pin });
+export type AssignPinCommand = z.infer<typeof AssignPinCommand>;
+export const PinRecoveryCommand = z.object({ email: z.email().max(200) });
+export type PinRecoveryCommand = z.infer<typeof PinRecoveryCommand>;
+
 export const SaveRecipeCommand = z.object({
   components: z.array(z.object({ itemId: uuid, quantity: quantity.positive() })).max(30),
 });

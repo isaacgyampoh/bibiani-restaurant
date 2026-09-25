@@ -19,7 +19,7 @@ export interface HttpHarness {
   f: RestaurantFixture;
   t: TestApp;
   http: ReturnType<typeof createHttpApp>;
-  token(sub: string, overrides?: { issuer?: string; expiresIn?: string }): Promise<string>;
+  token(sub: string, overrides?: { issuer?: string; expiresIn?: string; amr?: string[] }): Promise<string>;
   client(sub: string, opts?: { deviceId?: string; fetch?: typeof fetch }): ApiClient;
   /** fetch that goes straight into the Hono app (no network). */
   fetch: typeof fetch;
@@ -52,8 +52,8 @@ export async function createHttpHarness(): Promise<HttpHarness> {
       health: async () => (await db.query<{ h: unknown }>('select app.ops_health() as h'))[0]?.h,
     },
   });
-  const token = (sub: string, o: { issuer?: string; expiresIn?: string } = {}) =>
-    new SignJWT({ role: 'authenticated' })
+  const token = (sub: string, o: { issuer?: string; expiresIn?: string; amr?: string[] } = {}) =>
+    new SignJWT({ role: 'authenticated', amr: (o.amr ?? ['password']).map((method) => ({ method })) })
       .setProtectedHeader({ alg: 'ES256', kid: 'test-key' })
       .setSubject(sub)
       .setIssuer(o.issuer ?? `${SUPABASE_URL}/auth/v1`)

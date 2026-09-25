@@ -168,6 +168,49 @@ export function createInventoryRepository(sql: Sql): InventoryRepository {
       );
     },
 
+    async saleTotals(orderIds) {
+      const out = new Map<string, number>();
+      if (orderIds.length === 0) return out;
+      const rows = await sql.query(
+        `select item_id, sum(quantity_delta) as total from stock_movements
+         where kind = 'sale' and order_id in (select value::uuid from jsonb_array_elements_text($1::text::jsonb))
+         group by item_id`,
+        [json(orderIds)],
+      );
+      for (const r of rows) out.set(r.item_id as string, milli(r.total));
+      return out;
+    },
+
+    async insertReversals(movements) {
+      if (movements.length === 0) return [];
+      const rows = await sql.query<{ item_id: string }>(
+        `insert into stock_movements (id, restaurant_id, branch_id, item_id, kind, quantity_delta, quantity_after,
+                                      reason, reference, order_id, staff_id)
+         select m.id, app.current_restaurant_id(), m.branch_id, m.item_id, 'sale_reversal',
+                m.delta::numeric, m.after::numeric, m.reason, m.reference, m.order_id, m.staff_id
+         from jsonb_to_recordset($1::text::jsonb) as m(id uuid, branch_id uuid, item_id uuid, delta text, after text,
+              reason text, reference text, order_id uuid, staff_id uuid)
+         on conflict (order_id, item_id) where kind = 'sale_reversal' do nothing
+         returning item_id`,
+        [
+          json(
+            movements.map((m) => ({
+              id: m.id,
+              branch_id: m.branchId,
+              item_id: m.itemId,
+              delta: dec(m.delta),
+              after: dec(m.after),
+              reason: m.reason,
+              reference: m.reference,
+              order_id: m.orderId,
+              staff_id: m.staffId,
+            })),
+          ),
+        ],
+      );
+      return rows.map((r) => r.item_id);
+    },
+
     async recipes(productIds) {
       const out = new Map<string, { itemId: string; quantity: number }[]>();
       if (productIds.length === 0) return out;

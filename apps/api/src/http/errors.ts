@@ -18,6 +18,11 @@ const STATUS: Partial<Record<DomainErrorCode, ContentfulStatusCode>> = {
   PAYMENT_REQUIRED_BEFORE_FULFILMENT: 409,
   PAIRING_CODE_INVALID: 400,
   UNAUTHENTICATED: 401,
+  PIN_INVALID: 422,
+  PIN_IN_USE: 409,
+  RATE_LIMITED: 429,
+  UNAVAILABLE: 503,
+  ORDER_NOT_MOVABLE: 409,
 };
 
 /** Messages shown to restaurant staff. Domain messages are already written for them; these override where needed. */

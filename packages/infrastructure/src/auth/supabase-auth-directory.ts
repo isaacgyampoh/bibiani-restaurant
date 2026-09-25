@@ -92,6 +92,41 @@ export class SupabaseAuthDirectory implements AuthDirectory {
     );
   }
 
+  /**
+   * A session for an existing user without their password: an admin-generated one-time magic-link
+   * token, verified immediately server-side. Nothing is emailed. Used only after a PIN was checked
+   * on a registered till.
+   */
+  async createSession(userId: string): Promise<AuthSession> {
+    const user = await this.call<{ email?: string }>(
+      `/admin/users/${userId}`,
+      { method: 'GET' },
+      this.secretKey,
+    );
+    if (!user.email) throw new InfrastructureError('Staff login has no email', false);
+    const link = await this.call<{ hashed_token?: string; properties?: { hashed_token?: string } }>(
+      '/admin/generate_link',
+      { method: 'POST', body: JSON.stringify({ type: 'magiclink', email: user.email }) },
+      this.secretKey,
+    );
+    const tokenHash = link.properties?.hashed_token ?? link.hashed_token;
+    if (!tokenHash) throw new InfrastructureError('Auth service did not return a sign-in token', true);
+    const s = await this.call<{ access_token: string; refresh_token: string; expires_at: number }>(
+      '/verify',
+      { method: 'POST', body: JSON.stringify({ type: 'magiclink', token_hash: tokenHash }) },
+      this.anonKey,
+    );
+    return { accessToken: s.access_token, refreshToken: s.refresh_token, expiresAt: s.expires_at };
+  }
+
+  async sendRecoveryEmail(email: string, redirectTo: string): Promise<void> {
+    await this.call(
+      `/recover?redirect_to=${encodeURIComponent(redirectTo)}`,
+      { method: 'POST', body: JSON.stringify({ email }) },
+      this.anonKey,
+    );
+  }
+
   async signIn(email: string, password: string): Promise<AuthSession> {
     const s = await this.call<{ access_token: string; refresh_token: string; expires_at: number }>(
       '/token?grant_type=password',

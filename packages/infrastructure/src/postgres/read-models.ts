@@ -92,6 +92,8 @@ export function createReadModels(sql: Sql): ReadModels {
         readyAt: isoOf(o.ready_at),
         fulfilledAt: isoOf(o.fulfilled_at),
         completedAt: isoOf(o.completed_at),
+        isRush: Boolean(o.is_rush),
+        mergedIntoOrderId: sn(o.merged_into_order_id),
         receiptsPrinted: num(o.receipts_printed),
         items: items.map((i) => ({
           id: s(i.id),
@@ -158,6 +160,7 @@ export function createReadModels(sql: Sql): ReadModels {
         id: s(o.id),
         orderNumber: num(o.order_number),
         channel: o.channel as OrderSummaryView['channel'],
+        isRush: Boolean(o.is_rush),
         areaId: s(o.area_id),
         tableId: sn(o.table_id),
         areaName: s(o.area_name),
@@ -189,6 +192,7 @@ export function createReadModels(sql: Sql): ReadModels {
         id: s(o.id),
         orderNumber: num(o.order_number),
         channel: o.channel as OrderSummaryView['channel'],
+        isRush: Boolean(o.is_rush),
         areaId: s(o.area_id),
         tableId: sn(o.table_id),
         areaName: s(o.area_name),
@@ -208,23 +212,24 @@ export function createReadModels(sql: Sql): ReadModels {
 
     async stationBoard(stationId): Promise<StationBoardView | null> {
       const [station] = await sql.query(
-        'select id, name, branch_id, target_prep_seconds from stations where id = $1',
+        `select s.id, s.name, s.branch_id, s.target_prep_seconds, s.show_prices, r.currency
+         from stations s join restaurants r on r.id = s.restaurant_id where s.id = $1`,
         [stationId],
       );
       if (!station) return null;
       const [tickets, items, alerts] = await Promise.all([
         sql.query(
-          `select t.*, o.channel, o.customer_name, o.notes as order_notes, a.name as area_name, dt.label as table_label
+          `select t.*, o.channel, o.customer_name, o.notes as order_notes, o.is_rush, a.name as area_name, dt.label as table_label
            from production_tickets t
            join orders o on o.id = t.order_id
            join operational_areas a on a.id = o.area_id
            left join dining_tables dt on dt.id = o.table_id
            where t.station_id = $1 and t.status not in ('completed', 'cancelled')
-           order by t.created_at, t.id`,
+           order by o.is_rush desc, t.created_at, t.id`,
           [stationId],
         ),
         sql.query(
-          `select pti.ticket_id, i.id, i.quantity, coalesce(i.kitchen_name, i.name) as name, i.notes, i.status,
+          `select pti.ticket_id, i.id, i.quantity, coalesce(i.kitchen_name, i.name) as name, i.notes, i.status, i.line_total,
              coalesce((select json_agg(m.name order by m.name) from order_item_modifiers m where m.order_item_id = i.id), '[]'::json) as modifiers
            from production_ticket_items pti
            join production_tickets t on t.id = pti.ticket_id
@@ -252,6 +257,8 @@ export function createReadModels(sql: Sql): ReadModels {
           name: s(station.name),
           branchId: s(station.branch_id),
           targetPrepSeconds: numOrNull(station.target_prep_seconds),
+          showPrices: Boolean(station.show_prices),
+          currency: s(station.currency).trim(),
         },
         tickets: tickets.map(
           (t): StationTicketView => ({
@@ -268,6 +275,7 @@ export function createReadModels(sql: Sql): ReadModels {
             createdAt: isoOf(t.created_at)!,
             startedAt: isoOf(t.started_at),
             readyAt: isoOf(t.ready_at),
+            isRush: Boolean(t.is_rush),
             items: items
               .filter((i) => i.ticket_id === t.id)
               .map((i) => ({
@@ -277,6 +285,7 @@ export function createReadModels(sql: Sql): ReadModels {
                 modifiers: i.modifiers as string[],
                 notes: sn(i.notes),
                 status: i.status as StationTicketView['items'][number]['status'],
+                lineTotal: station.show_prices ? num(i.line_total) : null,
               })),
           }),
         ),
@@ -491,7 +500,7 @@ export function createReadModels(sql: Sql): ReadModels {
 
     async receiptData(orderId) {
       const [o] = await sql.query(
-        `select o.*, r.name as restaurant_name, r.currency, r.receipt_footer, b.name as branch_name, b.address as branch_address,
+        `select o.*, r.name as restaurant_name, r.phone as restaurant_phone, r.currency, r.receipt_footer, b.name as branch_name, b.address as branch_address,
                 b.timezone, t.label as table_label,
                 coalesce(
                   (select s.display_name from payments p join staff s on s.id = p.recorded_by_staff_id
@@ -504,7 +513,7 @@ export function createReadModels(sql: Sql): ReadModels {
       if (!o) return null;
       const [items, taxes, payments] = await Promise.all([
         sql.query(
-          `select i.quantity, i.name, i.line_total, i.status,
+          `select i.quantity, i.name, i.unit_price, i.line_total, i.status,
              coalesce((select json_agg(json_build_object('name', m.name, 'priceDelta', m.price_delta) order by m.name)
                        from order_item_modifiers m where m.order_item_id = i.id), '[]'::json) as modifiers
            from order_items i where i.order_id = $1 order by i.position`,
@@ -524,6 +533,7 @@ export function createReadModels(sql: Sql): ReadModels {
       const grand = num(o.grand_total);
       return {
         restaurantName: s(o.restaurant_name),
+        restaurantPhone: sn(o.restaurant_phone),
         branchName: s(o.branch_name),
         branchAddress: sn(o.branch_address),
         currency: s(o.currency).trim(),
@@ -536,6 +546,7 @@ export function createReadModels(sql: Sql): ReadModels {
         items: items.map((i) => ({
           quantity: num(i.quantity),
           name: s(i.name),
+          unitPrice: num(i.unit_price),
           lineTotal: num(i.line_total),
           modifiers: (i.modifiers as { name: string; priceDelta: unknown }[]).map((m) => ({
             name: m.name,
@@ -583,7 +594,9 @@ export function createReadModels(sql: Sql): ReadModels {
         modifierGroups,
         modifiers,
       ] = await Promise.all([
-        q(`select id, name, currency, timezone from restaurants where id = app.current_restaurant_id()`),
+        q(
+          `select id, name, currency, timezone, phone, receipt_footer from restaurants where id = app.current_restaurant_id()`,
+        ),
         q(
           `select id, name, code, address, timezone, to_char(business_day_cutoff, 'HH24:MI') as business_day_cutoff, order_number_start, is_active from branches order by name`,
         ),
@@ -627,6 +640,8 @@ export function createReadModels(sql: Sql): ReadModels {
           name: s(r0.name),
           currency: s(r0.currency).trim(),
           timezone: s(r0.timezone),
+          phone: sn(r0.phone),
+          receiptFooter: sn(r0.receipt_footer),
         },
         branches: camel(branches),
         areas: camel(areas),
