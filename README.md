@@ -2,7 +2,7 @@
 
 A configurable restaurant operating system: POS, order routing to production stations, kitchen tickets, a durable print queue, manual payments, and order completion. Built SaaS-ready (restaurant → branch → areas / stations / devices).
 
-**Status: Phase 5: deployed to STAGING (`https://restaurant-management-staging.vercel.app`) and validated there; see [docs/10-production-readiness.md](docs/10-production-readiness.md).** POS (hall and takeaway), KDS, customer display, admin, device pairing, staff sign-in, manual payments (cash / MoMo / card / split), receipts and cancel/void are built. They are tested locally and against the hosted DEV database, including real concurrency and real Supabase Realtime. **Not deployed; not tested on real restaurant hardware; not production-ready.**
+**Status: deployed to STAGING (`https://restaurant-management-staging.vercel.app`) and PRODUCTION (`https://restaurant-management-prod-rouge.vercel.app`, empty, open risks accepted); see [docs/10-production-readiness.md](docs/10-production-readiness.md).** POS (hall and takeaway), KDS, customer display, admin, device pairing, staff sign-in, manual payments (cash / MoMo / card / split), receipts and cancel/void are built. They are tested locally and against the hosted DEV database, including real concurrency and real Supabase Realtime. **Not deployed; not tested on real restaurant hardware; not production-ready.**
 
 ## Repository layout
 

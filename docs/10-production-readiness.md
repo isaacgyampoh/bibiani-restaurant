@@ -2,9 +2,26 @@
 
 Date: 2026-09-25. Environments: DEV `nkijnjovztglmwxoemqg` and **STAGING `impairlsvhkumjzhjhti`** (Supabase eu-west-1), with the staging app at `https://restaurant-management-staging.vercel.app` (Vercel, function region dub1).
 
-**Overall verdict: NOT production-ready yet.** Everything software-side that can be tested without hardware passes on deployed staging, and GitHub CI is green. Two things block production:
-1. No physical printer has been tested.
-2. Owner MFA and the PITR/backup setup are not in place.
+**Overall verdict: PRODUCTION IS DEPLOYED (on the owner's explicit instruction, 2026-09-25) with open risks accepted.** Everything software-side passes on staging, GitHub CI is green, and production passes the same environment checks. Still open, and accepted as risks at deployment:
+1. **No physical printer has been tested.** Do the §6 hardware checklist before relying on printing in service.
+2. **Point-in-time recovery is not enabled** (Pro plan daily backups only; PITR is a paid add-on awaiting approval).
+3. **Owner MFA is not implemented.**
+4. **No monitoring or alerting** beyond health endpoints.
+
+### Production (live)
+| Item | Value / evidence |
+|---|---|
+| Supabase | `restaurant-management-prod` (`lgoirbfyspuflqekrcgp`), eu-west-1, org plan **Pro** |
+| App | `https://restaurant-management-prod-rouge.vercel.app`, Vercel `restaurant-management-prod`, function **dub1**, release `production-a889fa6` |
+| Migrations | 14/14 from empty |
+| Environment verification | **14/14 PASS** (RLS, grants, least privilege, append-only audit, cron, realtime policy) |
+| Test logins | **none** (`rp_test_admin` / `rp_dev_admin` absent) |
+| Auth | leaked-password protection ON, sign-up disabled (verified: "Signups not allowed"), min length 10, site URL set |
+| Realtime | new-project `MissingPartition` reproduced and resolved by warm-up (`scripts/env/realtime-warmup.ts`); `/health/ready` realtime ok |
+| Health | `/health` ok; `/health/ready` ready (database, schema `20260925001400`, auth, realtime) |
+| Secrets | bundle scanned against production's exact secret values: clean; 0 values shared with DEV or staging |
+| Backups | daily backups (WAL-G) on; **PITR off** |
+| Data | **empty**: no restaurant yet; onboarding by the platform script with the real owner's email ([11 §10](11-production-deployment-plan.md)) |
 
 **Evidence levels used below:** CODE REVIEW · LOCAL TEST · DEV TEST · STAGING TEST (deployed API + staging database) · REAL BROWSER (Playwright Chromium against deployed staging) · REAL HARDWARE.
 

@@ -1,6 +1,6 @@
 # Production Deployment Plan
 
-> **Status: plan only.** No production project exists, and nothing below has been executed. Production deployment requires explicit approval after staging passes (see [10-production-readiness.md](10-production-readiness.md)). Every step here has been rehearsed on STAGING unless it is marked ☐.
+> **Status: §3 steps 1–10 EXECUTED on 2026-09-25** on the owner's instruction. Production: Supabase `lgoirbfyspuflqekrcgp`, app `https://restaurant-management-prod-rouge.vercel.app`. Not done: PITR (step 7, paid add-on), custom domain (step 11), first restaurant onboarding, hardware. Production deployment requires explicit approval after staging passes (see [10-production-readiness.md](10-production-readiness.md)). Every step here has been rehearsed on STAGING unless it is marked ☐.
 
 ## 1. Target
 
@@ -33,12 +33,12 @@ Browser build: only `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (public), s
    - site URL = production domain
    - consider **owner MFA** (not implemented yet; see readiness report)
 3. `supabase db push --db-url <prod postgres url>`: all migrations from empty.
-4. Create logins: an equivalent of `scripts/env/configure-staging.sh` for prod.
+4. Create logins: `scripts/env/configure-production.sh` (sets `rp_api` only).
    - **Do not create `rp_test_admin` in production.**
    - Platform operations use a separate, short-lived privileged connection.
 5. Run `scripts/env/verify-environment.ts` against prod. All checks must pass.
 6. **Realtime warm-up.** The known new-project behaviour: broadcasts and private joins fail with `MissingPartition` until the Realtime service creates the daily partitions.
-   - Connect one authenticated client to a private channel, or run the realtime suite.
+   - Run `scripts/env/realtime-warmup.ts` (temporary login, deleted afterwards).
    - Confirm `/health/ready` reports `realtime.storageReadyToday: true`.
 7. Enable **Point-in-Time Recovery** and confirm it in the dashboard. Schedule a nightly `pg_dump` to separate storage.
 8. Create the Vercel project and set the env vars (§2). Pin the function region to dub1 (in the bundle's `.vc-config.json`).
