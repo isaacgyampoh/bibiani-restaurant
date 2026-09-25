@@ -2666,3 +2666,69 @@ input.needs {
 .card > .card-head + .info-box {
   margin-top: 12px;
 }
+
+/* ---------------------------------------------------------------- brand presence */
+/* A thin brand-red rule ties every surface to MY FOOD without colouring the work area. */
+.topbar,
+.kds .bar,
+.expo .bar {
+  box-shadow: inset 0 -3px 0 var(--brand);
+}
+.shell {
+  border-top: 3px solid var(--brand);
+}
+.sidebar {
+  top: 0;
+}
+.sidebar .brand {
+  padding: 18px 16px;
+}
+.sidebar .logo-img {
+  width: 48px;
+  height: 48px;
+  border: 2px solid var(--brand-soft);
+}
+.nav-item.active {
+  box-shadow: inset 3px 0 0 var(--brand);
+}
+.bar-logo {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #fff;
+  flex: none;
+}
+.empty-logo {
+  display: block;
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  opacity: 0.35;
+}
+.ticket-total {
+  display: flex;
+  justify-content: space-between;
+  margin: 0 14px 10px;
+  padding-top: 8px;
+  border-top: 2px solid var(--ink);
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.ticket li .price {
+  font-size: 15px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.page-head .brand-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+.auth {
+  background: radial-gradient(circle at 50% 0%, rgba(227, 33, 41, 0.06), transparent 55%), var(--bg);
+}
+.auth-card {
+  border-top: 4px solid var(--brand);
+}

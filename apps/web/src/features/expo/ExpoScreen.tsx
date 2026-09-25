@@ -107,7 +107,9 @@ export function ExpoScreen({ me }: { me: MeView }) {
         <a href="/dashboard" onClick={linkTo('/dashboard')} className="back">
           ←
         </a>
+        <img className="bar-logo" src="/logo-64.png" alt="" />
         <span className="title">Supervisor</span>
+        <span className="count">{me.restaurant.name}</span>
         <span className="grow" />
         <NoticeCenter state={notices} />
         <ConnectionDot state={feed.connection} />
@@ -236,6 +238,7 @@ export function ExpoScreen({ me }: { me: MeView }) {
       </div>
       {feed.data && orders.length === 0 ? (
         <div className="expo-empty">
+          <img className="empty-logo" src="/logo-192.png" alt="" />
           {filter === 'all'
             ? 'No orders in the kitchen. New orders appear here the moment they are sent.'
             : 'Nothing here right now.'}

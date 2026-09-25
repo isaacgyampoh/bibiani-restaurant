@@ -100,6 +100,7 @@ function StationPicker({ me, branchId }: { me: MeView; branchId: string }) {
         <button type="button" className="dark-btn" onClick={() => navigate('/dashboard')} aria-label="Back">
           ←
         </button>
+        <img className="bar-logo" src="/logo-64.png" alt="" />
         <span className="title">Kitchen</span>
         <span className="count">Choose your station</span>
         <span className="grow" />
@@ -223,6 +224,7 @@ function Board({
             ←
           </button>
         ) : null}
+        <img className="bar-logo" src="/logo-64.png" alt="" />
         <span className="title">{board?.station.name ?? 'Kitchen'}</span>
         <span className="count">{board ? `${board.tickets.length} open` : ''}</span>
         {!isDevice && stations && stations.length > 1 ? (
@@ -302,6 +304,18 @@ function Board({
                   </li>
                 ))}
               </ul>
+              {board.station.showPrices ? (
+                <div className="ticket-total">
+                  <span>Total</span>
+                  <span>
+                    {money(
+                      t.items
+                        .filter((i) => i.status !== 'voided' && i.status !== 'cancelled')
+                        .reduce((a, i) => a + (i.lineTotal ?? 0), 0),
+                    )}
+                  </span>
+                </div>
+              ) : null}
               {t.orderNotes ? <div className="order-note">Note: {t.orderNotes}</div> : null}
               <div className="actions">
                 {t.status === 'new' || t.status === 'accepted' ? (
@@ -369,7 +383,10 @@ function Board({
         })}
       </div>
       {board && board.tickets.length === 0 ? (
-        <div className="kds-empty">No open tickets. New orders appear here the moment they are sent.</div>
+        <div className="kds-empty">
+          <img className="empty-logo" src="/logo-192.png" alt="" />
+          No open tickets. New orders appear here the moment they are sent.
+        </div>
       ) : null}
     </div>
   );
