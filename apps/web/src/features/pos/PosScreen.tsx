@@ -1,4 +1,4 @@
-import type { MenuView, MeView } from '@rp/contracts';
+import type { MenuView, MeView, OrderSummaryView } from '@rp/contracts';
 import { useEffect, useState } from 'react';
 import { linkTo } from '../../infra/router';
 import { api, hasPermission, posDevice, signOut, topics } from '../../infra/session';
@@ -8,6 +8,7 @@ import { OrderScreen } from './OrderScreen';
 
 type View =
   | { kind: 'area'; areaId: string }
+  | { kind: 'completed'; areaId: string }
   | { kind: 'order'; areaId: string; tableId: string | null; orderId: string | null };
 
 export function PosScreen({ me }: { me: MeView }) {
@@ -53,6 +54,13 @@ export function PosScreen({ me }: { me: MeView }) {
               {a.name}
             </button>
           ))}
+          <button
+            type="button"
+            className={`tab ${view.kind === 'completed' ? 'active' : ''}`}
+            onClick={() => setView({ kind: 'completed', areaId: view.areaId })}
+          >
+            Completed
+          </button>
         </div>
         <span className="spacer" />
         {till ? (
@@ -88,6 +96,12 @@ export function PosScreen({ me }: { me: MeView }) {
           tableId={view.tableId}
           existingOrderId={view.orderId}
           onClose={() => setView({ kind: 'area', areaId: view.areaId })}
+        />
+      ) : view.kind === 'completed' ? (
+        <CompletedView
+          branchId={branchId}
+          currency={menu.currency}
+          onOpen={(o) => setView({ kind: 'order', areaId: o.areaId, tableId: o.tableId, orderId: o.id })}
         />
       ) : area.channel === 'dine_in' ? (
         <HallView
@@ -247,6 +261,79 @@ function TakeawayView({
             <tr>
               <td colSpan={6} className="muted">
                 No open takeaway orders
+              </td>
+            </tr>
+          ) : null}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** Closed orders of today and yesterday. Opening one is read-only apart from viewing / reprinting the receipt. */
+function CompletedView({
+  branchId,
+  currency,
+  onOpen,
+}: {
+  branchId: string;
+  currency: string;
+  onOpen: (order: OrderSummaryView) => void;
+}) {
+  const feed = useFeed(`closed-orders:${branchId}`, () => api.recentClosedOrders(branchId), {
+    topic: topics.orders(branchId),
+    pollMs: 60_000,
+  });
+  const orders = feed.data ?? [];
+  return (
+    <div className="page">
+      <div className="row">
+        <h2 style={{ margin: 0 }}>Completed orders</h2>
+        <span className="grow" />
+        <ConnectionDot state={feed.connection} />
+      </div>
+      <ErrorBox error={feed.error} />
+      <table className="list panel">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Where</th>
+            <th>Status</th>
+            <th>Payment</th>
+            <th>Total</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {orders.map((o) => (
+            <tr key={o.id}>
+              <td>
+                <strong style={{ fontSize: 20 }}>{o.orderNumber}</strong>
+              </td>
+              <td>
+                {o.tableLabel ? `Table ${o.tableLabel}` : o.areaName}
+                {o.customerName ? ` · ${o.customerName}` : ''}
+              </td>
+              <td>
+                <Badge value={o.status} />
+              </td>
+              <td>
+                <Badge value={o.paymentStatus} />
+              </td>
+              <td>
+                <Money minor={o.grandTotal} currency={currency} />
+              </td>
+              <td>
+                <button type="button" className="btn" onClick={() => onOpen(o)}>
+                  Open
+                </button>
+              </td>
+            </tr>
+          ))}
+          {orders.length === 0 ? (
+            <tr>
+              <td colSpan={6} className="muted">
+                No completed orders today
               </td>
             </tr>
           ) : null}

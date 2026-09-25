@@ -271,6 +271,9 @@ export function createHttpApp(deps: HttpDependencies) {
   v1.get('/orders/:orderId', async (c) =>
     c.json(await deps.app.getOrder.execute(c.var.ctx, id(c, 'orderId'))),
   );
+  v1.get('/branches/:branchId/orders/recent', async (c) =>
+    c.json(await deps.app.listRecentClosedOrders.execute(c.var.ctx, id(c, 'branchId'))),
+  );
   v1.get('/branches/:branchId/orders', async (c) =>
     c.json(await deps.app.listActiveOrders.execute(c.var.ctx, id(c, 'branchId'))),
   );

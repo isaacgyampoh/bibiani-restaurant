@@ -52,6 +52,7 @@ export function OrderScreen({
   const [paying, setPaying] = useState(false);
   const [correcting, setCorrecting] = useState(false);
   const [receipt, setReceipt] = useState<string[] | null>(null);
+  const [printed, setPrinted] = useState<string | null>(null);
 
   const feed = useFeed<OrderView | null>(known ? `order:${orderId}` : null, () => api.getOrder(orderId), {
     topic: topics.orders(branchId),
@@ -430,9 +431,21 @@ export function OrderScreen({
                 type="button"
                 className="btn"
                 disabled={!!busy}
-                onClick={() => void run('receipt', () => api.printReceipt(orderId, { requestId: uuid() }))}
+                onClick={() =>
+                  void run('receipt', async () => {
+                    setPrinted(null);
+                    const r = await api.printReceipt(orderId, { requestId: uuid() });
+                    setPrinted(
+                      r.isReprint
+                        ? 'Receipt sent to the printer (marked REPRINT)'
+                        : 'Receipt sent to the printer',
+                    );
+                    feed.refresh();
+                    return r;
+                  })
+                }
               >
-                Print receipt
+                {order.receiptsPrinted > 0 ? 'Reprint receipt' : 'Print receipt'}
               </button>
             ) : null}
             <button
@@ -460,6 +473,11 @@ export function OrderScreen({
             >
               View receipt
             </button>
+            {printed ? (
+              <span className="small" role="status">
+                {printed}
+              </span>
+            ) : null}
             {closed ? (
               <button type="button" className="btn primary" onClick={onClose}>
                 Done

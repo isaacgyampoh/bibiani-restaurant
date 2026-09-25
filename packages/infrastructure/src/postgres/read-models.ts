@@ -21,13 +21,14 @@ const s = (v: unknown) => v as string;
 const sn = (v: unknown) => (v ?? null) as string | null;
 const isoOf = (v: unknown) => iso(dateOrNull(v));
 
-const ACTIVE = `('completed', 'cancelled', 'voided')`;
+const CLOSED = `('completed', 'cancelled', 'voided')`;
 
 export function createReadModels(sql: Sql): ReadModels {
   return {
     async order(orderId): Promise<OrderView | null> {
       const [o] = await sql.query(
-        `select o.*, o.business_day::text as business_day_text, a.name as area_name, t.label as table_label, r.currency
+        `select o.*, o.business_day::text as business_day_text, a.name as area_name, t.label as table_label, r.currency,
+                (select count(*) from print_jobs pj where pj.order_id = o.id and pj.kind = 'receipt')::int as receipts_printed
          from orders o
          join operational_areas a on a.id = o.area_id
          join restaurants r on r.id = o.restaurant_id
@@ -89,6 +90,7 @@ export function createReadModels(sql: Sql): ReadModels {
         readyAt: isoOf(o.ready_at),
         fulfilledAt: isoOf(o.fulfilled_at),
         completedAt: isoOf(o.completed_at),
+        receiptsPrinted: num(o.receipts_printed),
         items: items.map((i) => ({
           id: s(i.id),
           productId: s(i.product_id),
@@ -146,7 +148,7 @@ export function createReadModels(sql: Sql): ReadModels {
       const rows = await sql.query(
         `select o.*, a.name as area_name, t.label as table_label
          from orders o join operational_areas a on a.id = o.area_id left join dining_tables t on t.id = o.table_id
-         where o.branch_id = $1 and o.status not in ${ACTIVE}
+         where o.branch_id = $1 and o.status not in ${CLOSED}
          order by o.created_at`,
         [branchId],
       );
@@ -154,6 +156,39 @@ export function createReadModels(sql: Sql): ReadModels {
         id: s(o.id),
         orderNumber: num(o.order_number),
         channel: o.channel as OrderSummaryView['channel'],
+        areaId: s(o.area_id),
+        tableId: sn(o.table_id),
+        areaName: s(o.area_name),
+        tableLabel: sn(o.table_label),
+        customerName: sn(o.customer_name),
+        status: o.status as OrderSummaryView['status'],
+        paymentStatus: o.payment_status as OrderSummaryView['paymentStatus'],
+        grandTotal: num(o.grand_total),
+        balanceDue: balanceDue(num(o.grand_total), {
+          paidTotal: num(o.paid_total),
+          refundedTotal: num(o.refunded_total),
+        }),
+        version: num(o.version),
+        createdAt: isoOf(o.created_at)!,
+      }));
+    },
+
+    async recentClosedOrders(branchId): Promise<OrderSummaryView[]> {
+      const rows = await sql.query(
+        `select o.*, a.name as area_name, t.label as table_label
+         from orders o join operational_areas a on a.id = o.area_id left join dining_tables t on t.id = o.table_id
+         where o.branch_id = $1 and o.status in ${CLOSED}
+           and o.business_day >= (select max(business_day) from orders where branch_id = $1) - 1
+         order by coalesce(o.completed_at, o.cancelled_at, o.updated_at) desc
+         limit 100`,
+        [branchId],
+      );
+      return rows.map((o) => ({
+        id: s(o.id),
+        orderNumber: num(o.order_number),
+        channel: o.channel as OrderSummaryView['channel'],
+        areaId: s(o.area_id),
+        tableId: sn(o.table_id),
         areaName: s(o.area_name),
         tableLabel: sn(o.table_label),
         customerName: sn(o.customer_name),

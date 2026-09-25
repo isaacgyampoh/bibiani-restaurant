@@ -1,3 +1,4 @@
+import { type Document, render } from '@rp/escpos';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   createTestApp,
@@ -180,6 +181,63 @@ describe('Cancellation, voids, receipts, payment policy', () => {
 
     const onScreen = await t.app.getReceipt.execute(cashier, order.id);
     expect(onScreen.document.title).toBe(`Receipt #${order.orderNumber}`);
+  });
+
+  it('completed order: listed under recent closed orders; reprint is audited and changes nothing else', async () => {
+    const cashier = await t.as(f.authUsers.cashier, f.devices.pos);
+    const manager = await t.as(f.authUsers.manager);
+    const order = await takeaway([line(f.products.coke, 2)]);
+    await t.app.recordPayment.execute(cashier, order.id, {
+      paymentId: uuid(),
+      method: 'momo',
+      amount: order.grandTotal,
+    });
+    await t.app.printReceipt.execute(cashier, order.id, { requestId: uuid() }); // original at payment
+    await t.app.markOrderReady.execute(manager, order.id);
+    const done = await t.app.fulfilOrder.execute(manager, order.id, {});
+    expect(done.status).toBe('completed');
+
+    const closed = await t.app.listRecentClosedOrders.execute(cashier, f.branchId);
+    expect(closed.find((o) => o.id === order.id)).toMatchObject({
+      status: 'completed',
+      paymentStatus: 'paid',
+    });
+    expect((await t.app.listActiveOrders.execute(cashier, f.branchId)).some((o) => o.id === order.id)).toBe(
+      false,
+    );
+
+    const state = async () =>
+      (
+        await db.query<Record<string, unknown>>(
+          `select o.status, o.payment_status, o.version, o.grand_total, o.paid_total,
+                  (select count(*) from payments p where p.order_id = o.id)::int as payments,
+                  (select count(*) from orders x where x.branch_id = o.branch_id)::int as orders
+             from orders o where o.id = $1`,
+          [order.id],
+        )
+      )[0];
+    const before = await state();
+    const reprint = await t.app.printReceipt.execute(cashier, order.id, { requestId: uuid() });
+    expect(reprint.isReprint).toBe(true);
+    expect(await state()).toEqual(before); // not reopened, no payment, no new sale
+    const receipts = await jobs(order.id, 'receipt');
+    expect(receipts.at(-1)!.is_reprint).toBe(true);
+    const printed = render(receipts.at(-1)!.document as unknown as Document, {
+      paperWidthMm: 80,
+      isReprint: receipts.at(-1)!.is_reprint,
+    }); // exactly what the print agent sends to the printer
+    expect(Buffer.from(printed).toString('latin1')).toContain('** REPRINT **');
+    expect(
+      await db.query(`select 1 from audit_logs where entity_id = $1 and action = 'receipt.reprint'`, [
+        order.id,
+      ]),
+    ).toHaveLength(1);
+
+    await expect(
+      t.app.printReceipt.execute(await t.as(f.authUsers.kitchenKds), order.id, {
+        requestId: uuid(),
+      }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 
   it('payment policy: pay-before-fulfilment blocks handover until settled; pay-after allows it', async () => {

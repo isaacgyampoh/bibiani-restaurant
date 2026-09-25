@@ -118,6 +118,8 @@ export class ApiClient {
   fulfilOrder = (orderId: string, cmd: FulfilOrderCommand = {}) =>
     this.request<OrderView>('POST', `/v1/orders/${orderId}/fulfil`, cmd);
   getOrder = (orderId: string) => this.request<OrderView>('GET', `/v1/orders/${orderId}`);
+  recentClosedOrders = (branchId: string) =>
+    this.request<OrderSummaryView[]>('GET', `/v1/branches/${branchId}/orders/recent`);
   activeOrders = (branchId: string) =>
     this.request<OrderSummaryView[]>('GET', `/v1/branches/${branchId}/orders`);
   recordPayment = (orderId: string, cmd: RecordPaymentCommand) =>

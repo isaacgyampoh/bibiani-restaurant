@@ -464,6 +464,8 @@ export interface AuditLog {
 export interface ReadModels {
   order(orderId: string): Promise<OrderView | null>;
   activeOrders(branchId: string): Promise<OrderSummaryView[]>;
+  /** Closed orders (completed, cancelled, voided) of the current and previous business day, newest first. */
+  recentClosedOrders(branchId: string): Promise<OrderSummaryView[]>;
   stationBoard(stationId: string): Promise<StationBoardView | null>;
   customerBoard(branchId: string, now: Date): Promise<CustomerBoardView>;
   printQueue(branchId: string): Promise<PrintQueueView>;

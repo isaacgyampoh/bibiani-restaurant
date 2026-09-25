@@ -24,6 +24,7 @@ import {
   GetOrder,
   GetStationBoard,
   ListActiveOrders,
+  ListRecentClosedOrders,
   RecordHeartbeat,
 } from './use-cases/queries';
 import { GetFloor, GetMe, GetMenu, GetOperationsStatus, SetTableStatus } from './use-cases/session';
@@ -49,6 +50,7 @@ export function createApplication(deps: Dependencies) {
     getPrintQueue: new GetPrintQueue(deps),
     getOrder: new GetOrder(deps),
     listActiveOrders: new ListActiveOrders(deps),
+    listRecentClosedOrders: new ListRecentClosedOrders(deps),
     getStationBoard: new GetStationBoard(deps),
     getCustomerBoard: new GetCustomerBoard(deps),
     recordHeartbeat: new RecordHeartbeat(deps),

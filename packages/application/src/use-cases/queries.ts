@@ -20,6 +20,16 @@ export class GetOrder {
   }
 }
 
+/** Completed / cancelled / voided orders, so staff can open one to view or reprint its receipt. Read-only. */
+export class ListRecentClosedOrders {
+  constructor(private readonly deps: Dependencies) {}
+
+  async execute(ctx: RequestContext, branchId: string): Promise<OrderSummaryView[]> {
+    authorize(ctx.principal, 'order.view', branchId);
+    return this.deps.uow.run(ctx.principal.restaurantId, (tx) => tx.read.recentClosedOrders(branchId));
+  }
+}
+
 export class ListActiveOrders {
   constructor(private readonly deps: Dependencies) {}
 

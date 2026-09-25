@@ -83,6 +83,8 @@ export interface OrderView {
   readyAt: string | null;
   fulfilledAt: string | null;
   completedAt: string | null;
+  /** Receipts queued so far; the next print is a REPRINT when this is above zero. */
+  receiptsPrinted: number;
   items: OrderItemView[];
   tickets: TicketView[];
   payments: PaymentView[];
@@ -92,6 +94,8 @@ export interface OrderSummaryView {
   id: string;
   orderNumber: number;
   channel: OrderChannel;
+  areaId: string;
+  tableId: string | null;
   areaName: string;
   tableLabel: string | null;
   customerName: string | null;

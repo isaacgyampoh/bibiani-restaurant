@@ -204,6 +204,9 @@ importers:
       '@rp/domain':
         specifier: workspace:*
         version: link:../domain
+      '@rp/escpos':
+        specifier: workspace:*
+        version: link:../escpos
       '@rp/infrastructure':
         specifier: workspace:*
         version: link:../infrastructure

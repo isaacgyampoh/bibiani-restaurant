@@ -164,8 +164,17 @@ test.describe
         .toBe(true);
       await expect(cashier.locator('.cart .error')).toHaveCount(0);
 
-      // Second print of the same receipt = REPRINT: queued again, audited, and the sale is unchanged.
-      await cashier.getByRole('button', { name: 'Print receipt' }).click();
+      // Later, from Completed orders: open the closed order and reprint. Queued again as REPRINT,
+      // audited, and the sale is unchanged (not reopened, no payment added).
+      await cashier.getByRole('button', { name: 'Done' }).click();
+      await cashier.getByRole('button', { name: 'Completed', exact: true }).click();
+      await cashier
+        .getByRole('row', { name: new RegExp(`^${orderNumber}\\b`) })
+        .getByRole('button', { name: 'Open' })
+        .click();
+      await expect(cashier.locator('.cart .badge').first()).toHaveText('completed');
+      await cashier.getByRole('button', { name: 'Reprint receipt' }).click();
+      await expect(cashier.getByText('Receipt sent to the printer (marked REPRINT)')).toBeVisible();
       await expect
         .poll(async () => {
           const q = await ownerApi<{ jobs: { kind: string; orderNumber: number | null }[] }>(
