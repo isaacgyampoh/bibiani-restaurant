@@ -43,6 +43,7 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: () => void }) {
 
   return (
     <div className="page" style={{ maxWidth: 420, margin: '8vh auto' }}>
+      <img className="brand-logo" src="/logo-192.png" alt="MY FOOD — Chefelisha Restaurant" />
       <h1 style={{ margin: 0 }}>Sign in</h1>
       {till ? <div className="muted">This till: {till.name}</div> : null}
       <form className="panel" onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

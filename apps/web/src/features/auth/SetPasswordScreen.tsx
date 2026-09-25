@@ -57,6 +57,7 @@ export function SetPasswordScreen({ onDone }: { onDone: () => void }) {
     );
   return (
     <div className="page" style={{ maxWidth: 420, margin: '8vh auto' }}>
+      <img className="brand-logo" src="/logo-192.png" alt="" />
       <h1 style={{ margin: 0 }}>Set your password</h1>
       <div className="muted">{session.user.email}</div>
       <form className="panel" onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

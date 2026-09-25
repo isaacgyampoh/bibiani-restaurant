@@ -23,7 +23,10 @@ export function CustomerDisplay({ me }: { me: MeView }) {
   return (
     <div className="board">
       <header>
-        <span>{me.restaurant.name}</span>
+        <span>
+          <img className="logo-img" src="/logo-192.png" alt="" />
+          {me.restaurant.name}
+        </span>
         <button
           type="button"
           className="fullscreen"

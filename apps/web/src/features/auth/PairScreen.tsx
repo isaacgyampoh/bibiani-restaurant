@@ -33,6 +33,7 @@ export function PairScreen({ onPaired }: { onPaired: () => void }) {
 
   return (
     <div className="page" style={{ maxWidth: 460, margin: '8vh auto' }}>
+      <img className="brand-logo" src="/logo-192.png" alt="" />
       <h1 style={{ margin: 0 }}>Set up this device</h1>
       <p className="muted">
         Enter the 8-character code shown in Admin → Devices. Codes work once and expire after 10 minutes.

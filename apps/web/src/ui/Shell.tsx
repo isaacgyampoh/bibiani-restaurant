@@ -85,9 +85,7 @@ export function Shell({
     <div className={`shell ${open ? 'nav-open' : ''}`}>
       <aside className="sidebar" aria-label="Main navigation">
         <div className="brand">
-          <span className="logo" aria-hidden>
-            {me.restaurant.name.slice(0, 1)}
-          </span>
+          <img className="logo-img" src="/logo-64.png" alt="" />
           <span className="name">{me.restaurant.name}</span>
         </div>
         <nav>

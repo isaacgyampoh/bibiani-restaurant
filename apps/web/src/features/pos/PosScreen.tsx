@@ -50,6 +50,7 @@ export function PosScreen({ me }: { me: MeView }) {
   return (
     <div className="app" style={{ height: '100vh' }}>
       <div className="topbar">
+        <img className="logo-img" src="/logo-64.png" alt="" />
         <span className="title">{me.restaurant.name}</span>
         <div className="tabs">
           {menu.areas.map((a) => (

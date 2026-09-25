@@ -41,7 +41,7 @@ execFileSync(
     'tsx',
     'scripts/platform/create-restaurant.ts',
     '--name',
-    'Bibiani Restaurant — Demo',
+    'Chefelisha Restaurant — Demo',
     '--slug',
     SLUG,
     '--owner-email',
@@ -55,7 +55,7 @@ execFileSync(
 );
 writeFileSync(
   '.demo-credentials.json',
-  `${JSON.stringify({ url: API_URL, email: EMAIL, password: PASSWORD, restaurant: 'Bibiani Restaurant — Demo' }, null, 2)}\n`,
+  `${JSON.stringify({ url: API_URL, email: EMAIL, password: PASSWORD, restaurant: 'Chefelisha Restaurant — Demo' }, null, 2)}\n`,
   { mode: 0o600 },
 );
 
@@ -353,7 +353,7 @@ await order(takeaway, [item('Jollof Rice', 1, ['Extra spicy', 'Extra chicken']),
 console.log(
   JSON.stringify({
     seeded: true,
-    restaurant: 'Bibiani Restaurant — Demo',
+    restaurant: 'Chefelisha Restaurant — Demo',
     login: EMAIL,
     credentialsFile: '.demo-credentials.json',
     products: Object.keys(products).length,

@@ -4,7 +4,10 @@
   --ink: #14171c;
   --muted: #5d6573;
   --line: #dde1e7;
-  --brand: #1f6f50;
+  /* Brand: the red of the MY FOOD / Chefelisha logo. Status colours (ok/prep/danger) stay separate. */
+  --brand: #e32129;
+  --brand-dark: #b8171e;
+  --brand-soft: #fdecec;
   --brand-ink: #ffffff;
   --warn: #b7791f;
   --danger: #c0392b;
@@ -631,7 +634,7 @@ table.list td {
 :root {
   --sidebar: #12161c;
   --sidebar-ink: #c9d1db;
-  --sidebar-active: #1f6f50;
+  --sidebar-active: #e32129;
   --card-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
   --soft-ok: #e7f5ec;
   --soft-warn: #fff4de;
@@ -971,8 +974,8 @@ table.matrix .no {
   display: inline-block;
   padding: 3px 9px;
   border-radius: 6px;
-  background: #eef6f2;
-  color: #17593f;
+  background: #f1f3f6;
+  color: #2b323b;
   font-weight: 600;
   font-size: 13px;
 }
@@ -1129,8 +1132,8 @@ legend {
 }
 .chip.selectable.on {
   border-color: var(--brand);
-  background: #eef6f2;
-  color: #17593f;
+  background: var(--brand-soft);
+  color: var(--brand-dark);
   font-weight: 600;
 }
 .summary-line {
@@ -1572,4 +1575,43 @@ dl.facts dd {
 }
 .station-tile:hover {
   background: #232a33;
+}
+
+/* Brand logo */
+.sidebar .logo-img {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #fff;
+  flex: none;
+}
+.brand-logo {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  display: block;
+  margin: 0 auto 12px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
+}
+.topbar .logo-img {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #fff;
+}
+.board header .logo-img {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #fff;
+  vertical-align: middle;
+  margin-right: 14px;
+}
+.btn.primary:hover:not(:disabled) {
+  background: var(--brand-dark);
+  border-color: var(--brand-dark);
+}
+.expo-card footer .btn.primary {
+  background: var(--ok);
+  border-color: var(--ok);
 }
