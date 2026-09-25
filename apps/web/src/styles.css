@@ -1586,8 +1586,8 @@ dl.facts dd {
   flex: none;
 }
 .brand-logo {
-  width: 96px;
-  height: 96px;
+  width: 132px;
+  height: 132px;
   border-radius: 50%;
   display: block;
   margin: 0 auto 12px;
@@ -1614,4 +1614,16 @@ dl.facts dd {
 .expo-card footer .btn.primary {
   background: var(--ok);
   border-color: var(--ok);
+}
+button.link {
+  background: none;
+  border: 0;
+  padding: 4px 0;
+  color: var(--brand);
+  cursor: pointer;
+  text-align: left;
+  font-size: 14px;
+}
+button.link:hover {
+  text-decoration: underline;
 }
