@@ -4,10 +4,15 @@
  * (PLATFORM_DATABASE_URL; in DEV the test admin login) and the server-side
  * auth key. Never exposed through the restaurant-facing API.
  *
- *   OWNER_PASSWORD=... pnpm platform:create-restaurant --name "Bibiani Restaurant" --slug bibiani \
- *     --owner-email owner@example.com --owner-name "Owner" [--branch Main --code MAIN --start 5001]
+ *   pnpm platform:create-restaurant --name "Bibiani Restaurant" --slug bibiani \
+ *     --owner-email owner@example.com --owner-name "Owner" [--branch Main --code MAIN --start 5001] \
+ *     [--send-password-email https://app.example.com]
+ *
+ * Production: leave OWNER_PASSWORD unset. The owner login then gets a random password that is never
+ * printed or stored, and --send-password-email emails the owner a single-use link to /set-password,
+ * so only the owner ever knows their password. (OWNER_PASSWORD is for disposable test tenants.)
  */
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { parseArgs } from 'node:util';
 import { ROLE_TEMPLATES } from '@rp/domain';
 import { createPostgresDatabase, SupabaseAuthDirectory } from '@rp/infrastructure';
@@ -22,6 +27,7 @@ const { values } = parseArgs({
     code: { type: 'string', default: 'MAIN' },
     start: { type: 'string', default: '1' },
     currency: { type: 'string', default: 'GHS' },
+    'send-password-email': { type: 'string' },
   },
 });
 const need = (v: string | undefined, what: string) => {
@@ -31,7 +37,7 @@ const need = (v: string | undefined, what: string) => {
 const name = need(values.name, '--name');
 const slug = need(values.slug, '--slug');
 const ownerEmail = need(values['owner-email'], '--owner-email').toLowerCase();
-const ownerPassword = need(process.env.OWNER_PASSWORD, 'OWNER_PASSWORD env var');
+const ownerPassword = process.env.OWNER_PASSWORD || randomBytes(32).toString('base64url'); // unknown to anyone if unset
 const dbUrl = need(
   process.env.PLATFORM_DATABASE_URL ?? process.env.TEST_DATABASE_URL,
   'PLATFORM_DATABASE_URL',
@@ -95,7 +101,19 @@ try {
     );
     return { restaurantId, branchId, staffId };
   });
-  console.log(JSON.stringify({ created: true, ...result, ownerEmail }));
+  let passwordEmail: string | undefined;
+  const site = values['send-password-email'];
+  if (site) {
+    // Never throws: the restaurant is already committed; a failed email is resent from the sign-in screen.
+    passwordEmail = await fetch(`${process.env.SUPABASE_URL}/auth/v1/recover`, {
+      method: 'POST',
+      headers: { apikey: process.env.SUPABASE_ANON_KEY!, 'content-type': 'application/json' },
+      body: JSON.stringify({ email: ownerEmail, redirect_to: `${site.replace(/\/$/, '')}/set-password` }),
+    })
+      .then(async (res) => (res.ok ? 'sent' : `failed (${res.status}: ${await res.text()})`))
+      .catch((e: unknown) => `failed (${String(e)})`);
+  }
+  console.log(JSON.stringify({ created: true, ...result, ownerEmail, passwordEmail }));
 } catch (error) {
   await auth.deleteUser(userId).catch(() => undefined);
   throw error;
