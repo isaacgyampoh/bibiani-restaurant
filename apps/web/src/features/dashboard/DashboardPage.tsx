@@ -7,7 +7,12 @@ import { Badge, ConnectionDot, ErrorBox } from '../../ui/components';
 import { Empty, Shell, Skeleton, Stat } from '../../ui/Shell';
 
 const METHOD: Record<string, string> = { cash: 'Cash', momo: 'Mobile money', card: 'Card' };
-const mins = (s: number | null) => (s === null ? '—' : `${Math.round(s / 60)} min`);
+const mins = (s: number | null) =>
+  s === null
+    ? '—'
+    : s >= 3600
+      ? `${Math.floor(s / 3600)}h ${String(Math.round((s % 3600) / 60)).padStart(2, '0')}m`
+      : `${Math.round(s / 60)} min`;
 
 /** "How is the restaurant doing right now?" Real figures for today's business day. */
 export function DashboardPage({ me }: { me: MeView }) {
