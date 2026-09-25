@@ -35,7 +35,7 @@ export function CustomerDisplay({ me }: { me: MeView }) {
       </header>
       <div className="cols">
         <section className="col preparing" aria-label="Preparing">
-          <h2>PREPARING</h2>
+          <h2>NOW PREPARING</h2>
           <div className="nums">
             {board?.preparing.map((o) => (
               <span key={o.orderNumber} className="n">
@@ -45,7 +45,7 @@ export function CustomerDisplay({ me }: { me: MeView }) {
           </div>
         </section>
         <section className="col ready" aria-label="Ready">
-          <h2>READY</h2>
+          <h2>READY FOR COLLECTION</h2>
           <div className="nums">
             {board?.ready.map((o) => (
               <span key={o.orderNumber} className="n">

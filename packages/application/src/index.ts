@@ -24,7 +24,7 @@ import {
   SubmitStockCount,
 } from './use-cases/inventory';
 import { FulfilOrder, MarkOrderReady, TransitionTicket } from './use-cases/kitchen';
-import { GetDashboard, GetExpoBoard } from './use-cases/operations';
+import { GetDashboard, GetExpoBoard, GetSalesReport } from './use-cases/operations';
 import { CancelOrder, GetReceipt, PrintReceipt, VoidItems } from './use-cases/order-corrections';
 import { SendOrderToKitchen, SubmitOrder } from './use-cases/orders';
 import { RecordPayment, RefundPayment, VoidPayment } from './use-cases/payments';
@@ -69,6 +69,7 @@ export function createApplication(deps: Dependencies) {
     listRecentClosedOrders: new ListRecentClosedOrders(deps),
     getDashboard: new GetDashboard(deps),
     getExpoBoard: new GetExpoBoard(deps),
+    getSalesReport: new GetSalesReport(deps),
     listInventory: new ListInventory(deps),
     listStockMovements: new ListStockMovements(deps),
     saveInventoryItem: new SaveInventoryItem(deps),

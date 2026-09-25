@@ -259,9 +259,10 @@ test.describe
       browser,
     }) => {
       const owner = await signedInPage(browser, 'owner');
-      // Owners land on the POS (they can take orders); Admin is one tap away.
-      await owner.getByRole('link', { name: 'Admin' }).click();
-      await expect(owner.getByText(/Admin ·/)).toBeVisible();
+      // Owners land on the dashboard; everything else is one click away in the sidebar.
+      await expect(owner.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+      await expect(owner.getByText('Sales today')).toBeVisible();
+      await owner.getByRole('link', { name: 'Devices & printing' }).click();
       // Devices: every configured device listed with a status from heartbeats
       const devices = owner.locator('section', { hasText: 'Device status' });
       for (const name of [
@@ -281,21 +282,22 @@ test.describe
           .locator('.badge')
           .first(),
       ).toHaveText(/online|offline/);
-      await owner.getByRole('button', { name: 'Menu' }).click();
-      await expect(owner.getByRole('cell', { name: 'Birthday Cake' })).toBeVisible();
-      await owner.getByRole('button', { name: 'Stations & routing' }).click();
-      await expect(owner.getByRole('cell', { name: 'Pastry', exact: true }).first()).toBeVisible();
+      await owner.getByRole('link', { name: 'Menu' }).click();
+      await expect(owner.getByRole('row', { name: /Birthday Cake/ })).toContainText('→ Pastry');
+      await owner.getByRole('link', { name: 'Stations & routing' }).click();
+      await expect(owner.getByRole('heading', { name: 'Where each item goes' })).toBeVisible();
       await expect(owner.getByText('PASTRY-PRINTER-01 · primary')).toBeVisible();
-      await owner.getByRole('button', { name: 'Areas & tables' }).click();
+      await owner.getByRole('link', { name: 'Floor & tables' }).click();
       await expect(owner.getByRole('row', { name: /Takeaway/ }).locator('select')).toHaveValue(
         'pay_before_fulfillment',
       );
       await expect(owner.getByRole('row', { name: /Hall/ }).locator('select')).toHaveValue(
         'pay_after_fulfillment',
       );
-      await owner.getByRole('button', { name: 'Staff' }).click();
+      await owner.getByRole('link', { name: 'Staff & roles' }).click();
       await expect(owner.getByRole('cell', { name: /Cashier/ }).first()).toBeVisible();
-      await owner.getByRole('button', { name: 'Print queue' }).click();
+      await expect(owner.getByRole('heading', { name: 'What each role can do' })).toBeVisible();
+      await owner.getByRole('link', { name: 'Devices & printing' }).click();
       await expect(owner.getByText('Print jobs not yet printed')).toBeVisible();
     });
   });

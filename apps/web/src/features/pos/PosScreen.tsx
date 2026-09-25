@@ -24,7 +24,15 @@ export function PosScreen({ me }: { me: MeView }) {
       .menu(branchId)
       .then((m) => {
         setMenu(m);
-        setView((v) => v ?? (m.areas[0] ? { kind: 'area', areaId: m.areas[0].id } : null));
+        setView((v) => {
+          if (v) return v;
+          // Deep link from Orders: /pos?order=<id>&area=<id>[&table=<id>]
+          const q = new URLSearchParams(window.location.search);
+          const area = m.areas.find((a) => a.id === q.get('area'));
+          if (area && q.get('order'))
+            return { kind: 'order', areaId: area.id, tableId: q.get('table'), orderId: q.get('order') };
+          return m.areas[0] ? { kind: 'area', areaId: m.areas[0].id } : null;
+        });
       })
       .catch(setMenuError);
   }, [branchId]);
@@ -71,16 +79,16 @@ export function PosScreen({ me }: { me: MeView }) {
           </span>
         )}
         <span className="small">{me.displayName}</span>
-        {hasPermission(me, 'kitchen.operate') ? (
-          <a href="/kds" onClick={linkTo('/kds')}>
-            Kitchen
+        {hasPermission(me, 'reports.view') || hasPermission(me, 'order.view') ? (
+          <a href="/orders" onClick={linkTo('/orders')}>
+            Orders
           </a>
         ) : null}
-        {hasPermission(me, 'config.manage') ||
-        hasPermission(me, 'device.manage') ||
-        hasPermission(me, 'menu.manage') ? (
-          <a href="/admin" onClick={linkTo('/admin')}>
-            Admin
+        {hasPermission(me, 'reports.view') ||
+        hasPermission(me, 'menu.manage') ||
+        hasPermission(me, 'config.manage') ? (
+          <a href="/dashboard" onClick={linkTo('/dashboard')} className="backoffice">
+            Back office
           </a>
         ) : null}
         <button type="button" className="link" onClick={() => void signOut()}>

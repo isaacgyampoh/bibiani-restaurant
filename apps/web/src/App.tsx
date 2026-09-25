@@ -1,12 +1,19 @@
 import type { MeView } from '@rp/contracts';
 import { useCallback, useEffect, useState } from 'react';
-import { AdminScreen } from './features/admin/AdminScreen';
 import { LoginScreen } from './features/auth/LoginScreen';
 import { PairScreen } from './features/auth/PairScreen';
 import { SetPasswordScreen } from './features/auth/SetPasswordScreen';
+import { DashboardPage } from './features/dashboard/DashboardPage';
 import { CustomerDisplay } from './features/display/CustomerDisplay';
+import { ExpoScreen } from './features/expo/ExpoScreen';
+import { InventoryPage } from './features/inventory/InventoryPage';
+import { StockTakePage } from './features/inventory/StockTakePage';
 import { KdsScreen } from './features/kds/KdsScreen';
+import { MenuPage } from './features/menu/MenuPage';
+import { OrdersPage } from './features/orders/OrdersPage';
 import { PosScreen } from './features/pos/PosScreen';
+import { ReportsPage } from './features/reports/ReportsPage';
+import { DevicesPage, FloorPage, RoutingPage, SettingsPage, StaffPage } from './features/setup/SetupPages';
 import { navigate, useLocation } from './infra/router';
 import { api, currentSession, hasPermission, supabase } from './infra/session';
 import { ErrorBox } from './ui/components';
@@ -17,9 +24,11 @@ function homeFor(me: MeView): string {
     if (me.device?.kind === 'kds') return '/kds';
     if (me.device?.kind === 'customer_display') return '/display';
   }
+  if (hasPermission(me, 'reports.view')) return '/dashboard';
   if (hasPermission(me, 'order.create')) return '/pos';
   if (hasPermission(me, 'kitchen.operate')) return '/kds';
-  if (hasPermission(me, 'config.manage') || hasPermission(me, 'device.manage')) return '/admin';
+  if (hasPermission(me, 'inventory.manage') || hasPermission(me, 'stock.count')) return '/inventory';
+  if (hasPermission(me, 'config.manage') || hasPermission(me, 'device.manage')) return '/devices';
   return '/pos';
 }
 
@@ -76,6 +85,19 @@ export function App() {
   }
   if (path.startsWith('/kds')) return <KdsScreen me={me} stationParam={query.get('station')} />;
   if (path.startsWith('/display')) return <CustomerDisplay me={me} />;
-  if (path.startsWith('/admin')) return <AdminScreen me={me} />;
+  if (path.startsWith('/expo')) return <ExpoScreen me={me} />;
+  if (path.startsWith('/dashboard')) return <DashboardPage me={me} />;
+  if (path.startsWith('/orders')) return <OrdersPage me={me} />;
+  if (path.startsWith('/inventory')) return <InventoryPage me={me} />;
+  if (path.startsWith('/stock-takes'))
+    return <StockTakePage me={me} countId={path.split('/')[2] || null} key={path} />;
+  if (path.startsWith('/menu')) return <MenuPage me={me} />;
+  if (path.startsWith('/routing')) return <RoutingPage me={me} />;
+  if (path.startsWith('/floor')) return <FloorPage me={me} />;
+  if (path.startsWith('/staff')) return <StaffPage me={me} />;
+  if (path.startsWith('/devices') || path.startsWith('/admin')) return <DevicesPage me={me} />;
+  if (path.startsWith('/reports')) return <ReportsPage me={me} />;
+  if (path.startsWith('/settings')) return <SettingsPage me={me} />;
+  if (path.startsWith('/pos')) return <PosScreen me={me} />;
   return <PosScreen me={me} />;
 }

@@ -89,7 +89,15 @@ export function AdminScreen({ me }: { me: MeView }) {
   );
 }
 
-function Section({ title, children, actions }: { title: string; children: ReactNode; actions?: ReactNode }) {
+export function Section({
+  title,
+  children,
+  actions,
+}: {
+  title: string;
+  children: ReactNode;
+  actions?: ReactNode;
+}) {
   return (
     <section className="panel">
       <div className="row" style={{ marginBottom: 8 }}>
@@ -174,7 +182,7 @@ function QuickForm({
   );
 }
 
-function DevicesTab({
+export function DevicesTab({
   branchId,
   config,
   save,
@@ -490,7 +498,7 @@ function PriceEditor({
   );
 }
 
-function StationsTab({
+export function StationsTab({
   config,
   branchId,
   save,
@@ -658,7 +666,7 @@ function StationsTab({
   );
 }
 
-function FloorTab({
+export function FloorTab({
   config,
   branchId,
   save,
@@ -765,7 +773,7 @@ function FloorTab({
   );
 }
 
-function StaffTab({
+export function StaffTab({
   config,
   branchId,
   reload,
@@ -842,7 +850,7 @@ function StaffTab({
   );
 }
 
-function PrintQueueTab({ branchId }: { branchId: string }) {
+export function PrintQueueTab({ branchId }: { branchId: string }) {
   const feed = useFeed(`print:${branchId}`, () => api.printQueue(branchId), {
     topic: `branch:${branchId}:print`,
     pollMs: 15_000,

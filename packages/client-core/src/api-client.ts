@@ -27,6 +27,7 @@ import type {
   RecordCountLineCommand,
   RecordPaymentCommand,
   RecordStockMovementCommand,
+  SalesReportView,
   SaveInventoryItemCommand,
   SaveRecipeCommand,
   SendToKitchenCommand,
@@ -130,6 +131,8 @@ export class ApiClient {
     this.request<OrderView>('POST', `/v1/orders/${orderId}/fulfil`, cmd);
   getOrder = (orderId: string) => this.request<OrderView>('GET', `/v1/orders/${orderId}`);
   dashboard = (branchId: string) => this.request<DashboardView>('GET', `/v1/branches/${branchId}/dashboard`);
+  salesReport = (branchId: string, from: string, to: string) =>
+    this.request<SalesReportView>('GET', `/v1/branches/${branchId}/reports/sales?from=${from}&to=${to}`);
   expo = (branchId: string) => this.request<ExpoView>('GET', `/v1/branches/${branchId}/expo`);
   inventory = (branchId: string) => this.request<InventoryView>('GET', `/v1/branches/${branchId}/inventory`);
   stockMovements = (branchId: string, itemId?: string) =>

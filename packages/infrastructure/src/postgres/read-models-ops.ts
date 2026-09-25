@@ -5,6 +5,7 @@ import type {
   ExpoView,
   InventoryView,
   OrderSummaryView,
+  SalesReportView,
   StockCountSummaryView,
   StockCountView,
   StockMovementView,
@@ -50,7 +51,14 @@ function summary(o: Row): OrderSummaryView {
 
 type OpsModels = Pick<
   ReadModels,
-  'dashboard' | 'expo' | 'inventory' | 'stockMovements' | 'stockCounts' | 'stockCount' | 'recipe'
+  | 'dashboard'
+  | 'expo'
+  | 'salesReport'
+  | 'inventory'
+  | 'stockMovements'
+  | 'stockCounts'
+  | 'stockCount'
+  | 'recipe'
 >;
 
 export function createOpsReadModels(sql: Sql): OpsModels {
@@ -190,6 +198,119 @@ export function createOpsReadModels(sql: Sql): OpsModels {
         inventory: { lowStockItems: num(stock[0]?.low), openStockCounts: num(stock[0]?.counts) },
         recentOrders: recent.map(summary),
         generatedAt: now.toISOString(),
+      };
+    },
+
+    async salesReport(branchId, from, to): Promise<SalesReportView> {
+      const range = [branchId, from, to];
+      const SOLD = `o.branch_id = $1 and o.business_day between $2::date and $3::date`;
+      const LIVE_ITEM = `i.status not in ('pending', 'cancelled', 'voided')`;
+      const [pay, methods, days, orders, hours, products, areas, stations, voids, currency] =
+        await Promise.all([
+          sql.query(
+            `select coalesce(sum(case when p.direction = 'charge' then p.amount else -p.amount end), 0)::bigint as net,
+                  count(distinct p.order_id)::int as orders
+           from payments p join orders o on o.id = p.order_id where ${SOLD} and p.status = 'recorded'`,
+            range,
+          ),
+          sql.query(
+            `select p.method, coalesce(sum(case when p.direction = 'charge' then p.amount else -p.amount end), 0)::bigint as amount,
+                  count(*) filter (where p.direction = 'charge')::int as count
+           from payments p join orders o on o.id = p.order_id where ${SOLD} and p.status = 'recorded' group by p.method`,
+            range,
+          ),
+          sql.query(
+            `select o.business_day::text as day,
+                  coalesce(sum(case when p.direction = 'charge' then p.amount else -p.amount end), 0)::bigint as net,
+                  count(distinct p.order_id)::int as orders
+           from payments p join orders o on o.id = p.order_id where ${SOLD} and p.status = 'recorded'
+           group by o.business_day order by o.business_day`,
+            range,
+          ),
+          sql.query(
+            `select count(*) filter (where o.status in ('cancelled', 'voided'))::int as cancelled from orders o where ${SOLD}`,
+            range,
+          ),
+          sql.query(
+            `select extract(hour from coalesce(o.first_submitted_at, o.created_at) at time zone b.timezone)::int as hour,
+                  count(*)::int as orders, coalesce(sum(o.grand_total), 0)::bigint as sales
+           from orders o join branches b on b.id = o.branch_id
+           where ${SOLD} and o.status not in ('cancelled', 'voided', 'draft')
+           group by 1 order by 1`,
+            range,
+          ),
+          sql.query(
+            `select i.name, c.name as category, sum(i.quantity)::int as quantity, sum(i.line_total)::bigint as sales
+           from order_items i join orders o on o.id = i.order_id
+           left join products p on p.id = i.product_id left join categories c on c.id = p.category_id
+           where ${SOLD} and o.status not in ('cancelled', 'voided') and ${LIVE_ITEM}
+           group by i.name, c.name order by sales desc`,
+            range,
+          ),
+          sql.query(
+            `select a.name, count(*)::int as orders, coalesce(sum(o.grand_total), 0)::bigint as sales
+           from orders o join operational_areas a on a.id = o.area_id
+           where ${SOLD} and o.status not in ('cancelled', 'voided', 'draft') group by a.name order by sales desc`,
+            range,
+          ),
+          sql.query(
+            `select st.name, count(t.id)::int as tickets,
+                  avg(extract(epoch from t.ready_at - t.created_at)) filter (where t.ready_at is not null) as avg_prep
+           from production_tickets t join orders o on o.id = t.order_id join stations st on st.id = t.station_id
+           where ${SOLD} and t.status <> 'cancelled' group by st.name, st.sort_order order by st.sort_order`,
+            range,
+          ),
+          sql.query(
+            `select count(*)::int as n, coalesce(sum(i.line_total), 0)::bigint as value
+           from order_items i join orders o on o.id = i.order_id where ${SOLD} and i.status = 'voided'`,
+            range,
+          ),
+          sql.query(`select currency from restaurants where id = app.current_restaurant_id()`),
+        ]);
+      const net = num(pay[0]?.net);
+      const paid = num(pay[0]?.orders);
+      const byProduct = products.map((p) => ({
+        name: s(p.name),
+        category: sn(p.category),
+        quantity: num(p.quantity),
+        sales: num(p.sales),
+      }));
+      const cats = new Map<string, { quantity: number; sales: number }>();
+      for (const p of byProduct) {
+        const k = p.category ?? 'Uncategorised';
+        const c = cats.get(k) ?? { quantity: 0, sales: 0 };
+        cats.set(k, { quantity: c.quantity + p.quantity, sales: c.sales + p.sales });
+      }
+      return {
+        branchId,
+        from,
+        to,
+        currency: s(currency[0]?.currency).trim(),
+        totals: {
+          net,
+          orders: paid,
+          averageOrder: paid ? Math.round(net / paid) : 0,
+          itemsSold: byProduct.reduce((n, p) => n + p.quantity, 0),
+          cancelledOrders: num(orders[0]?.cancelled),
+          voidedItems: num(voids[0]?.n),
+          voidedValue: num(voids[0]?.value),
+        },
+        byDay: days.map((d) => ({ day: s(d.day), net: num(d.net), orders: num(d.orders) })),
+        byMethod: (['cash', 'momo', 'card'] as const).map((method) => {
+          const r = methods.find((m) => m.method === method);
+          return { method, amount: num(r?.amount ?? 0), count: num(r?.count ?? 0) };
+        }),
+        byHour: hours.map((h) => ({ hour: num(h.hour), orders: num(h.orders), sales: num(h.sales) })),
+        byProduct,
+        byCategory: [...cats.entries()]
+          .map(([name, c]) => ({ name, ...c }))
+          .sort((a, b) => b.sales - a.sales),
+        byArea: areas.map((a) => ({ name: s(a.name), orders: num(a.orders), sales: num(a.sales) })),
+        stations: stations.map((st) => ({
+          name: s(st.name),
+          tickets: num(st.tickets),
+          averagePrepSeconds: st.avg_prep === null ? null : Math.round(Number(st.avg_prep)),
+        })),
       };
     },
 

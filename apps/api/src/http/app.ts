@@ -432,6 +432,16 @@ export function createHttpApp(deps: HttpDependencies) {
   v1.get('/branches/:branchId/dashboard', async (c) =>
     c.json(await deps.app.getDashboard.execute(c.var.ctx, id(c, 'branchId'))),
   );
+  v1.get('/branches/:branchId/reports/sales', async (c) =>
+    c.json(
+      await deps.app.getSalesReport.execute(
+        c.var.ctx,
+        id(c, 'branchId'),
+        c.req.query('from') ?? '',
+        c.req.query('to') ?? '',
+      ),
+    ),
+  );
   v1.get('/branches/:branchId/expo', async (c) =>
     c.json(await deps.app.getExpoBoard.execute(c.var.ctx, id(c, 'branchId'))),
   );

@@ -1,11 +1,58 @@
 import { ApiError } from '@rp/client-core';
-import type { MeView, StationTicketView } from '@rp/contracts';
+import type { MeView, StationBoardView, StationTicketView } from '@rp/contracts';
 import type { TicketAction } from '@rp/domain';
 import { useEffect, useState } from 'react';
 import { navigate } from '../../infra/router';
 import { api, signOut, topics } from '../../infra/session';
 import { useFeed } from '../../infra/use-feed';
 import { ConnectionDot, elapsed } from '../../ui/components';
+import { type Notice, NoticeCenter, useNotices } from '../../ui/notifications';
+
+const whereOf = (t: StationTicketView) =>
+  t.channel === 'dine_in'
+    ? t.tableLabel
+      ? `Table ${t.tableLabel}`
+      : t.areaName
+    : `Takeaway${t.customerName ? ` · ${t.customerName}` : ''}`;
+
+/** What changed on this station since the last authoritative reload. */
+function kitchenDiff(
+  before: StationBoardView,
+  after: StationBoardView,
+): Omit<Notice, 'id' | 'at' | 'read'>[] {
+  const out: Omit<Notice, 'id' | 'at' | 'read'>[] = [];
+  const prev = new Map(before.tickets.map((t) => [t.id, t]));
+  const knownOrders = new Set(before.tickets.map((t) => t.orderNumber));
+  for (const t of after.tickets) {
+    const p = prev.get(t.id);
+    const items = t.items.map((i) => `${i.quantity}× ${i.name}`).join(', ');
+    if (!p) {
+      out.push({
+        kind: knownOrders.has(t.orderNumber) ? 'added' : 'new',
+        title: `#${t.orderNumber} · ${whereOf(t)}`,
+        detail: items,
+      });
+      continue;
+    }
+    for (const i of t.items) {
+      const was = p.items.find((x) => x.id === i.id);
+      if (
+        was &&
+        was.status !== 'voided' &&
+        was.status !== 'cancelled' &&
+        (i.status === 'voided' || i.status === 'cancelled')
+      )
+        out.push({
+          kind: 'voided',
+          title: `#${t.orderNumber} · ${i.quantity}× ${i.name}`,
+          detail: 'Do not prepare',
+        });
+    }
+    if (p.status === 'ready' && t.status !== 'ready' && t.status !== 'completed')
+      out.push({ kind: 'recalled', title: `#${t.orderNumber} recalled`, detail: whereOf(t) });
+  }
+  return out;
+}
 
 /**
  * Station screen. Shows only this station's tickets (enforced by the server:
@@ -65,6 +112,7 @@ function Board({
     topic: topics.station(branchId, stationId),
     pollMs: 20_000, // safety poll: a silently dead socket cannot hide tickets for long
   });
+  const notices = useNotices(feed.data, kitchenDiff);
   const [now, setNow] = useState(Date.now());
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -135,6 +183,7 @@ function Board({
         <span style={{ fontSize: 26 }}>{board?.station.name ?? 'Kitchen'}</span>
         <span className="muted small">{board ? `${board.tickets.length} open` : ''}</span>
         <span className="grow" />
+        <NoticeCenter state={notices} />
         <ConnectionDot state={feed.connection} />
         {!isDevice ? (
           <button type="button" className="kbtn-minor btn" onClick={() => void signOut()}>

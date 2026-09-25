@@ -12,6 +12,7 @@ import type {
   OrderSummaryView,
   OrderView,
   PrintQueueView,
+  SalesReportView,
   StationBoardView,
   StockCountSummaryView,
   StockCountView,
@@ -560,6 +561,7 @@ export interface ReadModels {
   operations(branchId: string, now: Date): Promise<OperationsView>;
   dashboard(branchId: string, businessDay: string, now: Date): Promise<DashboardView>;
   expo(branchId: string, now: Date): Promise<ExpoView>;
+  salesReport(branchId: string, from: string, to: string): Promise<SalesReportView>;
   inventory(branchId: string): Promise<InventoryView>;
   stockMovements(branchId: string, itemId: string | null, limit: number): Promise<StockMovementView[]>;
   stockCounts(branchId: string): Promise<StockCountSummaryView[]>;

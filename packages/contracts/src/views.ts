@@ -491,3 +491,27 @@ export interface StockCountView extends StockCountSummaryView {
     reason: string | null;
   }[];
 }
+
+/** Sales report for a range of business days (inclusive). Net = charges − refunds, voided payments excluded. */
+export interface SalesReportView {
+  branchId: string;
+  from: string;
+  to: string;
+  currency: string;
+  totals: {
+    net: number;
+    orders: number;
+    averageOrder: number;
+    itemsSold: number;
+    cancelledOrders: number;
+    voidedItems: number;
+    voidedValue: number;
+  };
+  byDay: { day: string; net: number; orders: number }[];
+  byMethod: { method: 'cash' | 'momo' | 'card'; amount: number; count: number }[];
+  byHour: { hour: number; orders: number; sales: number }[];
+  byProduct: { name: string; category: string | null; quantity: number; sales: number }[];
+  byCategory: { name: string; quantity: number; sales: number }[];
+  byArea: { name: string; orders: number; sales: number }[];
+  stations: { name: string; tickets: number; averagePrepSeconds: number | null }[];
+}
