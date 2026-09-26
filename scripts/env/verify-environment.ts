@@ -23,7 +23,9 @@ check('migrations applied match repository', JSON.stringify(applied) === JSON.st
   expected: expectedMigrations.length,
 });
 const tables = await admin`select tablename, rowsecurity from pg_tables where schemaname = 'public'`;
-check('public tables', tables.length === 40, tables.length);
+// Raise with each migration that adds tables (49 after 20260925002100_pricing_promotions).
+const EXPECTED_TABLES = 49;
+check('public tables', tables.length === EXPECTED_TABLES, tables.length);
 check(
   'RLS on every table',
   tables.every((t) => t.rowsecurity),
@@ -33,7 +35,7 @@ const [c] = await admin`select
   count(*) filter (where contype = 'f')::int as fks, count(*) filter (where contype = 'c')::int as checks,
   count(*) filter (where contype = 'u')::int as uniques, count(*) filter (where contype = 'p')::int as pks
   from pg_constraint k join pg_namespace n on n.oid = k.connamespace where n.nspname = 'public'`;
-check('constraints present', c!.fks > 80 && c!.checks > 40 && c!.uniques > 30 && c!.pks === 40, c);
+check('constraints present', c!.fks > 80 && c!.checks > 40 && c!.uniques > 30 && c!.pks === tables.length, c);
 const [idx] = await admin`select count(*)::int as n from pg_indexes where schemaname = 'public'`;
 check('indexes present', idx!.n > 80, idx!.n);
 const grants =
