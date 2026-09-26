@@ -1,5 +1,6 @@
 import { formatMinor } from '@rp/domain';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+import { Icon } from './icons';
 
 /* ------------------------------------------------------------------ money */
 export function Money({ minor, currency }: { minor: number; currency: string }) {
@@ -102,7 +103,7 @@ export function Modal({
         <div className="modal-head">
           <h2>{title}</h2>
           <button type="button" className="close-x" onClick={onClose} aria-label="Close">
-            ✕
+            <Icon name="close" size={18} />
           </button>
         </div>
         <div className="modal-body">{children}</div>
@@ -137,7 +138,7 @@ export function Drawer({
         <div className="modal-head">
           <h2>{title}</h2>
           <button type="button" className="close-x" onClick={onClose} aria-label="Close">
-            ✕
+            <Icon name="close" size={18} />
           </button>
         </div>
         <div className="modal-body">{children}</div>
@@ -320,7 +321,7 @@ export function PinPad({
           onClick={() => onChange(value.slice(0, -1))}
           aria-label="Delete"
         >
-          ⌫
+          <Icon name="backspace" size={22} label="Delete" />
         </button>
       </div>
     </div>

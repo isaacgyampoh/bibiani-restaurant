@@ -2,9 +2,10 @@ import { type FormEvent, useState } from 'react';
 import { navigate } from '../../infra/router';
 import { pairDevice } from '../../infra/session';
 import { ErrorBox } from '../../ui/components';
-import { Brand } from './LoginScreen';
+import { Icon } from '../../ui/icons';
+import { Brand, BrandPanel } from './LoginScreen';
 
-/** Run on the device itself. A manager generates the one-time code in Admin → Devices. */
+/** Run on the device itself. A manager generates the one-time code in Admin, Devices. */
 export function PairScreen({ onPaired }: { onPaired: () => void }) {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -34,6 +35,7 @@ export function PairScreen({ onPaired }: { onPaired: () => void }) {
 
   return (
     <div className="auth">
+      <BrandPanel />
       <div className="auth-card">
         <Brand />
         <h1>Set up this device</h1>
@@ -56,7 +58,9 @@ export function PairScreen({ onPaired }: { onPaired: () => void }) {
           </button>
         </form>
         <div className="auth-foot">
-          <a href="/login">← Back to sign in</a>
+          <a href="/login" className="back-link">
+            <Icon name="arrow-left" size={16} /> Back to sign in
+          </a>
         </div>
       </div>
     </div>

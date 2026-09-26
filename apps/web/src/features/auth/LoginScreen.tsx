@@ -1,6 +1,19 @@
 import { type FormEvent, useState } from 'react';
 import { posDevice, requestPasswordReset, signInStaff, signInWithPin, tillApi } from '../../infra/session';
 import { ErrorBox, Field, PinPad } from '../../ui/components';
+import { Icon } from '../../ui/icons';
+
+/** The brand side of every sign-in, PIN, setup and loading screen: solid brand colour, logo, name. */
+export function BrandPanel({ note }: { note?: string }) {
+  return (
+    <aside className="brand-panel">
+      <img src="/logo-512.png" alt="MY FOOD — Chefelisha Restaurant" />
+      <strong className="name">Chefelisha Restaurant</strong>
+      <span className="slogan">Food is better than love</span>
+      {note ? <span className="note">{note}</span> : null}
+    </aside>
+  );
+}
 
 export function Brand() {
   return (
@@ -20,6 +33,7 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: () => void }) {
   const [mode, setMode] = useState<'pin' | 'email' | 'forgot-pin'>(till?.pinReady ? 'pin' : 'email');
   return (
     <div className="auth">
+      <BrandPanel />
       <div className="auth-card">
         <Brand />
         {mode === 'pin' && till ? (
@@ -155,7 +169,7 @@ function ForgotPin({ onBack }: { onBack: () => void }) {
       )}
       <div className="auth-foot">
         <button type="button" className="link" onClick={onBack}>
-          ← Back to PIN
+          <Icon name="arrow-left" size={16} /> Back to PIN
         </button>
       </div>
     </>

@@ -5,6 +5,7 @@ import { linkTo } from '../../infra/router';
 import { api, signOut, topics } from '../../infra/session';
 import { useFeed } from '../../infra/use-feed';
 import { Badge, ConnectionDot, ErrorBox, Modal, Money } from '../../ui/components';
+import { Icon } from '../../ui/icons';
 
 type Tab = 'devices' | 'menu' | 'stations' | 'floor' | 'staff' | 'print';
 type Row = Record<string, unknown>;
@@ -352,7 +353,7 @@ function MenuTab({
           {cats.map((c) => (
             <span key={str(c.id)} className="badge">
               {str(c.name)}
-              {c.parentId ? ` ← ${catName(c.parentId)}` : ''}
+              {c.parentId ? ` (in ${catName(c.parentId)})` : ''}
             </span>
           ))}
         </div>
@@ -548,7 +549,7 @@ export function StationsTab({
                             void api.deleteConfig('stationOutput', str(o.id)).then(reload).catch(onError)
                           }
                         >
-                          ✕
+                          <Icon name="close" size={18} />
                         </button>
                       </span>
                     ))}

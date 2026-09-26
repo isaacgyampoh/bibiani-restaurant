@@ -30,8 +30,8 @@ export function CustomerDisplay({ me }: { me: MeView }) {
       <header>
         <img className="logo-img" src="/logo-192.png" alt="" />
         <div className="names">
-          <span className="brand-kicker">MY FOOD</span>
           <span className="brand-title">{me.restaurant.name}</span>
+          <span className="slogan">Food is better than love</span>
         </div>
         <span className="clock">{clock.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
         {!document.fullscreenElement ? (

@@ -572,11 +572,6 @@ label.chip.selectable {
   gap: 10px;
   align-items: center;
 }
-.toast.ok::before {
-  content: "✓";
-  color: #6ee7a7;
-  font-weight: 800;
-}
 .toast.danger {
   background: #8f1b14;
 }
@@ -3169,38 +3164,9 @@ body {
   box-shadow: var(--card-shadow);
   border: 1px solid var(--card-line);
   border-radius: var(--card-radius);
-  padding: 18px;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  column-gap: 14px;
-  align-items: start;
+  padding: 18px 20px;
 }
-.metric > :not(.metric-icon) {
-  grid-column: 2;
-}
-.metric-icon {
-  grid-row: 1 / span 3;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: var(--brand-soft);
-  color: var(--brand);
-}
-.metric-icon svg {
-  width: 22px;
-  height: 22px;
-}
-.metric.alert .metric-icon {
-  background: var(--danger-soft);
-  color: var(--danger);
-}
-.metric.attention .metric-icon {
-  background: var(--warn-soft);
-  color: var(--warn);
-}
-.metric-value {
+.metric.alert .metric.attention .metric-value {
   font-size: 26px;
 }
 a.metric:hover {
@@ -3439,17 +3405,7 @@ a.metric:hover {
 .grid-2 .metrics {
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
 }
-.grid-2 .metric {
-  grid-template-columns: 1fr;
-}
-.grid-2 .metric-icon {
-  grid-row: auto;
-  margin-bottom: 10px;
-}
-.grid-2 .metric > :not(.metric-icon) {
-  grid-column: 1;
-}
-/* promo price: the normal price sits small above it, so price and add button share one line */
+.grid-2 /* promo price: the normal price sits small above it, so price and add button share one line */
 .product .price-row {
   flex-wrap: nowrap;
 }
@@ -3475,4 +3431,210 @@ a.small {
 .empty a:hover,
 a.small:hover {
   text-decoration: underline;
+}
+
+/* ================================================================ brand on every screen
+   One solid brand surface per screen: sign-in panel, back-office sidebar, POS / kitchen / supervisor
+   top bars, customer display header, loading splash. White logo disc, white type, nothing else. */
+
+/* sign-in, PIN, device setup, password: brand panel + form */
+.auth {
+  display: grid;
+  grid-template-columns: minmax(320px, 44%) 1fr;
+  place-items: initial;
+  padding: 0;
+  min-height: 100vh;
+}
+.auth > .auth-card {
+  align-self: center;
+  justify-self: center;
+  margin: 32px 24px;
+  box-shadow: none;
+  border: 0;
+  background: transparent;
+}
+.auth .auth-brand {
+  display: none;
+}
+.brand-panel {
+  background: var(--sidebar);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 48px 32px;
+  text-align: center;
+}
+.brand-panel img {
+  width: min(200px, 40vw);
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  margin-bottom: 10px;
+}
+.brand-panel .name {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.brand-panel .slogan {
+  font-size: 17px;
+  color: rgba(255, 255, 255, 0.82);
+}
+.brand-panel .note {
+  margin-top: 16px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.72);
+}
+.auth:has(> .auth-card) {
+  background: var(--surface);
+}
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+@media (max-width: 820px) {
+  .auth {
+    grid-template-columns: 1fr;
+    align-content: start;
+  }
+  .brand-panel {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 18px 20px;
+    text-align: left;
+  }
+  .brand-panel img {
+    width: 56px;
+    margin: 0;
+  }
+  .brand-panel .name {
+    font-size: 18px;
+  }
+  .brand-panel .slogan {
+    display: none;
+  }
+  .auth > .auth-card {
+    align-self: start;
+    width: min(440px, 100% - 32px);
+    margin: 24px auto;
+  }
+}
+
+/* loading */
+.splash {
+  min-height: 100vh;
+  background: var(--sidebar);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.splash img {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+}
+.splash strong {
+  font-size: 24px;
+}
+.splash span {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* POS top bar */
+.topbar {
+  background: var(--sidebar);
+  color: #fff;
+  border-bottom: 0;
+}
+.topbar .title,
+.topbar .who strong {
+  color: #fff;
+}
+.topbar .who {
+  color: rgba(255, 255, 255, 0.78);
+}
+.topbar a,
+.topbar button.link {
+  color: rgba(255, 255, 255, 0.92);
+}
+.topbar a:hover,
+.topbar button.link:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+}
+.topbar .tab {
+  color: rgba(255, 255, 255, 0.9);
+}
+.topbar .tab:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+}
+.topbar .tab.active {
+  background: #fff;
+  color: var(--sidebar);
+}
+.topbar .conn,
+.topbar .dot-label {
+  color: #fff;
+}
+
+/* kitchen and supervisor: brand bar over the dark working area */
+.kds .bar,
+.expo .bar {
+  background: var(--sidebar);
+  border-bottom: 0;
+  color: #fff;
+}
+.bar .count,
+.kds .bar .conn,
+.expo .bar .conn {
+  color: rgba(255, 255, 255, 0.8);
+}
+.bar .dark-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #fff;
+}
+.bar .dark-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+.bar .back {
+  color: #fff;
+}
+
+/* customer display header */
+.board header {
+  background: var(--sidebar);
+  border-bottom: 0;
+}
+.board header .names .slogan {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.82);
+}
+.board header .clock {
+  color: #fff;
+}
+.board header .fullscreen {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.4);
+  background: transparent;
+}
+/* status on brand bars: white text, white-ringed dot so it stays readable on red */
+.topbar .conn,
+.bar .conn,
+.board header .conn {
+  color: #fff;
+  font-weight: 600;
+}
+.topbar .conn .dot,
+.bar .conn .dot {
+  box-shadow: 0 0 0 2px #fff;
 }

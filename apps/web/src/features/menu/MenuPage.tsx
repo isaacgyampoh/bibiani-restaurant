@@ -4,6 +4,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react
 import { explainRoute, routingFrom } from '../../infra/routing';
 import { api, hasPermission } from '../../infra/session';
 import { ErrorBox, Modal, useToast } from '../../ui/components';
+import { Icon } from '../../ui/icons';
 import { Empty, Shell, Skeleton } from '../../ui/Shell';
 import { ProductEditor } from './ProductEditor';
 
@@ -204,7 +205,7 @@ export function MenuPage({ me }: { me: MeView }) {
                             className={route.stationId ? 'route' : 'pill danger'}
                             title={`by ${route.because}`}
                           >
-                            → {route.stationName}
+                            <Icon name="arrow-right" size={14} /> {route.stationName}
                           </span>
                         ) : null}
                       </td>
@@ -295,7 +296,8 @@ export function MenuPage({ me }: { me: MeView }) {
                       <td>
                         {rule ? (
                           <span className="route">
-                            → {str((config.stations as Row[]).find((s) => s.id === rule.stationId)?.name)}
+                            <Icon name="arrow-right" size={14} />{' '}
+                            {str((config.stations as Row[]).find((s) => s.id === rule.stationId)?.name)}
                           </span>
                         ) : (
                           <span className="muted small">inherits / default</span>
@@ -517,7 +519,7 @@ function RecipeDialog({
                 onClick={() => setRows(rows.filter((_, i) => i !== n))}
                 aria-label="Remove"
               >
-                ✕
+                <Icon name="close" size={18} />
               </button>
             </div>
           ))}

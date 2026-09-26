@@ -3,6 +3,7 @@ import type { ConfigurationView, MeView } from '@rp/contracts';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { api } from '../../infra/session';
 import { Badge, Drawer, ErrorBox, Field, FormSection, Modal, useToast } from '../../ui/components';
+import { Icon } from '../../ui/icons';
 import { Empty, initials, Shell, Skeleton } from '../../ui/Shell';
 
 type Staff = ConfigurationView['staff'][number];
@@ -126,7 +127,9 @@ export function StaffPage({ me }: { me: MeView }) {
                     {roles.map((r) => (
                       <td key={r.id} className="center">
                         {r.permissions.includes(code) ? (
-                          <span className="yes">✓</span>
+                          <span className="yes">
+                            <Icon name="check" size={18} label="Yes" />
+                          </span>
                         ) : (
                           <span className="no">–</span>
                         )}

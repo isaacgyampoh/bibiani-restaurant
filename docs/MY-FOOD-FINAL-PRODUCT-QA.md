@@ -231,3 +231,27 @@ Historical orders are never recalculated.
 |---|---|
 | No gradients, no drop-shadow logo, no decorative lines | **VERIFIED** (stylesheet audit; staging screenshots of sign-in, dashboard, menu, promotions, POS, kitchen) |
 | Tests after the refresh | **VERIFIED**: 169/169 automated; 16/16 staging browser tests (two updated for the new "Welcome back" heading) |
+
+## 16. No emoji; brand on every screen (2026-09-26, after owner feedback)
+
+- **No emoji or symbol characters as icons anywhere.** The dashboard's coloured icon circles were removed; the figures stand on their own. All 35 uses of symbol characters (arrows, check mark, cross, external-link mark, menu mark, delete key) were replaced:
+  - where they worked as controls, by one small set of thin line icons (`ui/icons.tsx`);
+  - where they sat inside a sentence, by words ("Price GHS 45.00 to GHS 50.00").
+
+  A scan of the web app finds no emoji or symbol-block characters left.
+- **Every screen carries one solid brand surface** with the white logo disc:
+
+| Screen | Brand surface |
+|---|---|
+| Sign-in, staff PIN, device setup, set password, PIN activation, POS "no branch" or "error" states | A brand panel (logo, Chefelisha Restaurant, "Food is better than love") beside the form. On phones it becomes a brand band on top |
+| App loading | Full brand splash |
+| Back office (every page) | Solid brand sidebar |
+| POS | Solid brand top bar; the current area is a white pill |
+| Kitchen screens, supervisor | Solid brand top bar over the dark working area |
+| Customer display | Solid brand header with the slogan |
+| Receipts | Logo and name (unchanged) |
+
+| Item | Status |
+|---|---|
+| No emoji or symbol icons; brand surface on every screen | **VERIFIED** (code scan; staging screenshots of sign-in, PIN, dashboard, POS, kitchen, supervisor, customer display) |
+| Tests | **VERIFIED**: 169/169 automated; 16/16 staging browser tests (one updated: the route arrow is now an icon) |

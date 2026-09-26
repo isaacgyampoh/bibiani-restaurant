@@ -17,7 +17,7 @@ function useSetup() {
   return { ...c, saveBool };
 }
 
-/** Product/category → station → screens and printers, computed exactly as the server routes orders. */
+/** Product or category, then station, then screens and printers, computed exactly as the server routes orders. */
 function RouteMap({ config, branchId }: { config: ConfigurationView; branchId: string }) {
   const areas = (config.areas as Row[]).filter((a) => a.branchId === branchId && a.isActive);
   const [areaId, setAreaId] = useState(str(areas[0]?.id));

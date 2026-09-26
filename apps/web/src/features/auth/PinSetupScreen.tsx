@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { navigate } from '../../infra/router';
 import { api, signOut } from '../../infra/session';
 import { ErrorBox, PinPad } from '../../ui/components';
-import { Brand } from './LoginScreen';
+import { Brand, BrandPanel } from './LoginScreen';
 
 /**
  * The staff member chooses their own PIN: on first sign-in (activation) after the owner assigned
@@ -77,6 +77,7 @@ export function PinSetupScreen({
         : 'Enter the new PIN again';
   return (
     <div className="auth">
+      <BrandPanel />
       <div className="auth-card">
         <Brand />
         <h1>{title}</h1>

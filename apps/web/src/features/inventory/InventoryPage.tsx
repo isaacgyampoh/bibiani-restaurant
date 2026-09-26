@@ -553,7 +553,7 @@ function MoveDialog({
           </label>
         )}
         <div className="summary-line">
-          On hand {qty(item.quantity, item.unit)} →{' '}
+          On hand {qty(item.quantity, item.unit)}, after this{' '}
           <strong className={after < 0 ? 'neg' : ''}>{qty(after, item.unit)}</strong>
           {item.unitCost ? (
             <span className="muted">

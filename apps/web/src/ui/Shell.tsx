@@ -2,6 +2,7 @@ import type { MeView } from '@rp/contracts';
 import { type ReactNode, useState } from 'react';
 import { linkTo, useLocation } from '../infra/router';
 import { hasPermission, signOut } from '../infra/session';
+import { Icon } from './icons';
 
 /* One consistent 18px line-icon set for navigation only. */
 const I = (d: string) => (
@@ -35,34 +36,6 @@ const ICON = {
   staff: I('M16 21v-2a4 4 0 0 0-8 0v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'),
   reports: I('M4 20V10M10 20V4M16 20v-7M22 20H2'),
   settings: I('M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0M14 4v4M8 10v4M16 16v4'),
-};
-
-const M = (d: string) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.8"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden
-  >
-    <path d={d} />
-  </svg>
-);
-export const METRIC_ICON = {
-  money: M('M3 7h18v10H3zM12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM6 10v4M18 10v4'),
-  receipt: M('M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6'),
-  tag: M('M20 12l-8 8-9-9V3h8l9 9zM7.5 7.5h.01'),
-  percent: M('M19 5L5 19M7 7h.01M17 17h.01'),
-  orders: M('M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01'),
-  flame: M('M12 3c3 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-5 3-7 1 2 2 3 3 3 0-3 0-5 0-7z'),
-  bell: M('M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0'),
-  wallet: M('M3 7h16v12H3zM3 7l12-4v4M15 13h2'),
-  table: M('M3 9h18M5 9v10M19 9v10M8 5h8'),
-  box: M('M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10'),
-  alert: M('M12 3l10 18H2zM12 10v5M12 18h.01'),
-  clipboard: M('M9 4h6v3H9zM7 5H5v16h14V5h-2M9 12h6M9 16h4'),
 };
 
 export interface NavItem {
@@ -201,7 +174,7 @@ export function Shell({
                     {i.label}
                     {i.fullScreen ? (
                       <span className="fs" aria-hidden>
-                        ↗
+                        <Icon name="external" size={14} />
                       </span>
                     ) : null}
                   </a>
@@ -226,7 +199,7 @@ export function Shell({
       <div className="main">
         <header className="page-head">
           <button type="button" className="btn menu-toggle" onClick={() => setOpen(!open)} aria-label="Menu">
-            ☰
+            <Icon name="menu" size={20} />
           </button>
           <div className="grow">
             <h1>{title}</h1>
@@ -277,24 +250,16 @@ export function Stat({
   hint,
   tone,
   href,
-  icon,
 }: {
   label: string;
   value: ReactNode;
   hint?: ReactNode;
   tone?: 'ok' | 'warn' | 'danger' | 'info';
   href?: string;
-  /** A small line icon in a soft circle (dashboard). */
-  icon?: keyof typeof METRIC_ICON;
 }) {
   const cls = `metric ${tone === 'danger' ? 'alert' : tone === 'warn' ? 'attention' : ''}`;
   const body = (
     <>
-      {icon ? (
-        <span className="metric-icon" aria-hidden>
-          {METRIC_ICON[icon]}
-        </span>
-      ) : null}
       <div className="metric-label">{label}</div>
       <div className="metric-value">{value}</div>
       {hint ? <div className="metric-hint">{hint}</div> : null}

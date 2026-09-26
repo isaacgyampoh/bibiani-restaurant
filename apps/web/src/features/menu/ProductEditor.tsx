@@ -4,6 +4,7 @@ import { linkTo } from '../../infra/router';
 import { explainRoute, routingFrom } from '../../infra/routing';
 import { api, hasPermission } from '../../infra/session';
 import { Alert, Badge, Drawer, errorMessage, Field, FormSection } from '../../ui/components';
+import { Icon } from '../../ui/icons';
 import { preparePhoto } from '../../ui/photo';
 
 type Row = Record<string, unknown>;
@@ -322,7 +323,7 @@ export function ProductEditor({
                 </ul>
               )}
               <a className="small" href="/promotions" onClick={linkTo('/promotions')}>
-                Manage promotions →
+                Manage promotions <Icon name="arrow-right" size={14} />
               </a>
             </fieldset>
           ) : null}
@@ -369,7 +370,7 @@ export function ProductEditor({
                 </span>
               ) : photo.kind === 'done' ? (
                 <span className="small ok-text" role="status">
-                  ✓ {photo.label}
+                  <Icon name="check" size={16} /> {photo.label}
                 </span>
               ) : photo.kind === 'error' ? (
                 <span className="field-error" role="alert">
@@ -440,7 +441,7 @@ export function ProductEditor({
                       aria-label="Remove ingredient"
                       onClick={() => setRecipe(recipe.filter((_, i) => i !== n))}
                     >
-                      ✕
+                      <Icon name="close" size={18} />
                     </button>
                   </div>
                 ))}

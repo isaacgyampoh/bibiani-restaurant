@@ -78,8 +78,10 @@ export function App() {
   if (path === '/set-password') return <SetPasswordScreen onDone={loadMe} />;
   if (!checked)
     return (
-      <div className="auth">
-        <img className="brand-logo" src="/logo-192.png" alt="MY FOOD — Chefelisha Restaurant" />
+      <div className="splash" role="status" aria-live="polite">
+        <img src="/logo-512.png" alt="MY FOOD — Chefelisha Restaurant" />
+        <strong>Chefelisha Restaurant</strong>
+        <span>Loading…</span>
       </div>
     );
   if (!me) {

@@ -5,6 +5,7 @@ import { api, hasPermission, posDevice, signOut, topics } from '../../infra/sess
 import { useFeed } from '../../infra/use-feed';
 import { Badge, ConnectionDot, ErrorBox, Money, statusLabel } from '../../ui/components';
 import { Empty, Skeleton } from '../../ui/Shell';
+import { BrandPanel } from '../auth/LoginScreen';
 import { OrderScreen } from './OrderScreen';
 
 type View =
@@ -60,6 +61,7 @@ export function PosScreen({ me }: { me: MeView }) {
   if (!branchId)
     return (
       <div className="auth">
+        <BrandPanel />
         <div className="auth-card">
           <Empty title="No branch assigned">Ask a manager to give your account access to a branch.</Empty>
         </div>
@@ -68,6 +70,7 @@ export function PosScreen({ me }: { me: MeView }) {
   if (menuError)
     return (
       <div className="auth">
+        <BrandPanel />
         <div className="auth-card">
           <ErrorBox error={menuError} />
         </div>

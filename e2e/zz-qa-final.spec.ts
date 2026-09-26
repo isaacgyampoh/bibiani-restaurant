@@ -177,8 +177,8 @@ test('final review', async ({ browser }) => {
     .click();
   await snap(pos, '07-pos-photos', false);
   await pos
-    .getByRole('button', { name: '← Back' })
-    .click()
+    .getByRole('button', { name: 'Back', exact: true })
+    .click({ timeout: 5000 })
     .catch(() => undefined);
   await pos.goto('/pos');
   await pos.getByRole('tab', { name: 'Completed' }).click();

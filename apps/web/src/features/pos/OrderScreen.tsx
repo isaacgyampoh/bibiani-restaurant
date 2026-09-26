@@ -3,6 +3,7 @@ import { type FormEvent, useMemo, useState } from 'react';
 import { api, hasPermission, topics } from '../../infra/session';
 import { useFeed } from '../../infra/use-feed';
 import { Badge, ConnectionDot, ErrorBox, Field, Modal, Money, useToast } from '../../ui/components';
+import { Icon } from '../../ui/icons';
 import { ReceiptModal } from '../../ui/Receipt';
 import { PaymentModal } from './PaymentModal';
 
@@ -199,7 +200,7 @@ export function OrderScreen({
       <div className="menu">
         <div className="menu-head">
           <button type="button" className="btn lg" onClick={onClose}>
-            ← Back
+            <Icon name="arrow-left" size={18} /> Back
           </button>
           <input
             className="search"
@@ -336,7 +337,7 @@ export function OrderScreen({
               ) : null}
               {hasPermission(me, 'discount.apply') && order.items.some((i) => i.status !== 'voided') ? (
                 <button type="button" className="btn sm" onClick={() => setDialog('discount')}>
-                  {order.discount ? 'Discount ✓' : 'Discount'}
+                  {order.discount ? 'Discount (applied)' : 'Discount'}
                 </button>
               ) : null}
               {hasPermission(me, 'order.cancel') || hasPermission(me, 'order.void') ? (

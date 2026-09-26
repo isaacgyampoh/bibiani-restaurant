@@ -129,9 +129,9 @@ function productChanges(before: Rec, after: Rec, money: (m: number) => string): 
   if (!before || !after) return '';
   const changes: string[] = [];
   if (after.basePrice !== undefined && num(before.base_price) !== num(after.basePrice))
-    changes.push(`Price ${money(num(before.base_price))} → ${money(num(after.basePrice))}`);
+    changes.push(`Price ${money(num(before.base_price))} to ${money(num(after.basePrice))}`);
   if (after.name !== undefined && before.name !== after.name)
-    changes.push(`Name “${before.name}” → “${after.name}”`);
+    changes.push(`Name “${before.name}” to “${after.name}”`);
   if (after.isActive !== undefined && Boolean(before.is_active) !== Boolean(after.isActive))
     changes.push(after.isActive ? 'Back on the menu' : 'Hidden from the menu');
   if (after.categoryId !== undefined && before.category_id !== after.categoryId)

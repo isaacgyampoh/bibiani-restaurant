@@ -6,6 +6,7 @@ import { navigate } from '../../infra/router';
 import { api, signOut, topics } from '../../infra/session';
 import { useFeed } from '../../infra/use-feed';
 import { ConnectionDot, elapsed } from '../../ui/components';
+import { Icon } from '../../ui/icons';
 import { type Notice, NoticeCenter, useNotices } from '../../ui/notifications';
 
 const whereOf = (t: StationTicketView) =>
@@ -98,7 +99,7 @@ function StationPicker({ me, branchId }: { me: MeView; branchId: string }) {
     <div className="kds">
       <div className="bar">
         <button type="button" className="dark-btn" onClick={() => navigate('/dashboard')} aria-label="Back">
-          ←
+          <Icon name="arrow-left" size={20} />
         </button>
         <img className="bar-logo" src="/logo-64.png" alt="" />
         <span className="title">Kitchen</span>
@@ -221,7 +222,7 @@ function Board({
             onClick={() => navigate('/kds')}
             aria-label="All stations"
           >
-            ←
+            <Icon name="arrow-left" size={20} />
           </button>
         ) : null}
         <img className="bar-logo" src="/logo-64.png" alt="" />

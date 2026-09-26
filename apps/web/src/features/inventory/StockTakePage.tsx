@@ -5,6 +5,7 @@ import { linkTo, navigate } from '../../infra/router';
 import { api, hasPermission } from '../../infra/session';
 import { useFeed } from '../../infra/use-feed';
 import { ErrorBox } from '../../ui/components';
+import { Icon } from '../../ui/icons';
 import { Empty, Shell, Skeleton } from '../../ui/Shell';
 
 const STATUS: Record<string, string> = {
@@ -223,7 +224,7 @@ function CountDetail({ me, countId }: { me: MeView; countId: string }) {
       }
       actions={
         <a className="btn" href="/stock-takes" onClick={linkTo('/stock-takes')}>
-          ← All counts
+          <Icon name="arrow-left" size={16} /> All counts
         </a>
       }
     >

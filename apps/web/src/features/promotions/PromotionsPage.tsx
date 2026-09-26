@@ -64,7 +64,7 @@ export function PromotionsPage({ me }: { me: MeView }) {
           ...p.categoryIds.map((id) => `${categoryName.get(id) ?? 'Category'} (all)`),
           ...p.productIds.map((id) => productName.get(id)?.name ?? 'Product'),
         ].join(', ');
-  /** Normal → promotional price, when the promotion targets a single product. */
+  /** Normal and promotional price, when the promotion targets a single product. */
   const pricePair = (p: PromotionView) => {
     const only = !p.appliesToAll && p.categoryIds.length === 0 && p.productIds.length === 1;
     const product = only ? productName.get(p.productIds[0]!) : undefined;
@@ -154,7 +154,7 @@ export function PromotionsPage({ me }: { me: MeView }) {
                   <tr>
                     <th>Promotion</th>
                     <th>Applies to</th>
-                    <th className="num">Normal → promo</th>
+                    <th className="num">Normal / promo</th>
                     <th>When</th>
                     <th>Status</th>
                     <th>Last change</th>

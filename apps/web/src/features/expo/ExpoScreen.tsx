@@ -5,6 +5,7 @@ import { linkTo } from '../../infra/router';
 import { api, hasPermission, topics } from '../../infra/session';
 import { useFeed } from '../../infra/use-feed';
 import { ConnectionDot, duration, ErrorBox } from '../../ui/components';
+import { Icon } from '../../ui/icons';
 import { type Notice, NoticeCenter, useNotices } from '../../ui/notifications';
 
 const clock = duration;
@@ -105,7 +106,7 @@ export function ExpoScreen({ me }: { me: MeView }) {
     <div className="expo">
       <div className="bar">
         <a href="/dashboard" onClick={linkTo('/dashboard')} className="back">
-          ←
+          <Icon name="arrow-left" size={20} />
         </a>
         <img className="bar-logo" src="/logo-64.png" alt="" />
         <span className="title">Supervisor</span>
@@ -181,7 +182,7 @@ export function ExpoScreen({ me }: { me: MeView }) {
                         <strong className="grow">{s.stationName}</strong>
                         <span className={`st ${done ? 'ok' : s.delayed ? 'late' : ''}`}>
                           {done
-                            ? '✓ READY'
+                            ? 'READY'
                             : `${STATUS[s.status] ?? s.status} · ${clock(s.elapsedSeconds + drift)}`}
                         </span>
                         {!done && canKitchen ? (

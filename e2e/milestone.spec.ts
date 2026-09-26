@@ -285,7 +285,7 @@ test.describe
           .first(),
       ).toHaveText(/Online|Offline|Not connected/);
       await owner.getByRole('link', { name: 'Menu' }).click();
-      await expect(owner.getByRole('row', { name: /Birthday Cake/ })).toContainText('→ Pastry');
+      await expect(owner.getByRole('row', { name: /Birthday Cake/ })).toContainText('Pastry');
       await owner.getByRole('link', { name: 'Stations & routing' }).click();
       await expect(owner.getByRole('heading', { name: 'Where each item goes' })).toBeVisible();
       await expect(owner.getByText('PASTRY-PRINTER-01 · primary')).toBeVisible();

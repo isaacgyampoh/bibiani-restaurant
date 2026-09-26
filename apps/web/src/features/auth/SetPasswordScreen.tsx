@@ -3,7 +3,7 @@ import { type FormEvent, useEffect, useState } from 'react';
 import { navigate } from '../../infra/router';
 import { currentSession, setNewPassword } from '../../infra/session';
 import { ErrorBox } from '../../ui/components';
-import { Brand } from './LoginScreen';
+import { Brand, BrandPanel } from './LoginScreen';
 
 /**
  * Landing page of a password reset / invitation email. Supabase signs the person in from the link;
@@ -45,6 +45,7 @@ export function SetPasswordScreen({ onDone }: { onDone: () => void }) {
   if (session === undefined && !linkError)
     return (
       <div className="auth">
+        <BrandPanel />
         <div className="auth-card">
           <Brand />
           <p className="lead">Checking your link…</p>
@@ -54,6 +55,7 @@ export function SetPasswordScreen({ onDone }: { onDone: () => void }) {
   if (!session)
     return (
       <div className="auth">
+        <BrandPanel />
         <div className="auth-card">
           <Brand />
           <h1>Link expired</h1>
@@ -69,6 +71,7 @@ export function SetPasswordScreen({ onDone }: { onDone: () => void }) {
     );
   return (
     <div className="auth">
+      <BrandPanel />
       <div className="auth-card">
         <Brand />
         <h1>Set your password</h1>
