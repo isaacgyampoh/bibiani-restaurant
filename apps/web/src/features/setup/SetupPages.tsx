@@ -206,7 +206,7 @@ export function FloorPage({ me }: { me: MeView }) {
 
 export function DevicesPage({ me }: { me: MeView }) {
   const branchId = me.branches[0]?.id ?? '';
-  const { config, error, setError, saveBool } = useSetup();
+  const { config, error, setError, saveBool, reload } = useSetup();
   return (
     <Shell
       me={me}
@@ -219,7 +219,13 @@ export function DevicesPage({ me }: { me: MeView }) {
       ) : (
         <>
           {hasPermission(me, 'device.manage') ? (
-            <DevicesTab branchId={branchId} config={config} save={saveBool} onError={setError} />
+            <DevicesTab
+              branchId={branchId}
+              config={config}
+              save={saveBool}
+              onError={setError}
+              reloadConfig={reload}
+            />
           ) : null}
           {hasPermission(me, 'print.manage') ? <PrintQueueTab branchId={branchId} /> : null}
         </>

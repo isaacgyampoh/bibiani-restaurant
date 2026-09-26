@@ -388,7 +388,10 @@ export interface TestApp {
   as(authUserId: string, deviceId?: string | null): Promise<RequestContext>;
 }
 
-export function createTestApp(db: Database, options: { decorate?: RepositoryDecorator } = {}): TestApp {
+export function createTestApp(
+  db: Database,
+  options: { decorate?: RepositoryDecorator; pinPepper?: string } = {},
+): TestApp {
   const clock = new TestClock();
   const logger = new CapturingLogger();
   const images = new MemoryImageStore();
@@ -398,7 +401,7 @@ export function createTestApp(db: Database, options: { decorate?: RepositoryDeco
     identity: new PgIdentityRegistry(db),
     secrets: cryptoSecrets,
     deviceAccountDomain: 'devices.example.com',
-    pinHasher: new HmacPinHasher('test-pepper-0123456789abcdef0123456789abcdef'),
+    pinHasher: new HmacPinHasher(options.pinPepper ?? 'test-pepper-0123456789abcdef0123456789abcdef'),
     publicUrl: 'https://app.test',
     images,
     uow: new PgUnitOfWork(db, {

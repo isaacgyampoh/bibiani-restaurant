@@ -1,0 +1,42 @@
+name: MY FOOD Hub (Windows installer)
+
+# Builds the MY FOOD Hub installer on a real Windows machine. Run by hand (Actions tab); the
+# installer is attached to the run as an artifact. Only public values are used (see build.mjs).
+on:
+  workflow_dispatch:
+    inputs:
+      cloud_url:
+        description: MY FOOD cloud address the hub connects to
+        default: https://bibiani-restaurant.vercel.app
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Public build values
+        shell: bash
+        run: |
+          printf 'VITE_SUPABASE_URL=%s\nVITE_SUPABASE_ANON_KEY=%s\n' "${{ vars.PROD_SUPABASE_URL }}" "${{ vars.PROD_SUPABASE_ANON_KEY }}" > .env.hub
+      - name: Build app
+        working-directory: apps/desktop
+        run: node build.mjs .env.hub "${{ inputs.cloud_url }}"
+      - name: Package installer
+        working-directory: apps/desktop
+        run: pnpm exec electron-builder --win nsis --x64 --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: myfood-hub-windows
+          path: apps/desktop/release/*.exe
+          if-no-files-found: error

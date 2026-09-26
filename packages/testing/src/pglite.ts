@@ -93,12 +93,16 @@ export async function buildTemplate(): Promise<string> {
   return path;
 }
 
-export async function createPgliteDatabase(options: { fresh?: boolean } = {}): Promise<TestDatabase> {
+/** A migrated PGlite instance (copy of the template). The in-store hub tests open it as a hub database. */
+export async function createPgliteInstance(options: { fresh?: boolean } = {}): Promise<PGlite> {
   const path = templatePath();
-  const pglite =
-    !options.fresh && existsSync(path)
-      ? await PGlite.create({ loadDataDir: new Blob([readFileSync(path)]) })
-      : await migrateFresh();
+  return !options.fresh && existsSync(path)
+    ? PGlite.create({ loadDataDir: new Blob([readFileSync(path)]) })
+    : migrateFresh();
+}
+
+export async function createPgliteDatabase(options: { fresh?: boolean } = {}): Promise<TestDatabase> {
+  const pglite = await createPgliteInstance(options);
   const root = wrap(pglite);
   return {
     target: 'pglite',

@@ -237,7 +237,7 @@ export class UpdateStaff {
 // ---------------------------------------------------------------------------
 // Device pairing
 // ---------------------------------------------------------------------------
-const PAIRABLE = new Set(['pos', 'kds', 'customer_display', 'print_agent']);
+const PAIRABLE = new Set(['pos', 'kds', 'customer_display', 'print_agent', 'hub']);
 const PAIRING_TTL_MS = 10 * 60 * 1000;
 
 export class CreatePairingCode {

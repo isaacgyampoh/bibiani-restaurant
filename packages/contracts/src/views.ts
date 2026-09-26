@@ -359,6 +359,16 @@ export interface OperationsView {
       failedJobs: number;
       deadJobs: number;
     } | null;
+    /** 'hub': status as reported by the branch's in-store hub (the device talks to the hub, not the cloud). */
+    via: 'hub' | null;
+    /** For an in-store hub: its sync state from its last report. */
+    hub: {
+      runsBranch: boolean;
+      pendingChanges: number;
+      conflicts: number;
+      oldestPendingAt: string | null;
+      reportedAt: string;
+    } | null;
   }[];
   generatedAt: string;
 }

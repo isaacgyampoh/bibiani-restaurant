@@ -1,10 +1,10 @@
-import type { ConfigEntity, ConfigurationView, MeView, PairingCodeView } from '@rp/contracts';
+import type { ConfigEntity, ConfigurationView, MeView, OperationsView, PairingCodeView } from '@rp/contracts';
 import { DEVICE_KINDS, PAYMENT_POLICIES } from '@rp/domain';
 import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from 'react';
 import { linkTo } from '../../infra/router';
 import { api, signOut, topics } from '../../infra/session';
 import { useFeed } from '../../infra/use-feed';
-import { Badge, ConnectionDot, ErrorBox, Modal, Money } from '../../ui/components';
+import { Alert, Badge, ConnectionDot, ErrorBox, Modal, Money } from '../../ui/components';
 import { Icon } from '../../ui/icons';
 
 type Tab = 'devices' | 'menu' | 'stations' | 'floor' | 'staff' | 'print';
@@ -74,7 +74,13 @@ export function AdminScreen({ me }: { me: MeView }) {
         <ErrorBox error={error} />
         {!config ? <div className="muted">Loading…</div> : null}
         {config && tab === 'devices' ? (
-          <DevicesTab branchId={branchId} config={config} save={save} onError={setError} />
+          <DevicesTab
+            branchId={branchId}
+            config={config}
+            save={save}
+            onError={setError}
+            reloadConfig={reload}
+          />
         ) : null}
         {config && tab === 'menu' ? <MenuTab config={config} branchId={branchId} save={save} /> : null}
         {config && tab === 'stations' ? (
@@ -188,11 +194,13 @@ export function DevicesTab({
   config,
   save,
   onError,
+  reloadConfig,
 }: {
   branchId: string;
   config: ConfigurationView;
   save: (e: ConfigEntity, r: Row) => Promise<boolean>;
   onError: (e: unknown) => void;
+  reloadConfig?: () => void;
 }) {
   const feed = useFeed(`ops:${branchId}`, () => api.operations(branchId), {
     topic: topics.ops(branchId),
@@ -201,6 +209,23 @@ export function DevicesTab({
   const [pairing, setPairing] = useState<(PairingCodeView & { name: string }) | null>(null);
   const [approving, setApproving] = useState<{ id: string; name: string } | null>(null);
   const [renaming, setRenaming] = useState<Row | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const deviceRow = (id: string) => (config.devices as Row[]).find((x) => x.id === id) ?? null;
+  const setActive = (id: string, isActive: boolean) => {
+    const d = deviceRow(id);
+    if (!d) return;
+    void save('device', {
+      id: d.id,
+      branchId: d.branchId,
+      kind: d.kind,
+      name: d.name,
+      stationId: d.stationId ?? null,
+      receiptPrinterId: d.receiptPrinterId ?? null,
+      isActive,
+    }).then((ok) => {
+      if (ok) feed.refresh();
+    });
+  };
   const stations = config.stations.filter((s) => s.branchId === branchId) as Row[];
   const agents = config.devices.filter((d) => d.kind === 'print_agent') as Row[];
   const printers = config.devices.filter((d) => d.kind === 'printer') as Row[];
@@ -210,6 +235,12 @@ export function DevicesTab({
         title="Device status (from heartbeats and printer reports)"
         actions={<ConnectionDot state={feed.connection} />}
       >
+        {notice ? (
+          <p className="notice" role="status">
+            {notice}
+          </p>
+        ) : null}
+        <HubSummary devices={feed.data?.devices ?? []} />
         <table className="list">
           <thead>
             <tr>
@@ -246,8 +277,12 @@ export function DevicesTab({
                         </span>
                       ) : null}
                     </>
+                  ) : d.hub ? (
+                    <HubSyncLine hub={d.hub} />
                   ) : d.kind !== 'printer' ? (
-                    d.paired ? (
+                    d.via === 'hub' ? (
+                      'through the hub'
+                    ) : d.paired ? (
                       'paired'
                     ) : (
                       'not paired'
@@ -255,7 +290,7 @@ export function DevicesTab({
                   ) : null}
                 </td>
                 <td className="row">
-                  {['pos', 'kds', 'customer_display', 'print_agent'].includes(d.kind) && d.isActive ? (
+                  {['pos', 'kds', 'customer_display', 'print_agent', 'hub'].includes(d.kind) && d.isActive ? (
                     <>
                       <button
                         type="button"
@@ -278,15 +313,71 @@ export function DevicesTab({
                       </button>
                     </>
                   ) : null}
-                  {d.kind !== 'printer' ? (
+                  {d.kind === 'printer' && d.isActive ? (
                     <button
                       type="button"
                       className="btn sm"
                       onClick={() =>
-                        setRenaming((config.devices as Row[]).find((x) => x.id === d.id) ?? null)
+                        void api
+                          .testPrint(d.id, crypto.randomUUID())
+                          .then(() =>
+                            setNotice(
+                              `Test page sent to ${d.name}. If nothing prints within a minute, check the printer and the Print queue.`,
+                            ),
+                          )
+                          .catch(onError)
                       }
                     >
-                      Rename
+                      Test print
+                    </button>
+                  ) : null}
+                  <button type="button" className="btn sm" onClick={() => setRenaming(deviceRow(d.id))}>
+                    Rename
+                  </button>
+                  {d.kind === 'printer' ? (
+                    <button
+                      type="button"
+                      className="btn sm"
+                      onClick={() => {
+                        if (
+                          !d.isActive ||
+                          window.confirm(
+                            `Turn off ${d.name}? Stations stop sending tickets to it (a station with no other output is skipped by routing).`,
+                          )
+                        )
+                          setActive(d.id, !d.isActive);
+                      }}
+                    >
+                      {d.isActive ? 'Turn off' : 'Turn on'}
+                    </button>
+                  ) : null}
+                  {d.kind === 'hub' && d.paired && d.isActive ? (
+                    <button
+                      type="button"
+                      className="btn sm"
+                      onClick={() => {
+                        const branch = (config.branches as Row[]).find((b) => b.id === branchId);
+                        const attached = branch?.hubDeviceId === d.id;
+                        const question = attached
+                          ? `Stop running this branch from ${d.name}? The web POS takes over. Make sure the hub has finished syncing first (its window shows "All sent").`
+                          : `Run this branch from ${d.name}? Tills, kitchen screens and the customer display then work through the hub, also without internet. Open orders on the web POS must be finished first.`;
+                        if (window.confirm(question))
+                          void api
+                            .setBranchHub(branchId, attached ? null : d.id)
+                            .then(() => {
+                              setNotice(
+                                attached
+                                  ? `${d.name} no longer runs this branch.`
+                                  : `${d.name} now runs this branch. Open MY FOOD on the tills from the hub's address.`,
+                              );
+                              reloadConfig?.();
+                            })
+                            .catch(onError);
+                      }}
+                    >
+                      {(config.branches as Row[]).find((b) => b.id === branchId)?.hubDeviceId === d.id
+                        ? 'Stop running branch'
+                        : 'Run branch from hub'}
                     </button>
                   ) : null}
                   {d.paired ? (
@@ -383,12 +474,55 @@ export function DevicesTab({
   );
 }
 
+type OpsDevice = OperationsView['devices'][number];
+
+const clock = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+
+function HubSyncLine({ hub }: { hub: NonNullable<OpsDevice['hub']> }) {
+  if (hub.conflicts > 0)
+    return (
+      <span className="badge failed">
+        {hub.conflicts} record{hub.conflicts === 1 ? '' : 's'} need attention
+      </span>
+    );
+  if (hub.pendingChanges > 0)
+    return (
+      <span className="badge dead">
+        {hub.pendingChanges} change{hub.pendingChanges === 1 ? '' : 's'} waiting since{' '}
+        {clock(hub.oldestPendingAt)}
+      </span>
+    );
+  return <>All sent · reported {clock(hub.reportedAt)}</>;
+}
+
+/** For a branch run by an in-store hub: one plain line on how the restaurant is doing. */
+function HubSummary({ devices }: { devices: OpsDevice[] }) {
+  const hub = devices.find((d) => d.kind === 'hub' && d.hub?.runsBranch);
+  if (!hub?.hub) return null;
+  const offline = hub.status !== 'online';
+  const tone = offline || hub.hub.conflicts > 0 ? 'warn' : 'ok';
+  return (
+    <Alert tone={tone}>
+      <strong>{hub.name}</strong>{' '}
+      {offline
+        ? `has not reported since ${clock(hub.lastSeenAt)}. The restaurant keeps working on the hub if only the internet is down; its sales arrive here when it reconnects.`
+        : hub.hub.conflicts > 0
+          ? `is online. ${hub.hub.conflicts} record(s) could not be sent: contact MY FOOD support.`
+          : hub.hub.pendingChanges > 0
+            ? `is online and sending ${hub.hub.pendingChanges} change(s).`
+            : 'is online. Everything is sent.'}
+    </Alert>
+  );
+}
+
 const DEVICE_LABEL: Record<string, string> = {
   pos: 'POS till',
   kds: 'Kitchen screen',
   customer_display: 'Customer display',
   print_agent: 'Print agent',
   printer: 'Printer',
+  hub: 'MY FOOD Hub',
 };
 
 /** A manager types the code shown on the device's "Pair this device" screen. */
@@ -692,13 +826,17 @@ export function StationsTab({
   const products = config.products as Row[];
   return (
     <>
-      <Section title="Stations and what they feed">
+      <Section title="Stations and where their tickets go">
+        <p className="muted">
+          Each station can use a kitchen screen, a printer, both, or several. A station with neither is
+          skipped: its items go to the next matching rule.
+        </p>
         <table className="list">
           <thead>
             <tr>
               <th>Station</th>
               <th>Code</th>
-              <th>Outputs</th>
+              <th>Screens and printers</th>
             </tr>
           </thead>
           <tbody>
@@ -709,11 +847,16 @@ export function StationsTab({
                 </td>
                 <td>{str(s.code)}</td>
                 <td className="row wrap">
+                  {(config.stationOutputs as Row[]).some((o) => o.stationId === s.id) ? null : (
+                    <span className="badge failed">No screen or printer</span>
+                  )}
                   {(config.stationOutputs as Row[])
                     .filter((o) => o.stationId === s.id)
                     .map((o) => (
                       <span key={str(o.id)} className="badge">
-                        {name(devices, o.deviceId)} · {str(o.role)}
+                        {devices.find((d) => d.id === o.deviceId)?.kind === 'kds' ? 'Screen' : 'Printer'}:{' '}
+                        {name(devices, o.deviceId)}
+                        {o.role === 'primary' ? '' : ` (${str(o.role)})`}
                         <button
                           type="button"
                           className="link"
@@ -740,25 +883,25 @@ export function StationsTab({
           onSubmit={(v) => save('station', { branchId, name: v.name, code: str(v.code).toUpperCase() })}
         />
         <QuickForm
-          submitLabel="Connect output"
+          submitLabel="Connect screen or printer"
           fields={[
             ['stationId', 'Station', 'select', stations.map((s) => [str(s.id), str(s.name)])],
             [
               'deviceId',
-              'Printer or KDS',
+              'Screen or printer',
               'select',
               devices
                 .filter((d) => d.kind === 'printer' || d.kind === 'kds')
-                .map((d) => [str(d.id), str(d.name)]),
+                .map((d) => [str(d.id), `${d.kind === 'kds' ? 'Screen' : 'Printer'}: ${str(d.name)}`]),
             ],
             [
               'role',
               'Role',
               'select',
               [
-                ['primary', 'primary'],
-                ['copy', 'copy'],
-                ['backup', 'backup'],
+                ['primary', 'Main'],
+                ['copy', 'Extra copy'],
+                ['backup', 'Backup (used if the main printer fails)'],
               ],
             ],
           ]}

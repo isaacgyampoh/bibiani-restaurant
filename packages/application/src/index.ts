@@ -12,6 +12,7 @@ import {
   SaveConfig,
   UpdateStaff,
 } from './use-cases/administration';
+import { GetHubSnapshot, IngestHubBatch, SetBranchHub } from './use-cases/hub-sync';
 import {
   ApproveStockCount,
   CancelStockCount,
@@ -33,13 +34,21 @@ import { GetDashboard, GetExpoBoard, GetSalesReport } from './use-cases/operatio
 import { CancelOrder, GetReceipt, PrintReceipt, VoidItems } from './use-cases/order-corrections';
 import { SendOrderToKitchen, SubmitOrder } from './use-cases/orders';
 import { RecordPayment, RefundPayment, VoidPayment } from './use-cases/payments';
-import { AssignStaffPin, ChangeOwnPin, PinSignIn, RequestPinRecovery } from './use-cases/pins';
+import {
+  AssignStaffPin,
+  ChangeOwnPin,
+  ChangePinFromHub,
+  PinSignIn,
+  RequestPinRecovery,
+  VerifyPinForHub,
+} from './use-cases/pins';
 import {
   ClaimPrintJobs,
   GetAgentConfig,
   GetPrintQueue,
   ReportPrintJobResult,
   RetryPrintJob,
+  SendTestPrint,
 } from './use-cases/printing';
 import { RemoveProductImage, SetProductImage, SetProductImageThumb } from './use-cases/product-images';
 import {
@@ -80,6 +89,12 @@ export function createApplication(deps: Dependencies) {
     reportPrintJobResult: new ReportPrintJobResult(deps),
     retryPrintJob: new RetryPrintJob(deps),
     getPrintQueue: new GetPrintQueue(deps),
+    sendTestPrint: new SendTestPrint(deps),
+    getHubSnapshot: new GetHubSnapshot(deps),
+    ingestHubBatch: new IngestHubBatch(deps),
+    setBranchHub: new SetBranchHub(deps),
+    verifyPinForHub: new VerifyPinForHub(deps),
+    changePinFromHub: new ChangePinFromHub(deps),
     getOrder: new GetOrder(deps),
     listActiveOrders: new ListActiveOrders(deps),
     listRecentClosedOrders: new ListRecentClosedOrders(deps),

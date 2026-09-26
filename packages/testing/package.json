@@ -15,6 +15,7 @@
     "@rp/application": "workspace:*",
     "@rp/domain": "workspace:*",
     "@rp/contracts": "workspace:*",
-    "@rp/escpos": "workspace:*"
+    "@rp/escpos": "workspace:*",
+    "@rp/hub": "workspace:*"
   }
 }

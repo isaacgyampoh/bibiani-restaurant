@@ -3766,3 +3766,76 @@ input.code-input {
 .board {
   touch-action: manipulation;
 }
+
+/* ---------------------------------------------------------------- MY FOOD Hub window */
+.hub-page {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px 16px 40px;
+  display: grid;
+  gap: 16px;
+}
+.hub-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.hub-head img {
+  width: 56px;
+  height: 56px;
+}
+.hub-head h1 {
+  margin: 0;
+  font-size: 24px;
+}
+.hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.hub-card {
+  background: var(--surface, #fff);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 16px;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+.hub-card h2 {
+  margin: 0 0 4px;
+  font-size: 17px;
+}
+.hub-label {
+  font-size: 13px;
+  color: var(--muted);
+}
+.hub-state {
+  font-size: 22px;
+}
+.hub-state.connected {
+  color: var(--ok);
+}
+.hub-state.offline {
+  color: var(--warn);
+}
+.hub-state.refused {
+  color: var(--danger);
+}
+.hub-addresses {
+  margin: 0;
+  padding-left: 18px;
+}
+.hub-addresses code {
+  font-size: 18px;
+  font-weight: 700;
+}
+.hub-banner {
+  background: var(--warn-soft);
+  color: var(--warn);
+  border-bottom: 1px solid var(--line);
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}

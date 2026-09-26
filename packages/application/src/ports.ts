@@ -457,6 +457,10 @@ export interface PrintJobRepository {
   countForOrder(orderId: string, kind: 'receipt' | 'kitchen_ticket' | 'void_slip'): Promise<number>;
   receiptPrinterForDevice(deviceId: string): Promise<string | null>;
   printerInBranch(printerId: string, branchId: string): Promise<boolean>;
+  /** Printer details for a test print (any active state), or null when it does not exist. */
+  printerInfo(
+    printerId: string,
+  ): Promise<{ branchId: string; name: string; paperWidthMm: number; isActive: boolean } | null>;
   idsForTickets(ticketIds: readonly string[]): Promise<string[]>;
   /** Jobs whose lease expired for printers driven by this agent (locked). */
   expiredLeases(agentDeviceId: string, now: Date): Promise<PrintJobRecord[]>;
@@ -491,6 +495,8 @@ export interface DeviceRepository {
     at: Date,
   ): Promise<{ previousHeartbeatAt: Date | null }>;
   appendEvent(deviceId: string, event: string, detail: Record<string, unknown>): Promise<void>;
+  /** Stores the latest health report of an in-store hub. */
+  setHubHealth(deviceId: string, health: Record<string, unknown>): Promise<void>;
 }
 
 export interface AuditLog {
@@ -628,6 +634,39 @@ export interface ReadModels {
   }>;
 }
 
+// ---------------------------------------------------------------------------
+// In-store hub sync (docs/OFFLINE-ARCHITECTURE.md)
+// ---------------------------------------------------------------------------
+export interface HubIngestOutcome {
+  batchId: string;
+  records: number;
+  applied: number;
+  /** Records the cloud could not apply. Kept by the hub for a person to resolve; never dropped. */
+  conflicts: { index: number; table: string; key: string; reason: string }[];
+}
+export interface HubSyncRepository {
+  branchHub(branchId: string): Promise<string | null>;
+  setBranchHub(branchId: string, deviceId: string | null): Promise<void>;
+  /** Configuration rows for the hub's branch, keyed by table, in foreign-key order. */
+  snapshot(branchId: string): Promise<Record<string, Record<string, unknown>[]>>;
+  movementsSince(branchId: string, since: string | null): Promise<Record<string, unknown>[]>;
+  /** Today's and yesterday's order-number counters, so a newly attached hub continues the numbering. */
+  orderCounters(branchId: string): Promise<Record<string, unknown>[]>;
+  /** Orders of the branch that are not finished (completed, cancelled or voided). */
+  openOrders(branchId: string, hubDeviceId: string): Promise<number>;
+  findBatch(batchId: string): Promise<HubIngestOutcome | null>;
+  saveBatch(b: HubIngestOutcome & { branchId: string; hubDeviceId: string }): Promise<void>;
+  /** Applies one uploaded record. Returns false when it was already present. Throws HubRecordError. */
+  applyUpload(
+    branchId: string,
+    restaurantId: string,
+    table: string,
+    row: Record<string, unknown>,
+    deleted?: boolean,
+    hubDeviceId?: string | null,
+  ): Promise<boolean>;
+}
+
 export interface Repositories {
   orders: OrderRepository;
   config: ConfigurationReader;
@@ -643,6 +682,7 @@ export interface Repositories {
   pins: PinRepository;
   promotions: PromotionRepository;
   discounts: DiscountRepository;
+  hub: HubSyncRepository;
 }
 
 // ---------------------------------------------------------------------------
@@ -734,6 +774,10 @@ export interface PinStaff {
   isActive: boolean;
   mustChange: boolean;
   hasPin: boolean;
+  /** When the current PIN was set (a hub compares it to know its copy is stale). */
+  pinSetAt: string | null;
+  /** Incremented on every PIN set or reset. */
+  pinVersion: number;
 }
 export interface PinRepository {
   staffByLookup(lookup: string): Promise<PinStaff | null>;

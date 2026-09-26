@@ -77,7 +77,7 @@ export type PaymentDirection = (typeof PAYMENT_DIRECTIONS)[number];
 export const PAYMENT_RECORD_STATUSES = ['recorded', 'voided'] as const;
 export type PaymentRecordStatus = (typeof PAYMENT_RECORD_STATUSES)[number];
 
-export const DEVICE_KINDS = ['pos', 'kds', 'printer', 'print_agent', 'customer_display'] as const;
+export const DEVICE_KINDS = ['pos', 'kds', 'printer', 'print_agent', 'customer_display', 'hub'] as const;
 export type DeviceKind = (typeof DEVICE_KINDS)[number];
 
 export const DEVICE_STATUSES = ['unknown', 'online', 'offline'] as const;
@@ -124,6 +124,7 @@ export const PERMISSIONS = [
   'stock.count',
   'promotions.manage',
   'discount.apply',
+  'hub.sync',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -134,6 +135,7 @@ export const DEVICE_PERMISSIONS: Record<DeviceKind, readonly Permission[]> = {
   printer: [],
   print_agent: ['print.agent'],
   customer_display: ['display.view'],
+  hub: ['hub.sync'],
 };
 
 export const STOCK_MOVEMENT_KINDS = ['receive', 'waste', 'adjust', 'count', 'sale', 'sale_reversal'] as const;

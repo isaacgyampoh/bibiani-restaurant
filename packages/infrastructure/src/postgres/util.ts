@@ -88,6 +88,12 @@ export function translatePgError(error: unknown): unknown {
       return new InfrastructureError(`Unique constraint violated: ${constraint}`, true, { cause: error });
     case '23503':
       return new DomainError('VALIDATION_FAILED', 'A referenced record does not exist', { constraint });
+    case 'RH001':
+      return new DomainError(
+        'FORBIDDEN',
+        'This branch is run by its in-store hub. Use the tills at the restaurant, or detach the hub in Devices.',
+        { reason: 'branch_run_by_hub' },
+      );
     case '42501':
       return new DomainError('FORBIDDEN', 'You do not have permission to do this', {
         reason: 'row level security',

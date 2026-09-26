@@ -5,6 +5,7 @@ export * from './auth/supabase-auth-directory';
 export * from './auth/token-verifier';
 export * from './db/postgres';
 export * from './db/sql';
+export * from './postgres/hub-sync';
 export * from './postgres/repositories';
 export * from './postgres/unit-of-work';
 export { InfrastructureError, translatePgError } from './postgres/util';

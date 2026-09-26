@@ -1,74 +1,57 @@
-# MY FOOD — desktop POS: decision and plan
-
-## What a till needs
-
-- **Must have:**
-  - fast startup, full screen, touch and keyboard;
-  - stable pairing;
-  - clear online and offline state;
-  - automatic updates;
-  - receipt and kitchen printing;
-  - a cash drawer kick;
-  - a browser fallback.
-- **Later:** safe offline operation.
-
-## What exists today (and works)
-
-- **The POS is a web app.** It already runs full screen, with touch targets of 44 px or more, keyboard focus, PIN sign-in, and an idle lock.
-- **Printing is already hardware-independent.** The server renders every receipt and kitchen ticket as a printer-agnostic document. The **print agent** (`apps/print-agent`, Node) runs on one computer on the restaurant network. It prints to ESC/POS network printers (IP:9100) with the logo raster, retries, and reports failures. Nothing in the POS is tied to one printer model.
-- **Cash drawers** normally open through the receipt printer: an ESC/POS "drawer kick" pulse on the printer's RJ-11 port. That belongs in the print agent, not in the POS window.
-- **Duplicate safety.** Every order, kitchen send and payment carries an id generated on the device, so a retry after a dropped connection never duplicates anything. Proven by the browser tests "response lost after the server saved the order" and "API unreachable during send".
-
-## Options considered
-
-| Option | Printing and cash drawer | Updates | Size | Security | Fit |
-|---|---|---|---|---|---|
-| **Installable web app (PWA)**: Chrome or Edge "Install app" | Through the print agent (network printers). The browser itself cannot reach USB printers | Automatic with every release (it *is* the release) | None to install | Browser sandbox; same security headers as the site | **Chosen for now** |
-| **Electron wrapper** | Direct USB/serial printing and drawer kick in the main process; can bundle the print agent | electron-updater (needs code signing for Windows) | about 90–120 MB | Node in the main process: must be locked down (context isolation, no remote content with Node) | Best when a till needs a **USB-only** printer or drawer |
-| **Tauri wrapper** | Rust side for USB/serial; smaller | Built-in updater (signing) | about 5–15 MB | Smaller attack surface | Good, but adds a Rust toolchain the team does not use today |
+# MY FOOD — desktop: the MY FOOD Hub for Windows
 
 ## Decision
 
-**Phase 1 (this release): the installable app.** No new framework.
+- **Windows only.**
+- **One MY FOOD Hub PC per restaurant.** Tills, kitchen screens and the customer display open MY FOOD from the hub over the restaurant network, so they keep working without internet. See [OFFLINE-ARCHITECTURE.md](OFFLINE-ARCHITECTURE.md).
+- **Electron, not Tauri.** Everything the hub runs is already TypeScript/Node: the application layer, the API, the print agent, and PGlite (the embedded Postgres). Electron runs it in-process. Tauri would need a Node sidecar plus a Rust toolchain.
+- **One web app everywhere.** Tills and screens use the same web app as the cloud. There is no second POS to maintain.
 
-- The manifest is complete: name, icons, a maskable icon, standalone window, and shortcuts to POS, Kitchen screen and Customer display.
-- **Install MY FOOD on this computer** appears on the pairing screen and in Settings → POS when the browser offers installation.
-- Installed, MY FOOD opens in its own window with the MY FOOD icon and updates itself with each release.
-- Printing and the drawer go through the print agent.
-- The ordinary browser stays available as a fallback.
+## What the Windows app does
 
-**Phase 2 (when real hardware is on site): an Electron shell**, only if the restaurant's printer or cash drawer is **USB-only**.
+`apps/desktop`:
+- **Runs the hub:**
+  - local database (created and migrated automatically; upgrades apply only new migrations);
+  - the MY FOOD API;
+  - the web app on port 8080 of the PC;
+  - the print agent;
+  - sync with the cloud.
+- **Shows the hub window:**
+  - connection to MY FOOD;
+  - "All sent" or changes waiting;
+  - the address tills should open;
+  - devices, and pairing approvals with a manager PIN.
+- **Pairs itself with the cloud on first start.** It shows a code; a manager enters it in the back office on the device of type *MY FOOD Hub*.
+- **Keeps running in the tray** when the window is closed. The tray menu has *Open MY FOOD Hub*, *Open a till on this computer*, and *Quit (tills stop working)*.
+- **Starts with Windows.** Single instance.
+- **Keeps its secrets** (token key, PIN key) encrypted with the Windows key store. No secret is built into the installer; only public values are (cloud address, Supabase URL and anon key).
+- **Updates:** checks GitHub Releases for new versions (electron-updater).
+- **Logs** to `%APPDATA%\myfood-hub\hub\hub.log`.
 
-- It would load the production app in a locked-down window, in kiosk mode.
-- The print agent would be bundled as a background service, adding USB/serial transport and the ESC/POS drawer kick.
-- The device login would be stored in the operating system's secure storage instead of browser storage.
-- Signed Windows installer, with electron-updater.
-- It keeps the same pairing flow: "Pair this device" shows a code.
-- Electron is recommended over Tauri here because the print agent is already Node/TypeScript, and a second language and toolchain would add maintenance.
+## Building the installer
 
-**Not built yet, deliberately:** building an Electron app without the actual printer and drawer to test against would ship untested hardware claims.
+- **From GitHub:** Actions → **MY FOOD Hub (Windows installer)** → *Run workflow*. It builds on a Windows machine and attaches `MY FOOD Hub Setup <version>.exe` to the run.
+  - It needs two repository **variables** (public values): `PROD_SUPABASE_URL` and `PROD_SUPABASE_ANON_KEY`.
+- **Locally:** `pnpm --filter @rp/desktop dist:win`. On a Windows machine this is the full build; on a Mac, pass `-c.win.signAndEditExecutable=false`.
 
-## Offline strategy
+## Setting up the hub PC
 
-**Today:**
-- the POS shows its connection state ("Live", "Reconnecting…");
-- retries never duplicate orders or payments;
-- operations fail visibly, never silently;
-- an unsent cart is lost if the page is reloaded. This is a known limitation, documented by a browser test.
-
-**Next phase, to build carefully and test:**
-1. Cache the menu and device configuration locally.
-2. Keep the current cart in device storage (not a secret), so a reload or crash doesn't lose it.
-3. Queue order submissions and kitchen sends with the existing **outbox** (`packages/client-core/src/outbox.ts`). It is already written and tested: durable, ordered per order, never drops operations, and flags permanent failures for a person. Sending on reconnect is safe because the server is idempotent.
-4. **Payments stay online-only** unless card or mobile-money providers support offline confirmation. Cash taken offline would be recorded as "pending sync", with a clear banner.
-5. Show a clear **Offline — orders will be sent when the connection returns** state, and the number of queued items.
+1. Use an always-on Windows 10 or 11 PC on the restaurant network, wired if possible. Give it a fixed IP address in the router.
+2. Install *MY FOOD Hub Setup*. Until a code-signing certificate is bought, Windows SmartScreen shows a warning; choose *More info → Run anyway*.
+3. In the back office, **Devices & printing**:
+   - add a device of type **MY FOOD Hub**;
+   - press *Enter code from device* and type the code the hub window shows;
+   - then press **Run branch from hub**. Finish any open web POS orders first; the system checks this.
+4. On each till, kitchen screen and customer display, open the address the hub window shows (e.g. `http://192.168.1.20:8080`) in Chrome or Edge. Each shows a code: approve it in the hub window with a manager PIN.
+5. Staff sign in once with their PIN while the internet is on. After that their PIN also works offline.
 
 ## Status
 
 | Item | Status |
 |---|---|
-| Installable app (manifest, icons, shortcuts, install button) | Implemented. Not yet tested on a Windows till |
-| Printing (network ESC/POS via print agent) | Implemented and tested with the document model. **Physical printer not tested** (no hardware) |
-| Cash drawer | **Not implemented** (needs the printer model; ESC/POS drawer kick in the print agent) |
-| Electron desktop shell | **Not built** (Phase 2, when hardware is available) |
-| Offline operation | **Not implemented** beyond duplicate-safe retries (next phase, above) |
+| Hub (API, database, sync, offline PIN, web on LAN) | Built and tested (automated, HTTP and real-browser tests) |
+| Windows app and installer | Built. The package contents were verified (PGlite and migrations load from the shipped app). **Not yet installed on a Windows PC** |
+| Code signing | Not yet (needs a certificate) |
+| Network ESC/POS printing from the hub | Built; **no physical printer tested** |
+| USB printers, cash drawer | Not built (needs the restaurant's hardware) |
+| macOS / Linux hub | Not offered (Windows only) |

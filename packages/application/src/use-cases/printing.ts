@@ -4,8 +4,9 @@ import type {
   ClaimPrintJobsCommand,
   PrintJobResultCommand,
   PrintQueueView,
+  TestPrintCommand,
 } from '@rp/contracts';
-import { applyPrintOutcome, DomainError, PRINT_RETRY_POLICY } from '@rp/domain';
+import { applyPrintOutcome, DomainError, PRINT_RETRY_POLICY, testPageDocument } from '@rp/domain';
 import { authorize, type Principal, type RequestContext } from '../principal';
 import { CommitLog, type Dependencies } from './shared';
 
@@ -221,5 +222,71 @@ export class GetPrintQueue {
   async execute(ctx: RequestContext, branchId: string): Promise<PrintQueueView> {
     authorize(ctx.principal, 'print.manage', branchId);
     return this.deps.uow.run(ctx.principal.restaurantId, (tx) => tx.read.printQueue(branchId));
+  }
+}
+
+/**
+ * Queues a test page on a printer so a manager can prove it is connected. Goes through the
+ * same queue and print agent as real tickets. Retrying with the same requestId prints once.
+ */
+export class SendTestPrint {
+  constructor(private readonly deps: Dependencies) {}
+
+  async execute(
+    ctx: RequestContext,
+    printerId: string,
+    cmd: TestPrintCommand,
+  ): Promise<{ printJobId: string }> {
+    const now = this.deps.clock.now();
+    const log = new CommitLog(ctx);
+    const result = await this.deps.uow.run(ctx.principal.restaurantId, async (tx) => {
+      const printer = await tx.printJobs.printerInfo(printerId);
+      if (!printer) throw new DomainError('NOT_FOUND', 'Printer not found', { printerId });
+      authorize(ctx.principal, 'print.manage', printer.branchId);
+      if (!printer.isActive)
+        throw new DomainError(
+          'VALIDATION_FAILED',
+          'This printer is turned off. Turn it on before testing it.',
+        );
+      const dedupeKey = `test:${cmd.requestId}`;
+      const replay = await tx.printJobs.findByDedupeKey(dedupeKey);
+      if (replay) return { printJobId: replay.id };
+      const branch = await tx.config.branch(printer.branchId);
+      const id = this.deps.ids.uuid();
+      await tx.printJobs.insert([
+        {
+          id,
+          branchId: printer.branchId,
+          printerId,
+          originalPrinterId: printerId,
+          kind: 'test',
+          orderId: null,
+          productionTicketId: null,
+          copyNo: 1,
+          dedupeKey,
+          document: testPageDocument({
+            printerName: printer.name,
+            paperWidthMm: printer.paperWidthMm,
+            requestedAt: now,
+            timeZone: branch?.timezone ?? 'UTC',
+          }),
+          createdAt: now,
+        },
+      ]);
+      await tx.audit.append({
+        branchId: printer.branchId,
+        actorStaffId: ctx.principal.staffId,
+        actorDeviceId: ctx.deviceId,
+        action: 'printer.test_print',
+        entityType: 'device',
+        entityId: printerId,
+        after: { printJobId: id },
+        correlationId: ctx.correlationId,
+      });
+      log.add('printer.test_print_queued', { printerId, printJobId: id });
+      return { printJobId: id };
+    });
+    log.flush(this.deps.logger);
+    return result;
   }
 }

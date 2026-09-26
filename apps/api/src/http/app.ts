@@ -13,6 +13,9 @@ import {
   CreateStaffCommand,
   FulfilOrderCommand,
   HeartbeatCommand,
+  HubBatchCommand,
+  HubPinChangeCommand,
+  HubPinVerifyCommand,
   ManualDiscountCommand,
   MergeOrderCommand,
   OnboardingAcceptCommand,
@@ -31,11 +34,13 @@ import {
   SavePromotionCommand,
   SaveRecipeCommand,
   SendToKitchenCommand,
+  SetBranchHubCommand,
   SetPromotionStatusCommand,
   SetTableStatusCommand,
   StartStockCountCommand,
   StockCountDecisionCommand,
   SubmitOrderCommand,
+  TestPrintCommand,
   TicketActionCommand,
   TransferOrderCommand,
   UpdateStaffCommand,
@@ -75,6 +80,17 @@ export interface HttpDependencies {
   ops?: { record(kind: 'http_5xx' | 'auth_failure'): Promise<void>; health(): Promise<unknown> };
   /** Bearer token for GET /v1/ops/health (external monitor). Unset = endpoint disabled. */
   monitorToken?: string;
+  /**
+   * Staff PIN sign-in and PIN changes. Default: the application's use cases. The in-store hub
+   * supplies its own (offline PIN copies, changes forwarded to the cloud).
+   */
+  pins?: {
+    signIn(ctx: RequestContext, pin: string): ReturnType<Application['pinSignIn']['execute']>;
+    changeOwnPin(
+      ctx: RequestContext,
+      cmd: { currentPin?: string | null; newPin: string },
+    ): Promise<{ ok: true }>;
+  };
 }
 
 const digest = (value: string) => createHash('sha256').update(value).digest();
@@ -465,6 +481,37 @@ export function createHttpApp(deps: HttpDependencies) {
   v1.post('/print-jobs/:jobId/retry', async (c) =>
     c.json(await deps.app.retryPrintJob.execute(c.var.ctx, id(c, 'jobId'))),
   );
+  // In-store hub sync (docs/OFFLINE-ARCHITECTURE.md). Hub device logins only.
+  v1.get('/hub/snapshot', async (c) => {
+    const since = c.req.query('since') ?? null;
+    if (since !== null && Number.isNaN(Date.parse(since)))
+      throw new DomainError('VALIDATION_FAILED', 'since must be a timestamp');
+    return c.json(await deps.app.getHubSnapshot.execute(c.var.ctx, since));
+  });
+  v1.post('/hub/batches', async (c) =>
+    c.json(await deps.app.ingestHubBatch.execute(c.var.ctx, await body(c, HubBatchCommand))),
+  );
+  const hubPinLimiter = new RateLimiter(40, 60_000);
+  v1.post('/hub/pin-verify', async (c) => {
+    if (!hubPinLimiter.allow(c.var.ctx.deviceId ?? 'none'))
+      throw new DomainError('RATE_LIMITED', 'Too many PIN attempts. Wait a minute and try again.');
+    return c.json(
+      await deps.app.verifyPinForHub.execute(c.var.ctx, (await body(c, HubPinVerifyCommand)).pin),
+    );
+  });
+  v1.post('/hub/pin-change', async (c) =>
+    c.json(await deps.app.changePinFromHub.execute(c.var.ctx, await body(c, HubPinChangeCommand))),
+  );
+  v1.post('/admin/branches/:branchId/hub', async (c) =>
+    c.json(
+      await deps.app.setBranchHub.execute(c.var.ctx, id(c, 'branchId'), await body(c, SetBranchHubCommand)),
+    ),
+  );
+  v1.post('/printers/:printerId/test-print', async (c) =>
+    c.json(
+      await deps.app.sendTestPrint.execute(c.var.ctx, id(c, 'printerId'), await body(c, TestPrintCommand)),
+    ),
+  );
   v1.get('/branches/:branchId/print-queue', async (c) =>
     c.json(await deps.app.getPrintQueue.execute(c.var.ctx, id(c, 'branchId'))),
   );
@@ -622,13 +669,20 @@ export function createHttpApp(deps: HttpDependencies) {
   v1.post('/auth/pin', async (c) => {
     if (!pinLimiter.allow(c.var.ctx.deviceId ?? 'none'))
       throw new DomainError('RATE_LIMITED', 'Too many attempts. Wait a minute and try again.');
-    return c.json(await deps.app.pinSignIn.execute(c.var.ctx, (await body(c, PinSignInCommand)).pin));
+    const pin = (await body(c, PinSignInCommand)).pin;
+    return c.json(
+      await (deps.pins ? deps.pins.signIn(c.var.ctx, pin) : deps.app.pinSignIn.execute(c.var.ctx, pin)),
+    );
   });
   v1.post('/auth/pin-recovery', async (c) =>
     c.json(await deps.app.requestPinRecovery.execute(c.var.ctx, (await body(c, PinRecoveryCommand)).email)),
   );
   v1.post('/me/pin', async (c) =>
-    c.json(await deps.app.changeOwnPin.execute(c.var.ctx, await body(c, ChangePinCommand))),
+    c.json(
+      await (
+        deps.pins ?? { changeOwnPin: deps.app.changeOwnPin.execute.bind(deps.app.changeOwnPin) }
+      ).changeOwnPin(c.var.ctx, await body(c, ChangePinCommand)),
+    ),
   );
   v1.post('/admin/staff/:staffId/pin', async (c) =>
     c.json(

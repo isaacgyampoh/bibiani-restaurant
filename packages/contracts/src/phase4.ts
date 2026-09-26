@@ -23,6 +23,9 @@ export type VoidItemsCommand = z.infer<typeof VoidItemsCommand>;
 export const PrintReceiptCommand = z.object({ requestId: uuid, printerId: uuid.nullish() });
 export type PrintReceiptCommand = z.infer<typeof PrintReceiptCommand>;
 
+export const TestPrintCommand = z.object({ requestId: uuid });
+export type TestPrintCommand = z.infer<typeof TestPrintCommand>;
+
 export const SetTableStatusCommand = z.object({
   status: z.enum(['available', 'reserved', 'out_of_service']),
 });

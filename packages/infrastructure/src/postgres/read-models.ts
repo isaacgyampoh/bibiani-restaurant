@@ -504,7 +504,8 @@ export function createReadModels(sql: Sql): ReadModels {
                 pr.address, pr.agent_device_id, pr.last_error, pr.last_status_at,
                 (select count(*) from print_jobs j where j.printer_id = d.id and j.status = 'failed')::int as failed_jobs,
                 (select count(*) from print_jobs j where j.printer_id = d.id and j.status = 'dead')::int as dead_jobs,
-                agent.last_heartbeat_at as agent_heartbeat_at
+                agent.last_heartbeat_at as agent_heartbeat_at, d.hub_health,
+                (select b.hub_device_id from branches b where b.id = d.branch_id) as branch_hub_id
          from devices d
          left join printers pr on pr.device_id = d.id
          left join devices agent on agent.id = pr.agent_device_id
@@ -516,9 +517,66 @@ export function createReadModels(sql: Sql): ReadModels {
         const d = dateOrNull(at);
         return d !== null && now.getTime() - d.getTime() <= 90_000;
       };
+      // A branch run by an in-store hub: its devices talk to the hub, which reports what it sees.
+      type HubHealth = {
+        pendingChanges: number;
+        conflicts: number;
+        oldestPendingAt?: string | null;
+        reportedAt: string;
+        devices: {
+          deviceId: string;
+          lastSeenAt?: string | null;
+          printerError?: string | null;
+          unprintedJobs?: number;
+        }[];
+      };
+      const hubRow = rows.find((d) => d.kind === 'hub' && d.id === d.branch_hub_id);
+      const hubHealth = (hubRow?.hub_health ?? null) as HubHealth | null;
+      const hubAlive = hubRow ? alive(hubRow.last_heartbeat_at) : false;
+      const seenByHub = new Map((hubHealth?.devices ?? []).map((x) => [x.deviceId, x]));
+      const hubAge = hubHealth ? now.getTime() - Date.parse(hubHealth.reportedAt) : 0;
       return {
         branchId,
         devices: rows.map((d) => {
+          const local = hubRow && d.kind !== 'hub' ? seenByHub.get(s(d.id)) : undefined;
+          if (local) {
+            const seenAt = local.lastSeenAt ? new Date(local.lastSeenAt) : null;
+            // Online when the hub saw it within 90 s of its (recent) report.
+            const online =
+              hubAlive &&
+              seenAt !== null &&
+              Date.parse(hubHealth!.reportedAt) - seenAt.getTime() <= 90_000 + hubAge;
+            return {
+              id: s(d.id),
+              name: s(d.name),
+              kind: s(d.kind),
+              stationId: sn(d.station_id),
+              isActive: Boolean(d.is_active),
+              paired: true,
+              status:
+                seenAt === null
+                  ? ('never_seen' as const)
+                  : online
+                    ? ('online' as const)
+                    : ('offline' as const),
+              lastSeenAt: iso(seenAt),
+              appVersion: sn(d.app_version),
+              printer:
+                d.kind === 'printer'
+                  ? {
+                      address: sn(d.address),
+                      agentDeviceId: sn(d.agent_device_id),
+                      healthy: seenAt === null ? null : !local.printerError,
+                      lastError: local.printerError ?? null,
+                      lastStatusAt: iso(seenAt),
+                      failedJobs: local.unprintedJobs ?? 0,
+                      deadJobs: 0,
+                    }
+                  : null,
+              via: 'hub' as const,
+              hub: null,
+            };
+          }
           const isPrinter = d.kind === 'printer';
           // A printer has no heartbeat of its own: it is "online" when its agent is alive and the last probe/print succeeded.
           const seenAt = isPrinter ? (dateOrNull(d.last_status_at) ?? null) : dateOrNull(d.last_heartbeat_at);
@@ -546,6 +604,17 @@ export function createReadModels(sql: Sql): ReadModels {
                   deadJobs: num(d.dead_jobs),
                 }
               : null,
+            via: null,
+            hub:
+              d.kind === 'hub' && d.hub_health
+                ? {
+                    runsBranch: d.id === d.branch_hub_id,
+                    pendingChanges: (d.hub_health as HubHealth).pendingChanges,
+                    conflicts: (d.hub_health as HubHealth).conflicts,
+                    oldestPendingAt: (d.hub_health as HubHealth).oldestPendingAt ?? null,
+                    reportedAt: (d.hub_health as HubHealth).reportedAt,
+                  }
+                : null,
           };
         }),
         generatedAt: now.toISOString(),
@@ -727,7 +796,7 @@ export function createReadModels(sql: Sql): ReadModels {
           `select id, name, currency, timezone, phone, receipt_footer from restaurants where id = app.current_restaurant_id()`,
         ),
         q(
-          `select id, name, code, address, timezone, to_char(business_day_cutoff, 'HH24:MI') as business_day_cutoff, order_number_start, is_active from branches order by name`,
+          `select id, name, code, address, timezone, to_char(business_day_cutoff, 'HH24:MI') as business_day_cutoff, order_number_start, is_active, hub_device_id from branches order by name`,
         ),
         q(`select * from operational_areas order by sort_order, name`),
         q(`select * from dining_tables order by length(label), label`),

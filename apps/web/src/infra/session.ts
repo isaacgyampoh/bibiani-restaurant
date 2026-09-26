@@ -7,20 +7,29 @@ import { createClient, type Session } from '@supabase/supabase-js';
  * realtime change signals. All reads and writes go through the platform API.
  * Only public values (URL, anon key) exist in this bundle.
  */
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+/**
+ * True when this page was served by the in-store MY FOOD Hub (it adds <meta name="myfood-hub">).
+ * The same build then talks to the hub for everything: sign-in, API and updates, so it keeps
+ * working on the restaurant network without internet (docs/OFFLINE-ARCHITECTURE.md).
+ */
+export const onHub =
+  typeof document !== 'undefined' && document.querySelector('meta[name="myfood-hub"]') !== null;
+const SUPABASE_URL = onHub ? window.location.origin : (import.meta.env.VITE_SUPABASE_URL as string);
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
+const API_URL = onHub ? '' : ((import.meta.env.VITE_API_URL as string | undefined) ?? '');
+/** On the hub, screens refresh from the hub this often (local network, no cloud realtime). */
+const HUB_REFRESH_MS = 2000;
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, storageKey: 'rp.session' },
+  auth: { persistSession: true, autoRefreshToken: true, storageKey: onHub ? 'rp.hub.session' : 'rp.session' },
 });
 
-// Private realtime channels need the current access token.
+// Private realtime channels need the current access token (cloud only; the hub has no realtime).
 supabase.auth.onAuthStateChange((_event, session) => {
-  if (session) void supabase.realtime.setAuth(session.access_token);
+  if (session && !onHub) void supabase.realtime.setAuth(session.access_token);
 });
 
-const POS_DEVICE_KEY = 'rp.posDevice';
+const POS_DEVICE_KEY = onHub ? 'rp.hub.posDevice' : 'rp.posDevice';
 
 interface TillIdentity {
   id: string;
@@ -221,6 +230,16 @@ export async function signInWithPin(pin: string): Promise<{ displayName: string;
 }
 
 export function branchSignal(topic: string): ChangeSignal {
+  if (onHub) {
+    // The hub is on the local network: refreshing every couple of seconds is cheap and needs no internet.
+    return {
+      subscribe: (onChange, onStatus) => {
+        onStatus('connected');
+        const timer = window.setInterval(onChange, HUB_REFRESH_MS);
+        return () => window.clearInterval(timer);
+      },
+    };
+  }
   return new SupabaseBroadcastSignal(supabase, topic);
 }
 

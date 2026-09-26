@@ -89,14 +89,46 @@ Each receipt shows:
 - **Supervisor:** every active order, which station it is waiting on and for how long, what is ready to hand over, and what was handed over in the last hour.
 - **Activity:** who changed what, and when. Covers prices, promotions, discounts, stock, staff and PINs, and devices. Export it with **Export CSV**.
 
-## 9. Backups and safety
+## 9. When the internet goes down (MY FOOD Hub)
+
+MY FOOD can keep your restaurant running without internet, using one **MY FOOD Hub**: an always-on Windows computer in the restaurant with the MY FOOD Hub program installed.
+
+- **Your devices use the hub.** Tills, kitchen screens and the customer display open MY FOOD from the hub's address (shown in the hub window, e.g. `http://192.168.1.20:8080`) instead of the internet address.
+- **Internet down:** nothing changes for your staff.
+  - They sign in with their PIN, take orders, take cash, and send to the kitchen.
+  - Kitchen screens and printers get the tickets, and the customer display updates.
+  - Tills show a small line: *"Offline · everything keeps working and is saved on the hub"*.
+- **Internet back:** everything recorded meanwhile is sent to MY FOOD automatically, exactly once. Your reports, stock and back office then include it. The hub window shows **All sent**.
+- **MoMo and card:** record them only after the payment is confirmed on the phone or card terminal, as always. MY FOOD never marks a payment as received on its own.
+- **PIN sign-in without internet** works for staff who have signed in on the hub at least once while the internet was on. Changing a PIN needs the internet.
+- **Keep the hub computer on.** If it is switched off, the tills cannot work locally. If only the hub is broken but the internet works, a manager can press **Stop running branch** in Devices & printing, and the tills then use the normal MY FOOD address.
+- **Menu, prices, staff and settings are still changed in the back office.** The hub picks up changes within about 15 seconds while online.
+
+Setting up the hub: see [DESKTOP-POS.md](DESKTOP-POS.md), "Setting up the hub PC". Your MY FOOD contact can do this with you.
+
+## 10. Printers
+
+- **Where tickets go.** Each kitchen station can have a screen, a printer, or both. Set this in **Stations → Connect screen or printer**. Pastry, for example, can use only a printer.
+- **Test print.** In **Devices & printing**, press **Test print** next to a printer. A short page with the printer's name should come out within a minute.
+- **If a printer is offline:**
+  - its tickets wait, and are never lost; the kitchen screen shows a printer alert;
+  - MY FOOD retries by itself and, if a backup printer is set, prints there;
+  - when the printer is back, press **Retry** in **Devices & printing → Print queue** for any ticket still waiting;
+  - a ticket marked *possible duplicate* may have printed already: check before making the food twice.
+- **Turn off** a printer you are repairing, so tickets are not sent to it.
+
+## 11. Checking your devices
+
+**Devices & printing** shows every till, kitchen screen, printer and the hub: online or offline, when it was last seen, and for printers any error and unprinted tickets. In a restaurant run by the hub, the top line tells you in plain words whether the hub is online and whether everything has been sent.
+
+## 12. Backups and safety
 
 - Your data is kept in a secure database in Europe (Ireland), with **daily backups**.
 - Every important change is recorded in Activity and cannot be deleted.
 - Passwords and PINs are never stored in readable form. Nobody can look up your PIN or password.
 - If something goes wrong on a screen, MY FOOD shows **Something went wrong** with a **Reload** button. Saved orders and payments are safe.
 
-## 10. Contact
+## 13. Contact
 
 For help, changes or new devices, contact your MY FOOD developer: **Isaac Gyampoh**, through the contact details agreed at handover. When you report a problem, include:
 - what you were doing;

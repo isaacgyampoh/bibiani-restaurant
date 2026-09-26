@@ -15,6 +15,10 @@ import type {
   FloorView,
   FulfilOrderCommand,
   HeartbeatCommand,
+  HubBatchCommand,
+  HubBatchResultView,
+  HubPinChangeCommand,
+  HubSnapshotView,
   InventoryView,
   ManualDiscountCommand,
   MenuView,
@@ -255,6 +259,29 @@ export class ApiClient {
     );
   voidPayment = (paymentId: string, cmd: { reason: string }) =>
     this.request<OrderView>('POST', `/v1/payments/${paymentId}/void`, cmd);
+  // In-store hub (docs/OFFLINE-ARCHITECTURE.md): called by the hub with its own device login.
+  hubSnapshot = (since: string | null) =>
+    this.request<HubSnapshotView>(
+      'GET',
+      `/v1/hub/snapshot${since ? `?since=${encodeURIComponent(since)}` : ''}`,
+    );
+  hubUpload = (batch: HubBatchCommand) => this.request<HubBatchResultView>('POST', '/v1/hub/batches', batch);
+  hubPinVerify = (pin: string) =>
+    this.request<{ staffId: string; pinVersion: number; mustChangePin: boolean }>(
+      'POST',
+      '/v1/hub/pin-verify',
+      {
+        pin,
+      },
+    );
+  hubPinChange = (cmd: HubPinChangeCommand) =>
+    this.request<{ pinSetAt: string; pinVersion: number }>('POST', '/v1/hub/pin-change', cmd);
+  setBranchHub = (branchId: string, hubDeviceId: string | null) =>
+    this.request<{ hubDeviceId: string | null }>('POST', `/v1/admin/branches/${branchId}/hub`, {
+      hubDeviceId,
+    });
+  testPrint = (printerId: string, requestId: string) =>
+    this.request<{ printJobId: string }>('POST', `/v1/printers/${printerId}/test-print`, { requestId });
   retryPrintJob = (jobId: string) =>
     this.request<{ status: string }>('POST', `/v1/print-jobs/${jobId}/retry`, {});
   configuration = () => this.request<ConfigurationView>('GET', '/v1/admin/configuration');

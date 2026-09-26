@@ -38,7 +38,9 @@
     "release": "bash -c 'R=production-$(git rev-parse --short HEAD); RELEASE=$R node scripts/deploy/build-vercel.mjs production .env.production && vercel deploy --prebuilt --prod --cwd deploy/production -e RELEASE=$R'",
     "db:push": "bash -c 'eval \"$(grep -E \"^PROD_(DB_PASSWORD|POOLER_HOST)=\" .env.production)\"; supabase db push --db-url \"postgresql://postgres.lgoirbfyspuflqekrcgp:$PROD_DB_PASSWORD@$PROD_POOLER_HOST:5432/postgres\"'",
     "demo:seed": "bash -c 'eval \"$(grep -E \"^PROD_(DB_PASSWORD|POOLER_HOST)=\" .env.production)\"; export PLATFORM_DATABASE_URL=\"postgresql://postgres.lgoirbfyspuflqekrcgp:$PROD_DB_PASSWORD@$PROD_POOLER_HOST:5432/postgres\" API_URL=https://bibiani-restaurant.vercel.app; tsx --env-file=.env.production scripts/demo/seed-demo.ts && tsx --env-file=.env.production scripts/demo/seed-demo-inventory.ts'",
-    "platform:invite-owner": "tsx scripts/platform/invite-owner.ts"
+    "platform:invite-owner": "tsx scripts/platform/invite-owner.ts",
+    "hub:e2e": "pnpm --filter @rp/web build && playwright test -c playwright.hub.config.ts",
+    "hub:dev": "pnpm --filter @rp/hub-app dev"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
@@ -58,6 +60,7 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
+      "electron",
       "esbuild"
     ]
   }

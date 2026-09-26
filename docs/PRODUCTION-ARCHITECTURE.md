@@ -3,9 +3,11 @@
 The single source of truth for the system the restaurant runs on. No secrets are in this document.
 
 ```
-CLIENT (browser, installed app, tills, kitchen screens, customer display)
+CLIENT (back office in a browser; in the restaurant: tills, kitchen screens, customer display)
+  ↓                       ↘ in a hub branch they use the MY FOOD Hub PC on the LAN, which syncs below
+DNS             Cloudflare (the client's own domain, when purchased)
   ↓
-DOMAIN          https://bibiani-restaurant.vercel.app   (+ the client's own domain when purchased)
+DOMAIN          https://bibiani-restaurant.vercel.app   (+ the client's own domain)
   ↓
 VERCEL          project restaurant-management-prod  (team isaacs-projects-7cdab31a)
                 web app (static) + API function (region dub1)
@@ -33,6 +35,7 @@ DATA            restaurant "Chefelisha Restaurant" (real) · demo · smoke test 
 | Realtime | Supabase Realtime private channels per branch | Kitchen, supervisor and customer display update live, with a safety poll |
 | Scheduled job | `rp-sweep-offline-devices` (pg_cron, every minute) | Marks silent devices offline |
 | Security headers | CSP, HSTS, X-Frame-Options DENY, nosniff, referrer and permissions policies | Set in `scripts/deploy/build-vercel.mjs` |
+| In-store hub | Windows PC per branch running `apps/desktop` (MY FOOD Hub) | Local database (PGlite, same migrations), same API and web app on the LAN, print agent, sync. Not a cloud service. See [OFFLINE-ARCHITECTURE.md](OFFLINE-ARCHITECTURE.md) |
 | Monitoring | `/health` and `/health/ready` (database, schema version, auth keys); GitHub Actions `monitor.yml` | A failed monitor run emails the repository owner |
 
 ### Environment variables (Vercel production; names only)
@@ -59,6 +62,7 @@ Never deploy first and fix afterwards. In order:
    - `node scripts/deploy/stamp-schema-version.mjs`;
    - `pnpm staging:deploy`;
    - `pnpm staging:e2e`: all browser tests, on a fresh test restaurant.
+   - `pnpm hub:e2e`: the in-store hub in a real browser (local; in-process cloud).
 6. **Production database:** `supabase db push` with the production database URL. Migrations must be additive, so the running release keeps working. The readiness check accepts a newer schema.
 7. **Production app:** `pnpm release`, which builds, checks the bundle for secrets and deploys with `RELEASE=production-<git sha>`.
 8. **Post-deploy verification:**
@@ -90,11 +94,11 @@ Never deploy first and fix afterwards. In order:
 The existing URL keeps working. When the client has bought a domain (example `myfood.example.com`):
 
 1. **Vercel:** in project `restaurant-management-prod`, open Settings, Domains, and add `myfood.example.com` (and `www.myfood.example.com` if wanted).
-2. **DNS** (at the domain registrar), exactly what Vercel shows. Typically:
+2. **DNS in Cloudflare** (the domain's DNS is managed there): add exactly what Vercel shows. Typically:
    - apex `@`: `A` record to `76.76.21.21`;
    - `www`: `CNAME` to `cname.vercel-dns.com`.
 
-   HTTPS certificates are issued automatically. Set `www` to redirect to the apex (or the reverse) in Vercel's Domains page.
+   Set these records to **DNS only** (grey cloud), not proxied, so Vercel issues and renews the HTTPS certificate and its edge caching works. HTTPS certificates are issued automatically. Set `www` to redirect to the apex (or the reverse) in Vercel's Domains page. The email provider's SPF and DKIM records also go into Cloudflare DNS.
 3. **App URL for emails:** set the Vercel env `APP_URL=https://myfood.example.com`, then release. Email links then use the new domain.
 4. **Supabase Auth** (Authentication, URL Configuration):
    - Site URL `https://myfood.example.com`;
@@ -103,4 +107,5 @@ The existing URL keeps working. When the client has bought a domain (example `my
 5. **Email sender:** add custom SMTP with a sender on the domain (for example `no-reply@myfood.example.com`, using SPF and DKIM records from the email provider). Apply the MY FOOD template `supabase/templates/recovery.html`.
 6. **Security policy:** no change needed. The policy allows the app's own origin, whatever the domain.
 7. **App manifest and icons:** relative paths, so they work unchanged on the new domain. Receipts carry no web links.
-8. **Devices:** already-paired tills and screens keep working on the old URL. To move one to the new domain, open the new address on it and pair it again: its old login stops at once.
+8. **MY FOOD Hub:** it talks to the address it was built with. After a domain change, rebuild the installer with the new address (the workflow's `cloud_url` input); the old address keeps working meanwhile.
+9. **Devices:** already-paired tills and screens keep working on the old URL. To move one to the new domain, open the new address on it and pair it again: its old login stops at once.

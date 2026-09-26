@@ -69,7 +69,7 @@ The owner lands on **Set up your restaurant** (`/setup`, also in the menu as **S
 10. Recipes and stock (optional)
 11. Receipt settings (optional)
 12. Customer display (optional)
-13. POS devices
+13. POS devices (and, for working without internet, the MY FOOD Hub: see [DESKTOP-POS.md](DESKTOP-POS.md))
 
 ## After the handover
 

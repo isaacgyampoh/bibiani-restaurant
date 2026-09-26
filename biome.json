@@ -10,7 +10,9 @@
       "!**/playwright-report",
       "!**/test-results",
       "!deploy",
-      "!perf-results"
+      "!perf-results",
+      "!apps/desktop/app",
+      "!apps/desktop/release"
     ]
   },
   "formatter": {

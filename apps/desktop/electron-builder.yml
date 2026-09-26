@@ -1,0 +1,25 @@
+# MY FOOD Hub installer. Windows only (64-bit).
+appId: com.myfood.hub
+productName: MY FOOD Hub
+directories:
+  app: app
+  output: release
+files:
+  - "**/*"
+asar: true
+asarUnpack:
+  - node_modules/@electric-sql/pglite/**
+win:
+  target: nsis
+  icon: app/icon.png
+nsis:
+  oneClick: false
+  perMachine: true
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: always
+  shortcutName: MY FOOD Hub
+publish:
+  provider: github
+  owner: isaacgyampoh
+  repo: bibiani-restaurant
+  releaseType: release

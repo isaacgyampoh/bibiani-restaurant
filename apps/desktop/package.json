@@ -1,0 +1,22 @@
+{
+  "name": "@rp/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MY FOOD Hub for Windows: runs the restaurant locally, also without internet",
+  "author": "MY FOOD",
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "node build.mjs && electron .",
+    "dist:win": "node build.mjs && electron-builder --win nsis --x64",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@rp/hub-app": "workspace:*"
+  },
+  "devDependencies": {
+    "electron": "38.2.0",
+    "electron-builder": "26.0.12",
+    "esbuild": "0.28.2",
+    "electron-updater": "6.6.2"
+  }
+}

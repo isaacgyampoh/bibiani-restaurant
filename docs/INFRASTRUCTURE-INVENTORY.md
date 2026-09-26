@@ -23,6 +23,14 @@ Classification:
 | 17 other Vercel projects (e.g. bedtime-beddings-home, tagitela, susu, carl, desktop, erbliving-shop…) | Vercel | various | Other products | No | **UNKNOWN – DO NOT DELETE** (not part of MY FOOD) |
 | 8 other Supabase projects (Gyampo, carl-staging, WHOLESALE-DISTRIBUTION-MANAGEMENT-SYS, Mimi, susu, room38303@gmail.com, AM-EXPRESS-TRADING, Carl) | Supabase | various | Other products | No | **UNKNOWN – DO NOT DELETE** (not part of MY FOOD) |
 
+## In-store hub and desktop app (2026-09-26)
+
+The MY FOOD Hub adds **no cloud resource**:
+- it is a Windows program on the restaurant's own PC;
+- it talks to the same Vercel production app and Supabase project;
+- its installer is built by the GitHub Actions workflow `desktop-windows.yml`, run by hand;
+- the workflow uses two repository variables with public values only: `PROD_SUPABASE_URL` and `PROD_SUPABASE_ANON_KEY`.
+
 ## Production in detail
 
 ### Vercel `restaurant-management-prod`

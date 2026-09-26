@@ -1,0 +1,26 @@
+{
+  "name": "@rp/hub-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/server.ts",
+    "./run": "./src/run.ts"
+  },
+  "scripts": {
+    "dev": "tsx src/main.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.1",
+    "@rp/api": "workspace:*",
+    "@rp/application": "workspace:*",
+    "@rp/client-core": "workspace:*",
+    "@rp/contracts": "workspace:*",
+    "@rp/domain": "workspace:*",
+    "@rp/hub": "workspace:*",
+    "@rp/infrastructure": "workspace:*",
+    "@rp/print-agent": "workspace:*",
+    "hono": "4.13.9"
+  }
+}

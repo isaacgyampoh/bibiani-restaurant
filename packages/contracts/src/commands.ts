@@ -79,6 +79,25 @@ export const HeartbeatCommand = z.object({
     .array(z.object({ printerId: uuid, ok: z.boolean(), error: text(300).nullish() }))
     .max(50)
     .default([]),
+  /** From an in-store hub: its sync state and what it sees of the devices on its network. */
+  hub: z
+    .object({
+      pendingChanges: z.number().int().min(0),
+      conflicts: z.number().int().min(0),
+      oldestPendingAt: z.string().datetime().nullish(),
+      devices: z
+        .array(
+          z.object({
+            deviceId: uuid,
+            lastSeenAt: z.string().datetime().nullish(),
+            printerError: text(300).nullish(),
+            unprintedJobs: z.number().int().min(0).default(0),
+          }),
+        )
+        .max(100)
+        .default([]),
+    })
+    .nullish(),
 });
 export type HeartbeatCommand = z.infer<typeof HeartbeatCommand>;
 

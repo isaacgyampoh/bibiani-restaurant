@@ -303,3 +303,28 @@ export function voidSlipDocument(v: {
   blocks.push({ type: 'text', text: `Reason: ${v.reason}` }, { type: 'feed', lines: 3 }, { type: 'cut' });
   return { schema: 1, title: `Void #${v.orderNumber}`, blocks };
 }
+
+/** A short page that proves a printer is reachable and shows its paper width. */
+export function testPageDocument(t: {
+  printerName: string;
+  paperWidthMm: number;
+  requestedAt: Date;
+  timeZone: string;
+}): PrintDocument {
+  return {
+    schema: 1,
+    title: `Test print ${t.printerName}`,
+    blocks: [
+      { type: 'logo' },
+      { type: 'text', text: 'TEST PRINT', align: 'center', size: 'large', bold: true },
+      { type: 'text', text: t.printerName, align: 'center', bold: true },
+      { type: 'divider' },
+      { type: 'columns', left: 'Paper', right: `${t.paperWidthMm} mm` },
+      { type: 'columns', left: 'Time', right: localTime(t.requestedAt, t.timeZone) },
+      { type: 'divider' },
+      { type: 'text', text: 'This printer is connected to MY FOOD.', align: 'center' },
+      { type: 'feed', lines: 3 },
+      { type: 'cut' },
+    ],
+  };
+}

@@ -18,3 +18,5 @@ perf-results/
 .staging-failures-accounts.json
 .prod-smoke-accounts.json
 .demo-credentials.json
+apps/desktop/app/
+apps/desktop/release/

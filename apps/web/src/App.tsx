@@ -9,6 +9,7 @@ import { WelcomeScreen, WelcomeVerifyScreen } from './features/auth/WelcomeScree
 import { DashboardPage } from './features/dashboard/DashboardPage';
 import { CustomerDisplay } from './features/display/CustomerDisplay';
 import { ExpoScreen } from './features/expo/ExpoScreen';
+import { HubBanner, HubPage } from './features/hub/HubPage';
 import { InventoryPage } from './features/inventory/InventoryPage';
 import { StockTakePage } from './features/inventory/StockTakePage';
 import { KdsScreen } from './features/kds/KdsScreen';
@@ -21,7 +22,7 @@ import { SetupGuidePage } from './features/setup/SetupGuidePage';
 import { DevicesPage, FloorPage, RoutingPage, SettingsPage } from './features/setup/SetupPages';
 import { StaffPage } from './features/staff/StaffPage';
 import { navigate, useLocation } from './infra/router';
-import { api, currentSession, hasPermission, supabase } from './infra/session';
+import { api, currentSession, hasPermission, onHub, supabase } from './infra/session';
 import { ErrorBox } from './ui/components';
 
 /** Picks the right screen for who is signed in. The server still authorizes every action. */
@@ -39,6 +40,16 @@ function homeFor(me: MeView): string {
 }
 
 export function App() {
+  const { path } = useLocation();
+  return (
+    <>
+      {onHub && path !== '/hub' && !path.startsWith('/display') ? <HubBanner /> : null}
+      <AppRoutes />
+    </>
+  );
+}
+
+function AppRoutes() {
   const { path, query } = useLocation();
   const [me, setMe] = useState<MeView | null>(null);
   const [checked, setChecked] = useState(false);
@@ -80,6 +91,7 @@ export function App() {
     if (checked && me && (path === '/' || path === '/login')) navigate(homeFor(me), true);
   }, [checked, me, path]);
 
+  if (path === '/hub' && onHub) return <HubPage />;
   if (path === '/pair') return <PairScreen onPaired={loadMe} />;
   if (path === '/set-password') return <SetPasswordScreen onDone={loadMe} />;
   if (path === '/welcome') return <WelcomeScreen />;

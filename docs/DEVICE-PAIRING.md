@@ -18,6 +18,14 @@ Tills (POS), kitchen screens, the customer display and the print agent each get 
 1. In **Devices & printing**, press **Create code** on the device. An 8-character code is shown.
 2. On the device, open `…/pair`, choose **I have a code from a manager** and type it.
 
+### C. In a restaurant run by the MY FOOD Hub
+
+1. On the till, kitchen screen or customer display, open the hub's address (shown in the hub window, e.g. `http://192.168.1.20:8080`). The device shows **Pair this device** and a code.
+2. On the hub PC, in the hub window, press **Enter code from device** next to the device, type the code and a manager's PIN (a role that may manage devices).
+3. The device continues by itself. Its login belongs to the hub (it works without internet); the cloud does not accept it.
+
+The hub itself pairs with the cloud the same way: the hub window shows a code; in the back office, press **Enter code from device** on the *MY FOOD Hub* device.
+
 ## Security
 
 - **Code format:** codes use an unambiguous 30-symbol alphabet, 8 characters (about 6.6 × 10¹¹ possibilities). They work once and expire after 10 minutes.
@@ -46,3 +54,6 @@ Tills (POS), kitchen screens, the customer display and the print agent each get 
   - printers refused;
   - only hashes stored.
 - **Browser test on staging** (`e2e/onboarding-pairing.spec.ts`): the device shows a code, the owner enters it in Devices, and the device becomes the customer display.
+- **Hub pairing:**
+  - `apps/hub/test/hub-http.test.ts`: the hub window is reachable only from the hub PC, a cashier's PIN cannot approve, and the hub login is refused by the cloud;
+  - `e2e-hub/hub.spec.ts`: a real browser pairs the customer display and a till at the hub.

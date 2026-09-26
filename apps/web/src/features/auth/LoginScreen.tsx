@@ -1,5 +1,12 @@
 import { type FormEvent, useState } from 'react';
-import { posDevice, requestPasswordReset, signInStaff, signInWithPin, tillApi } from '../../infra/session';
+import {
+  onHub,
+  posDevice,
+  requestPasswordReset,
+  signInStaff,
+  signInWithPin,
+  tillApi,
+} from '../../infra/session';
 import { ErrorBox, Field, PinPad } from '../../ui/components';
 import { Icon } from '../../ui/icons';
 
@@ -31,6 +38,7 @@ export function Brand() {
 export function LoginScreen({ onSignedIn }: { onSignedIn: () => void }) {
   const till = posDevice();
   const [mode, setMode] = useState<'pin' | 'email' | 'forgot-pin'>(till?.pinReady ? 'pin' : 'email');
+  if (onHub) return <HubLogin tillName={till?.pinReady ? till.name : null} onSignedIn={onSignedIn} />;
   return (
     <div className="auth">
       <BrandPanel />
@@ -57,6 +65,35 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: () => void }) {
   );
 }
 
+/**
+ * On the in-store hub, tills unlock with a PIN only (managers use the cloud back office for email
+ * sign-in; forgotten PINs are reset there too). A screen that is not paired yet goes to pairing.
+ */
+function HubLogin({ tillName, onSignedIn }: { tillName: string | null; onSignedIn: () => void }) {
+  return (
+    <div className="auth">
+      <BrandPanel />
+      <div className="auth-card">
+        <Brand />
+        {tillName ? (
+          <PinSignIn tillName={tillName} onSignedIn={onSignedIn} onEmail={null} onForgot={null} />
+        ) : (
+          <>
+            <h1>Connect this screen</h1>
+            <p className="lead">
+              This device is not connected to the MY FOOD Hub yet. It shows a code; a manager approves it on
+              the hub computer.
+            </p>
+            <a className="btn primary xl block" href="/pair">
+              Connect this device
+            </a>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PinSignIn({
   tillName,
   onSignedIn,
@@ -65,8 +102,8 @@ function PinSignIn({
 }: {
   tillName: string;
   onSignedIn: () => void;
-  onEmail: () => void;
-  onForgot: () => void;
+  onEmail: (() => void) | null;
+  onForgot: (() => void) | null;
 }) {
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
@@ -111,14 +148,20 @@ function PinSignIn({
       >
         {busy ? 'Signing in…' : 'Sign in'}
       </button>
-      <div className="auth-foot">
-        <button type="button" className="link" onClick={onForgot}>
-          Forgot PIN?
-        </button>
-        <button type="button" className="link" onClick={onEmail}>
-          Manager sign-in (email)
-        </button>
-      </div>
+      {onForgot && onEmail ? (
+        <div className="auth-foot">
+          <button type="button" className="link" onClick={onForgot}>
+            Forgot PIN?
+          </button>
+          <button type="button" className="link" onClick={onEmail}>
+            Manager sign-in (email)
+          </button>
+        </div>
+      ) : (
+        <p className="small muted center-text">
+          Forgot your PIN? A manager can reset it in the MY FOOD back office.
+        </p>
+      )}
     </>
   );
 }

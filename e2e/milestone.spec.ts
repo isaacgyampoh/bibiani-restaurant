@@ -289,7 +289,7 @@ test.describe
       await expect(owner.getByRole('row', { name: /Birthday Cake/ })).toContainText('Pastry');
       await owner.getByRole('link', { name: 'Stations & routing' }).click();
       await expect(owner.getByRole('heading', { name: 'Where each item goes' })).toBeVisible();
-      await expect(owner.getByText('PASTRY-PRINTER-01 · primary')).toBeVisible();
+      await expect(owner.getByText('Printer: PASTRY-PRINTER-01').first()).toBeVisible();
       await owner.getByRole('link', { name: 'Floor & tables' }).click();
       await expect(owner.getByRole('row', { name: /Takeaway/ }).locator('select')).toHaveValue(
         'pay_before_fulfillment',

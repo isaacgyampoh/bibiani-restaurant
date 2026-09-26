@@ -87,6 +87,8 @@ export class RecordHeartbeat {
         });
         log.add('device.connected', { deviceId, previousHeartbeatAt });
       }
+      if (cmd.hub && ctx.principal.kind === 'device' && ctx.principal.deviceKind === 'hub')
+        await tx.devices.setHubHealth(deviceId, { ...cmd.hub, reportedAt: now.toISOString() });
       if (cmd.printers.length > 0) {
         const own = new Set((await tx.printJobs.agentPrinters(deviceId)).map((p) => p.printerId));
         for (const p of cmd.printers) {

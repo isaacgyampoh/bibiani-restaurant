@@ -2,7 +2,7 @@ import type { PinRepository, PinStaff } from '@rp/application';
 import { dateOrNull, type Sql } from '../db/sql';
 
 type Row = Record<string, unknown>;
-const COLUMNS = `id, user_id, display_name, email, is_active, pin_must_change, pin_lookup is not null as has_pin`;
+const COLUMNS = `id, user_id, display_name, email, is_active, pin_must_change, pin_lookup is not null as has_pin, pin_set_at, pin_version`;
 const map = (r: Row): PinStaff => ({
   staffId: r.id as string,
   userId: (r.user_id ?? null) as string | null,
@@ -11,6 +11,8 @@ const map = (r: Row): PinStaff => ({
   isActive: Boolean(r.is_active),
   mustChange: Boolean(r.pin_must_change),
   hasPin: Boolean(r.has_pin),
+  pinSetAt: dateOrNull(r.pin_set_at)?.toISOString() ?? null,
+  pinVersion: Number(r.pin_version ?? 0),
 });
 
 /** PIN digests never leave this repository: callers only ever get who the PIN belongs to. */
@@ -30,7 +32,7 @@ export function createPinRepository(sql: Sql): PinRepository {
     },
     async setPin(staffId, lookup, mustChange, now) {
       await sql.query(
-        `update staff set pin_lookup = $2, pin_must_change = $3, pin_set_at = $4 where id = $1`,
+        `update staff set pin_lookup = $2, pin_must_change = $3, pin_set_at = $4, pin_version = pin_version + 1 where id = $1`,
         [staffId, lookup, mustChange, now.toISOString()],
       );
     },

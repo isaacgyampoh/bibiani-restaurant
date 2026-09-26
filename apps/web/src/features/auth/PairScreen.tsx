@@ -1,7 +1,7 @@
 import type { PairDeviceResult } from '@rp/contracts';
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { navigate } from '../../infra/router';
-import { collectPairing, pairDevice, requestPairing } from '../../infra/session';
+import { collectPairing, onHub, pairDevice, requestPairing } from '../../infra/session';
 import { ErrorBox } from '../../ui/components';
 import { Icon } from '../../ui/icons';
 import { InstallAppButton } from '../../ui/install';
@@ -30,9 +30,15 @@ export function PairScreen({ onPaired }: { onPaired: () => void }) {
         {mode === 'show' ? <ShowCode onPaired={done} /> : <EnterCode onPaired={done} />}
         <InstallAppButton className="btn block" />
         <div className="auth-foot">
-          <button type="button" className="link" onClick={() => setMode(mode === 'show' ? 'enter' : 'show')}>
-            {mode === 'show' ? 'I have a code from a manager' : 'Show a code on this device instead'}
-          </button>
+          {onHub ? null : (
+            <button
+              type="button"
+              className="link"
+              onClick={() => setMode(mode === 'show' ? 'enter' : 'show')}
+            >
+              {mode === 'show' ? 'I have a code from a manager' : 'Show a code on this device instead'}
+            </button>
+          )}
           <a href="/login" className="back-link">
             <Icon name="arrow-left" size={16} /> Sign in
           </a>
@@ -85,10 +91,17 @@ function ShowCode({ onPaired }: { onPaired: (r: PairDeviceResult) => void }) {
   return (
     <>
       <h1>Pair this device</h1>
-      <p className="lead">
-        On a manager's screen open <strong>Devices &amp; printing</strong>, choose this device and press{' '}
-        <strong>Enter code from device</strong>. Type this code:
-      </p>
+      {onHub ? (
+        <p className="lead">
+          On the <strong>MY FOOD Hub</strong> computer, in the hub window, choose this device, type this code
+          and a manager's PIN:
+        </p>
+      ) : (
+        <p className="lead">
+          On a manager's screen open <strong>Devices &amp; printing</strong>, choose this device and press{' '}
+          <strong>Enter code from device</strong>. Type this code:
+        </p>
+      )}
       <div className="pair-code" aria-live="polite">
         {request ? request.code : '····-····'}
       </div>

@@ -20,6 +20,7 @@ import type {
 import { DomainError, type OrderItem, type ProductForSale, type TaxRate } from '@rp/domain';
 import { dateOrNull, num, numOrNull, type Sql } from '../db/sql';
 import { createAdminRepository } from './admin';
+import { createHubSyncRepository } from './hub-sync';
 import { createInventoryRepository } from './inventory';
 import { createPinRepository } from './pins';
 import { createDiscountRepository, createPromotionRepository } from './pricing';
@@ -46,6 +47,7 @@ export function createRepositories(sql: Sql): Repositories {
     pins: createPinRepository(sql),
     promotions: createPromotionRepository(sql),
     discounts: createDiscountRepository(sql),
+    hub: createHubSyncRepository(sql),
   };
 }
 
@@ -836,6 +838,22 @@ function printJobRepository(sql: Sql): PrintJobRepository {
       return rows.length > 0;
     },
 
+    async printerInfo(printerId) {
+      const [r] = await sql.query(
+        `select d.branch_id, d.name, d.is_active, pr.paper_width_mm
+           from printers pr join devices d on d.id = pr.device_id where pr.device_id = $1`,
+        [printerId],
+      );
+      return r
+        ? {
+            branchId: s(r.branch_id),
+            name: s(r.name),
+            paperWidthMm: Number(r.paper_width_mm),
+            isActive: Boolean(r.is_active),
+          }
+        : null;
+    },
+
     async idsForTickets(ticketIds) {
       const rows = await sql.query(
         `select id from print_jobs where production_ticket_id in (select value::uuid from jsonb_array_elements_text($1::text::jsonb))`,
@@ -995,6 +1013,13 @@ function paymentRepository(sql: Sql): PaymentRepository {
 
 function deviceRepository(sql: Sql): DeviceRepository {
   return {
+    async setHubHealth(deviceId, health) {
+      await sql.query(`update devices set hub_health = $2::jsonb where id = $1 and kind = 'hub'`, [
+        deviceId,
+        JSON.stringify(health),
+      ]);
+    },
+
     async heartbeat(deviceId, appVersion, at) {
       const [prev] = await sql.query(
         'select last_heartbeat_at from devices where id = $1 and is_active for update',

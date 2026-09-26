@@ -24,6 +24,17 @@ export function PosScreen({ me }: { me: MeView }) {
   const [view, setView] = useState<View | null>(null);
   const till = posDevice();
 
+  // Heartbeat from a registered till, so managers can see it is alive (sent as the signed-in staff
+  // member on this terminal).
+  const tillId = till?.id ?? null;
+  useEffect(() => {
+    if (!tillId) return;
+    const beat = () => void api.heartbeat({ appVersion: 'web-pos', printers: [] }).catch(() => undefined);
+    beat();
+    const t = setInterval(beat, 30_000);
+    return () => clearInterval(t);
+  }, [tillId]);
+
   useEffect(() => {
     if (!branchId) return;
     api
