@@ -12,6 +12,7 @@ import type {
   Fingerprinter,
   IdentityRegistry,
   IdGenerator,
+  ImageStore,
   LogFields,
   Logger,
   OrderAggregate,
@@ -38,6 +39,8 @@ export interface Dependencies {
   deviceAccountDomain?: string;
   /** Staff PIN digests (needs the server-only PIN_PEPPER). PIN features are off without it. */
   pinHasher?: PinHasher;
+  /** Product photo storage. Photo upload is off without it. */
+  images?: ImageStore;
   /** Public web address, for links in emails (e.g. PIN recovery). */
   publicUrl?: string;
 }

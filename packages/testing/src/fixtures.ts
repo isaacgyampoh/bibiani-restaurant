@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { AuthDirectory, Clock, LogFields, Logger } from '@rp/application';
+import type { AuthDirectory, Clock, ImageStore, LogFields, Logger } from '@rp/application';
 import { type Application, createApplication, type Principal, type RequestContext } from '@rp/application';
 import { DomainError, ROLE_TEMPLATES } from '@rp/domain';
 import {
@@ -340,6 +340,21 @@ export async function seedRestaurant(
 }
 
 /** Controllable clock for lease/backoff tests. */
+/** Product photo storage kept in memory (tests never touch Supabase Storage). */
+export class MemoryImageStore implements ImageStore {
+  readonly objects = new Map<string, { bytes: Uint8Array; contentType: string }>();
+  async put(path: string, bytes: Uint8Array, contentType: string) {
+    if (this.objects.has(path)) throw new Error('exists');
+    this.objects.set(path, { bytes, contentType });
+  }
+  async remove(path: string) {
+    this.objects.delete(path);
+  }
+  publicUrl(path: string) {
+    return `https://storage.test/product-images/${path}`;
+  }
+}
+
 export class TestClock implements Clock {
   constructor(private current = new Date('2026-09-25T12:00:00Z')) {}
   now(): Date {
@@ -367,6 +382,7 @@ export interface TestApp {
   app: Application;
   clock: TestClock;
   logger: CapturingLogger;
+  images: MemoryImageStore;
   resolver: PgPrincipalResolver;
   /** Resolves a real principal through the production resolver (membership tables). */
   as(authUserId: string, deviceId?: string | null): Promise<RequestContext>;
@@ -375,6 +391,7 @@ export interface TestApp {
 export function createTestApp(db: Database, options: { decorate?: RepositoryDecorator } = {}): TestApp {
   const clock = new TestClock();
   const logger = new CapturingLogger();
+  const images = new MemoryImageStore();
   const resolver = new PgPrincipalResolver(db);
   const app = createApplication({
     auth: HOSTED ? authDirectory() : new LocalAuthDirectory(db),
@@ -383,6 +400,7 @@ export function createTestApp(db: Database, options: { decorate?: RepositoryDeco
     deviceAccountDomain: 'devices.example.com',
     pinHasher: new HmacPinHasher('test-pepper-0123456789abcdef0123456789abcdef'),
     publicUrl: 'https://app.test',
+    images,
     uow: new PgUnitOfWork(db, {
       decorate: options.decorate,
       // Hosted runs execute ~140 ms away from the database (production API is co-located), so
@@ -399,6 +417,7 @@ export function createTestApp(db: Database, options: { decorate?: RepositoryDeco
     app,
     clock,
     logger,
+    images,
     resolver,
     async as(authUserId, deviceId = null) {
       const result = await resolver.resolve(authUserId, null);

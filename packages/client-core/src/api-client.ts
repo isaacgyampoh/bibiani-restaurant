@@ -97,9 +97,11 @@ export class ApiClient {
   }
 
   private async request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<T> {
+    // Files (product photos) go as raw bytes with their own type; everything else is JSON.
+    const isFile = typeof Blob !== 'undefined' && body instanceof Blob;
     const headers: Record<string, string> = {
       authorization: `Bearer ${await this.options.getAccessToken()}`,
-      'content-type': 'application/json',
+      'content-type': isFile ? (body as Blob).type || 'application/octet-stream' : 'application/json',
     };
     const deviceId = this.options.getDeviceId?.() ?? this.options.deviceId;
     if (deviceId) headers['x-device-id'] = deviceId;
@@ -110,7 +112,7 @@ export class ApiClient {
       response = await this.fetchImpl(`${this.options.baseUrl}${path}`, {
         method,
         headers,
-        body: body === undefined ? undefined : JSON.stringify(body),
+        body: body === undefined ? undefined : isFile ? (body as Blob) : JSON.stringify(body),
         signal: AbortSignal.timeout(this.options.timeoutMs ?? 15_000),
       });
     } catch (cause) {
@@ -172,6 +174,11 @@ export class ApiClient {
     this.request<OrderView>('POST', `/v1/orders/${orderId}/transfer`, cmd);
   mergeOrders = (targetOrderId: string, sourceOrderId: string) =>
     this.request<OrderView>('POST', `/v1/orders/${targetOrderId}/merge`, { sourceOrderId });
+  /** Uploads a product photo (already resized by the caller). */
+  setProductImage = (productId: string, image: Blob) =>
+    this.request<{ imageUrl: string }>('POST', `/v1/products/${productId}/image`, image);
+  removeProductImage = (productId: string) =>
+    this.request<{ ok: true }>('DELETE', `/v1/products/${productId}/image`);
   promotions = () => this.request<PromotionView[]>('GET', '/v1/promotions');
   previewPromotion = (cmd: SavePromotionCommand) =>
     this.request<PromotionPreviewView>('POST', '/v1/promotions/preview', cmd);

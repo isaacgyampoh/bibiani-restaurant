@@ -284,6 +284,17 @@ export function createAdminRepository(sql: Sql): AdminRepository {
       );
     },
 
+    async productImage(productId) {
+      const [r] = await sql.query('select image_path from products where id = $1 and deleted_at is null', [
+        productId,
+      ]);
+      return r ? ((r.image_path ?? null) as string | null) : undefined;
+    },
+
+    async setProductImage(productId, path) {
+      await sql.query('update products set image_path = $2 where id = $1', [productId, path]);
+    },
+
     async updateStaff(id, patch) {
       await sql.query(
         // Deactivating someone frees their PIN (PINs are unique among active staff) and it must be reset on return.

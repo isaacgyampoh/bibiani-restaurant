@@ -10,6 +10,7 @@ import {
   PgUnitOfWork,
   randomIds,
   SupabaseAuthDirectory,
+  SupabaseImageStore,
   sha256Fingerprinter,
   systemClock,
 } from '@rp/infrastructure';
@@ -43,6 +44,8 @@ export function compose(env: Record<string, string | undefined> = process.env) {
     // Staff PINs are digested with a server-only secret; without it PIN sign-in is simply off.
     pinHasher: env.PIN_PEPPER ? new HmacPinHasher(env.PIN_PEPPER) : undefined,
     publicUrl: env.APP_URL?.replace(/\/$/, ''),
+    // Product photos in Supabase Storage (same project), written only by this server.
+    images: new SupabaseImageStore(supabaseUrl, required('SUPABASE_SECRET_KEY')),
     uow: new PgUnitOfWork(db, {
       statementTimeoutMs: Number(env.DB_STATEMENT_TIMEOUT_MS ?? 8000),
       lockTimeoutMs: Number(env.DB_LOCK_TIMEOUT_MS ?? 4000),

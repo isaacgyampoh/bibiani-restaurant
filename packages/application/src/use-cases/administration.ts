@@ -52,7 +52,15 @@ export class GetConfiguration {
       ctx.principal.grants.some((g) => g.permissions.has(p)),
     );
     if (!allowed) throw new DomainError('FORBIDDEN', 'You do not have permission to do this');
-    return this.deps.uow.run(ctx.principal.restaurantId, (tx) => tx.read.configuration());
+    const config = await this.deps.uow.run(ctx.principal.restaurantId, (tx) => tx.read.configuration());
+    const images = this.deps.images;
+    return {
+      ...config,
+      products: (config.products as Record<string, unknown>[]).map((p) => ({
+        ...p,
+        imageUrl: typeof p.imagePath === 'string' && images ? images.publicUrl(p.imagePath) : null,
+      })),
+    };
   }
 }
 

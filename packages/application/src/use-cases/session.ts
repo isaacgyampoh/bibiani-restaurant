@@ -45,7 +45,15 @@ export class GetMenu {
         tx.promotions.list(),
         tx.config.branch(branchId),
       ]);
-      return withLivePromotions(menu, promotions, now, branch?.timezone ?? 'UTC', branchId);
+      const images = this.deps.images;
+      const withPhotos: MenuView = {
+        ...menu,
+        products: menu.products.map(({ imagePath, ...p }) => ({
+          ...p,
+          imageUrl: imagePath && images ? images.publicUrl(imagePath) : null,
+        })),
+      };
+      return withLivePromotions(withPhotos, promotions, now, branch?.timezone ?? 'UTC', branchId);
     });
   }
 }

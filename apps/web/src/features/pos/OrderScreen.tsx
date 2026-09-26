@@ -78,6 +78,8 @@ export function OrderScreen({
     }
     return map;
   }, [menu.categories]);
+  // Photo buttons only once the restaurant has added photos, so a menu without any keeps compact buttons.
+  const withPhotos = menu.products.some((p) => p.imageUrl);
   const products = menu.products.filter((p) => {
     if (search) return p.name.toLowerCase().includes(search.toLowerCase());
     return !category || descendants.get(category)?.has(p.categoryId);
@@ -228,7 +230,7 @@ export function OrderScreen({
               </button>
             ))}
           </div>
-          <div className="products">
+          <div className={`products ${withPhotos ? 'with-photos' : ''}`}>
             {products.map((p) => (
               <button
                 key={p.id}
@@ -237,6 +239,15 @@ export function OrderScreen({
                 disabled={!p.isAvailable || closed}
                 onClick={() => (p.modifierGroups.length ? setModFor(p) : add(p))}
               >
+                {withPhotos ? (
+                  p.imageUrl ? (
+                    <img className="product-photo" src={p.imageUrl} alt="" loading="lazy" decoding="async" />
+                  ) : (
+                    <span className="product-photo photo-placeholder" aria-hidden>
+                      {p.name.slice(0, 1)}
+                    </span>
+                  )
+                ) : null}
                 <span className="name">{p.name}</span>
                 {p.promotion && p.isAvailable ? (
                   <span className="promo-tag" title={p.promotion.name}>

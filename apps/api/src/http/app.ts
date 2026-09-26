@@ -208,31 +208,33 @@ export function createHttpApp(deps: HttpDependencies) {
             ? 'save_stock'
             : /\/recipe$/.test(path)
               ? 'save_recipe'
-              : path === '/v1/orders/submit'
-                ? 'submit_order'
-                : /\/send$/.test(path)
-                  ? 'send_to_kitchen'
-                  : /\/payments$/.test(path)
-                    ? 'record_payment'
-                    : /\/void$/.test(path)
-                      ? 'void_payment'
-                      : /\/refunds$/.test(path)
-                        ? 'refund_payment'
-                        : /\/actions$/.test(path) || /\/ready$/.test(path)
-                          ? 'ticket_action'
-                          : /\/fulfil$/.test(path)
-                            ? 'fulfil_order'
-                            : /\/cancel$/.test(path)
-                              ? 'cancel_order'
-                              : /\/void-items$/.test(path)
-                                ? 'void_items'
-                                : /\/receipt\/print$/.test(path)
-                                  ? 'print_receipt'
-                                  : path.startsWith('/v1/admin/staff')
-                                    ? 'save_staff'
-                                    : path.startsWith('/v1/admin/config')
-                                      ? 'save_config'
-                                      : 'default';
+              : /\/image$/.test(path)
+                ? 'save_photo'
+                : path === '/v1/orders/submit'
+                  ? 'submit_order'
+                  : /\/send$/.test(path)
+                    ? 'send_to_kitchen'
+                    : /\/payments$/.test(path)
+                      ? 'record_payment'
+                      : /\/void$/.test(path)
+                        ? 'void_payment'
+                        : /\/refunds$/.test(path)
+                          ? 'refund_payment'
+                          : /\/actions$/.test(path) || /\/ready$/.test(path)
+                            ? 'ticket_action'
+                            : /\/fulfil$/.test(path)
+                              ? 'fulfil_order'
+                              : /\/cancel$/.test(path)
+                                ? 'cancel_order'
+                                : /\/void-items$/.test(path)
+                                  ? 'void_items'
+                                  : /\/receipt\/print$/.test(path)
+                                    ? 'print_receipt'
+                                    : path.startsWith('/v1/admin/staff')
+                                      ? 'save_staff'
+                                      : path.startsWith('/v1/admin/config')
+                                        ? 'save_config'
+                                        : 'default';
     c.set('operation', name);
     await next();
   });
@@ -480,6 +482,18 @@ export function createHttpApp(deps: HttpDependencies) {
         (await body(c, OrderPriorityCommand)).rush,
       ),
     ),
+  );
+
+  // Product photos: the raw image is the request body (the browser resizes it first).
+  v1.post('/products/:productId/image', async (c) => {
+    const declared = Number(c.req.header('content-length') ?? 0);
+    if (declared > 2 * 1024 * 1024)
+      throw new DomainError('VALIDATION_FAILED', 'Choose a photo smaller than 2 MB');
+    const bytes = new Uint8Array(await c.req.arrayBuffer());
+    return c.json(await deps.app.setProductImage.execute(c.var.ctx, id(c, 'productId'), bytes));
+  });
+  v1.delete('/products/:productId/image', async (c) =>
+    c.json(await deps.app.removeProductImage.execute(c.var.ctx, id(c, 'productId'))),
   );
 
   // Pricing: automatic promotions and manager discounts

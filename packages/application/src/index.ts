@@ -36,6 +36,7 @@ import {
   ReportPrintJobResult,
   RetryPrintJob,
 } from './use-cases/printing';
+import { RemoveProductImage, SetProductImage } from './use-cases/product-images';
 import {
   ApplyManualDiscount,
   ListPromotions,
@@ -121,6 +122,8 @@ export function createApplication(deps: Dependencies) {
     createPairingCode: new CreatePairingCode(deps),
     pairDevice: new PairDevice(deps),
     revokeDevice: new RevokeDevice(deps),
+    setProductImage: new SetProductImage(deps),
+    removeProductImage: new RemoveProductImage(deps),
     listPromotions: new ListPromotions(deps),
     previewPromotion: new PreviewPromotion(deps),
     savePromotion: new SavePromotion(deps),

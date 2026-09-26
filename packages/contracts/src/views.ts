@@ -270,6 +270,8 @@ export interface MenuView {
     categoryId: string;
     name: string;
     price: number;
+    /** Product photo (public URL), or null when none has been added. */
+    imageUrl: string | null;
     /** The promotion live right now for one unit of this product (the POS shows it; the server decides). */
     /**
      * `saving` is what the promotion takes off every `minQuantity` units (1, or the bundle size);

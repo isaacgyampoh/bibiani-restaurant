@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { ReadModels } from '@rp/application';
+import type { MenuData, ReadModels } from '@rp/application';
 import type {
   ConfigurationView,
   CustomerBoardView,
@@ -364,7 +364,7 @@ export function createReadModels(sql: Sql): ReadModels {
       };
     },
 
-    async menu(branchId): Promise<MenuView> {
+    async menu(branchId): Promise<MenuData> {
       const [areas, categories, products, groups, modifiers, currency] = await Promise.all([
         sql.query(
           `select * from operational_areas where branch_id = $1 and is_active order by sort_order, name`,
@@ -374,7 +374,7 @@ export function createReadModels(sql: Sql): ReadModels {
           `select id, name, parent_id, sort_order from categories where is_active order by sort_order, name`,
         ),
         sql.query(
-          `select p.id, p.category_id, p.name, coalesce(bp.price_override, p.base_price) as price,
+          `select p.id, p.category_id, p.name, p.image_path, coalesce(bp.price_override, p.base_price) as price,
                   (p.is_active and p.deleted_at is null and coalesce(bp.is_available, true)) as is_available
            from products p left join branch_products bp on bp.product_id = p.id and bp.branch_id = $1
            where p.deleted_at is null and p.is_active order by p.name`,
@@ -412,6 +412,7 @@ export function createReadModels(sql: Sql): ReadModels {
           categoryId: s(p.category_id),
           name: s(p.name),
           price: num(p.price),
+          imagePath: sn(p.image_path),
           promotion: null,
           isAvailable: Boolean(p.is_available),
           modifierGroups: groups

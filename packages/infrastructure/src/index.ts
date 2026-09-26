@@ -8,5 +8,6 @@ export * from './db/sql';
 export * from './postgres/repositories';
 export * from './postgres/unit-of-work';
 export { InfrastructureError, translatePgError } from './postgres/util';
+export * from './storage/supabase-image-store';
 export * from './system/request-metrics';
 export * from './system/services';

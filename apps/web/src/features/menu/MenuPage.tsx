@@ -4,6 +4,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react
 import { explainRoute, routingFrom } from '../../infra/routing';
 import { api, hasPermission } from '../../infra/session';
 import { ErrorBox, Modal } from '../../ui/components';
+import { preparePhoto } from '../../ui/photo';
 import { Empty, Shell, Skeleton } from '../../ui/Shell';
 
 type Row = Record<string, unknown>;
@@ -180,8 +181,19 @@ export function MenuPage({ me }: { me: MeView }) {
                   return (
                     <tr key={str(p.id)} className={p.isActive ? '' : 'inactive'}>
                       <td>
-                        <strong>{str(p.name)}</strong>
-                        <div className="small muted">{catName(p.categoryId)}</div>
+                        <div className="row">
+                          {p.imageUrl ? (
+                            <img className="thumb" src={str(p.imageUrl)} alt="" loading="lazy" />
+                          ) : (
+                            <span className="thumb thumb-empty" aria-hidden>
+                              {str(p.name).slice(0, 1)}
+                            </span>
+                          )}
+                          <div>
+                            <strong>{str(p.name)}</strong>
+                            <div className="small muted">{catName(p.categoryId)}</div>
+                          </div>
+                        </div>
                       </td>
                       <td className="num">{money(Number(p.basePrice))}</td>
                       <td>
@@ -379,7 +391,13 @@ export function MenuPage({ me }: { me: MeView }) {
       )}
 
       {config && dialog?.kind === 'product' ? (
-        <ProductDialog config={config} product={dialog.product} onClose={() => setDialog(null)} save={save} />
+        <ProductDialog
+          config={config}
+          product={dialog.product}
+          onClose={() => setDialog(null)}
+          save={save}
+          reload={reload}
+        />
       ) : null}
       {config && dialog?.kind === 'recipe' ? (
         <RecipeDialog branchId={branchId} product={dialog.product} onClose={() => setDialog(null)} />
@@ -413,12 +431,62 @@ function ProductDialog({
   product,
   onClose,
   save,
+  reload,
 }: {
   config: ConfigurationView;
   product: Row | null;
   onClose: () => void;
   save: Save;
+  reload: () => void;
 }) {
+  // Photo: uploaded straight away for an existing product; for a new one, right after it is created.
+  const [photoUrl, setPhotoUrl] = useState<string | null>((product?.imageUrl as string | null) ?? null);
+  const [pendingPhoto, setPendingPhoto] = useState<Blob | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState<unknown>(null);
+  useEffect(() => {
+    if (!pendingPhoto) return;
+    const url = URL.createObjectURL(pendingPhoto);
+    setPhotoUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pendingPhoto]);
+  async function choosePhoto(file: File | undefined) {
+    if (!file) return;
+    setPhotoError(null);
+    setPhotoBusy(true);
+    try {
+      const blob = await preparePhoto(file);
+      if (product) {
+        const { imageUrl } = await api.setProductImage(str(product.id), blob);
+        setPhotoUrl(imageUrl);
+        reload();
+      } else {
+        setPendingPhoto(blob);
+      }
+    } catch (e) {
+      setPhotoError(e);
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+  async function removePhoto() {
+    setPhotoError(null);
+    if (!product) {
+      setPendingPhoto(null);
+      setPhotoUrl(null);
+      return;
+    }
+    setPhotoBusy(true);
+    try {
+      await api.removeProductImage(str(product.id));
+      setPhotoUrl(null);
+      reload();
+    } catch (e) {
+      setPhotoError(e);
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
   const [f, setF] = useState({
     name: str(product?.name),
     categoryId: str(product?.categoryId ?? (config.categories as Row[])[0]?.id),
@@ -445,12 +513,67 @@ function ProductDialog({
       modifierGroupIds: f.modifierGroupIds,
       isActive: f.isActive,
     });
+    if (id && pendingPhoto) {
+      try {
+        await api.setProductImage(id, pendingPhoto);
+        reload();
+      } catch (e) {
+        // The product is saved; only the photo failed. Keep the dialog closed and say so.
+        setPhotoError(e);
+        setBusy(false);
+        return;
+      }
+    }
     setBusy(false);
     if (id) onClose();
   }
   return (
     <Modal title={product ? `Edit ${str(product.name)}` : 'New product'} onClose={onClose}>
       <form className="form" onSubmit={submit}>
+        <div className="photo-field">
+          <div className="photo-frame">
+            {photoUrl ? (
+              <img src={photoUrl} alt={f.name || 'Product photo'} />
+            ) : (
+              <span className="photo-empty">No photo</span>
+            )}
+          </div>
+          <div className="photo-actions">
+            <strong>Photo</strong>
+            <span className="small muted">
+              Shown on the POS buttons. A clear, well-lit photo of the dish works best.
+            </span>
+            <div className="row">
+              <label className={`btn sm ${photoBusy ? 'disabled' : ''}`}>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  hidden
+                  disabled={photoBusy}
+                  onChange={(e) => {
+                    void choosePhoto(e.target.files?.[0]);
+                    e.target.value = '';
+                  }}
+                />
+                {photoBusy ? 'Saving photo…' : photoUrl ? 'Change photo' : 'Add photo'}
+              </label>
+              {photoUrl ? (
+                <button
+                  type="button"
+                  className="btn sm"
+                  disabled={photoBusy}
+                  onClick={() => void removePhoto()}
+                >
+                  Remove
+                </button>
+              ) : null}
+            </div>
+            {!product && pendingPhoto ? (
+              <span className="small muted">The photo is saved with the product.</span>
+            ) : null}
+            <ErrorBox error={photoError} />
+          </div>
+        </div>
         <label>
           Name
           <input required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />

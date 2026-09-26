@@ -578,6 +578,11 @@ export interface InventoryRepository {
   setRecipe(productId: string, components: { itemId: string; quantity: number }[]): Promise<void>;
 }
 
+/** The menu as stored: products carry their photo's storage path (the use case turns it into a URL). */
+export type MenuData = Omit<MenuView, 'products'> & {
+  products: (Omit<MenuView['products'][number], 'imageUrl'> & { imagePath: string | null })[];
+};
+
 /** Read models: denormalised, screen-shaped queries. */
 export interface ReadModels {
   order(orderId: string): Promise<OrderView | null>;
@@ -587,7 +592,7 @@ export interface ReadModels {
   stationBoard(stationId: string): Promise<StationBoardView | null>;
   customerBoard(branchId: string, now: Date): Promise<CustomerBoardView>;
   printQueue(branchId: string): Promise<PrintQueueView>;
-  menu(branchId: string): Promise<MenuView>;
+  menu(branchId: string): Promise<MenuData>;
   floor(branchId: string, now: Date): Promise<FloorView>;
   operations(branchId: string, now: Date): Promise<OperationsView>;
   dashboard(branchId: string, businessDay: string, now: Date): Promise<DashboardView>;
@@ -739,6 +744,9 @@ export interface AdminRepository {
   delete(entity: ConfigEntity, id: string): Promise<boolean>;
   insertStaff(s: { id: string; userId: string; displayName: string; email: string }): Promise<void>;
   updateStaff(id: string, patch: { displayName?: string; isActive?: boolean }): Promise<void>;
+  /** The product's current photo path; `undefined` when the product does not exist (or was deleted). */
+  productImage(productId: string): Promise<string | null | undefined>;
+  setProductImage(productId: string, path: string | null): Promise<void>;
   setStaffRoles(staffId: string, roleIds: readonly string[], branchId: string | null): Promise<void>;
   staff(
     staffId: string,
@@ -790,4 +798,14 @@ export interface SecretGenerator {
   /** Short human-typable one-time code (unambiguous alphabet). */
   pairingCode(): string;
   password(): string;
+}
+
+/**
+ * Where product photos are kept (Supabase Storage in production). Server-side only: the adapter
+ * holds the project's secret key. Paths are `<restaurantId>/<productId>-<random>.<ext>`.
+ */
+export interface ImageStore {
+  put(path: string, bytes: Uint8Array, contentType: string): Promise<void>;
+  remove(path: string): Promise<void>;
+  publicUrl(path: string): string;
 }
