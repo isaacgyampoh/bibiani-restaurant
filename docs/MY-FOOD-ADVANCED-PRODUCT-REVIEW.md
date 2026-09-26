@@ -190,3 +190,24 @@ Real staging receipt #5012:
   - `/health/ready` reports ready with schema `20260926000100`;
   - the environment verifier passes 15 of 15: 49 tables, RLS on every table, every table has a primary key, and browser roles have no table privileges;
   - the demo tenant has the new permissions and endpoints. The real restaurant's data was not modified.
+
+## 11. Product photos (added 2026-09-26)
+
+- **Adding a photo:** in **Menu & recipes → Edit product → Photo** (Add, Change, Remove). The browser shrinks the photo to 800 px WebP before uploading, so a phone photo of several MB becomes about 50–150 KB.
+- **Where it shows:**
+  - a thumbnail in the product list;
+  - large photo buttons on the POS, which turn on once any product has a photo. A menu without photos keeps the compact buttons, and products without a photo show their first letter.
+- **Storage:** Supabase Storage in the **same** production project, bucket `product-images` (public read). Only the API writes to it, using the server-side key. Browser sign-ins cannot upload, delete or list; row-level security refuses them.
+- **Checks on every upload:**
+  - it needs the `menu.manage` permission;
+  - it must be a real JPEG, PNG or WebP (checked from the file's bytes, not its name or declared type), at most 2 MB;
+  - the database only accepts photo paths in the expected shape.
+- **Audit:** every change is logged (`product.image` / `product.image_removed`).
+- **Replacing a photo:** the old file is deleted. Photos are cached for up to one day, so a removed photo can stay reachable through the CDN for that long.
+
+| Item | Status |
+|---|---|
+| Upload, preview, change, remove; POS and list display | **VERIFIED** (5 new tests; browser check on staging with screenshots) |
+| Security: cashier refused (403), fake image (SVG) refused, browser cannot write, delete or list the bucket | **VERIFIED** (staging and production) |
+| Production cycle on the demo restaurant: upload → public read (identical bytes) → remove (bucket empty afterwards) | **VERIFIED**; no photo was left on the demo or the real restaurant |
+| Real dish photos | **REMAINING**: the restaurant needs to take and add its own photos. None were invented or copied from elsewhere |

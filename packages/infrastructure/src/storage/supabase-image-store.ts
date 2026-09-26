@@ -24,12 +24,14 @@ export class SupabaseImageStore implements ImageStore {
     return h;
   }
 
+  // Names are unique per upload, so a replaced photo never shows stale; one day of caching keeps tills
+  // fast while limiting how long a removed photo stays reachable through the CDN.
   async put(path: string, bytes: Uint8Array, contentType: string): Promise<void> {
     const res = await this.fetchImpl(`${this.base}/object/${this.bucket}/${path}`, {
       method: 'POST',
       headers: this.headers({
         'content-type': contentType,
-        'cache-control': 'max-age=31536000',
+        'cache-control': 'max-age=86400',
         'x-upsert': 'false',
       }),
       body: bytes,
