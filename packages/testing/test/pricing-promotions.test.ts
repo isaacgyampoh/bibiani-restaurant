@@ -415,6 +415,57 @@ describe('Promotions and discounts (end to end through the use cases and the dat
     await db.query('update stations set show_prices = true where id = $1', [f.stations.kitchen]);
   });
 
+  it('buy X get Y free: every complete group gets its free items; shown on the POS; bad setups refused', async () => {
+    const m = await owner();
+    // Domain maths: buy 2 get 1 free, Coke GHS 10.00.
+    const rule = promo({ kind: 'buy_get_free', percentBp: null, bundleQuantity: 2, freeQuantity: 1 });
+    expect([2, 3, 5, 6, 7].map((q) => promotionDiscount(rule, 1000, q))).toEqual([0, 1000, 1000, 2000, 2000]);
+    await expect(
+      t.app.savePromotion.execute(
+        m,
+        draft({
+          name: 'Broken',
+          kind: 'buy_get_free',
+          percentBp: null,
+          bundleQuantity: 2,
+          freeQuantity: null,
+          productIds: [f.products.sandwich],
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    await t.app.savePromotion.execute(
+      m,
+      draft({
+        name: 'Sandwich deal',
+        kind: 'buy_get_free',
+        percentBp: null,
+        bundleQuantity: 2,
+        freeQuantity: 1,
+        productIds: [f.products.sandwich],
+        priority: 20,
+      }),
+    );
+    const view = (await list()).find((p) => p.name === 'Sandwich deal')!;
+    expect(view).toMatchObject({
+      kind: 'buy_get_free',
+      bundleQuantity: 2,
+      freeQuantity: 1,
+      summary: 'Buy 2 get 1 free · every day',
+    });
+    const menu = await t.app.getMenu.execute(await cashier(), f.branchId);
+    expect(menu.products.find((p) => p.id === f.products.sandwich)!.promotion).toMatchObject({
+      label: 'Buy 2 get 1 free',
+      minQuantity: 3,
+      saving: 3500,
+    });
+    const o = await order([line(f.products.sandwich, 6)]);
+    expect(o.items[0]).toMatchObject({
+      grossTotal: 21000,
+      promotion: { name: 'Sandwich deal', discount: 7000 },
+      lineTotal: 14000,
+    });
+  });
+
   it('receipt document: one strategy (gross lines, promo lines, subtotal, promotions, discount, total)', () => {
     const doc = receiptDocument({
       restaurantName: 'Chefelisha Restaurant',

@@ -127,10 +127,41 @@ export function ReportsPage({ me }: { me: MeView }) {
                   </tr>
                   <tr>
                     <td>
-                      Cost of goods
-                      <div className="small muted">Order lines do not record a cost price yet.</div>
+                      Cost of ingredients
+                      <div className="small muted">
+                        From recipes and the stock unit cost at the time of each sale.
+                        {report.totals.cost.uncostedUses
+                          ? ` ${report.totals.cost.uncostedUses} earlier ingredient uses had no cost recorded and are not included.`
+                          : ''}
+                      </div>
                     </td>
-                    <td className="num muted">NOT RECORDED</td>
+                    <td className="num">−{money(report.totals.cost.ingredients)}</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>Margin on dishes with a recipe</strong>
+                      <div className="small muted">
+                        Their sales {money(report.totals.cost.salesWithRecipes)} minus ingredient cost
+                        {report.totals.cost.salesWithRecipes > 0
+                          ? `: ${Math.round(((report.totals.cost.salesWithRecipes - report.totals.cost.ingredients) / report.totals.cost.salesWithRecipes) * 100)}% margin`
+                          : ''}
+                        . Prices include tax.
+                      </div>
+                    </td>
+                    <td className="num">
+                      <strong>
+                        {money(report.totals.cost.salesWithRecipes - report.totals.cost.ingredients)}
+                      </strong>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      Items sold without a recipe
+                      <div className="small muted">
+                        Their cost is not recorded. Add a recipe in Menu & recipes to include them.
+                      </div>
+                    </td>
+                    <td className="num muted">{money(report.totals.cost.salesWithoutRecipes)}</td>
                   </tr>
                 </tbody>
               </table>

@@ -2,7 +2,16 @@ import { ApiError } from '@rp/client-core';
 import type { ConfigurationView, MeView } from '@rp/contracts';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { api } from '../../infra/session';
-import { Badge, Drawer, ErrorBox, Field, FormSection, Modal, useToast } from '../../ui/components';
+import {
+  Badge,
+  Drawer,
+  ErrorBox,
+  Field,
+  FormSection,
+  Modal,
+  useGuardedClose,
+  useToast,
+} from '../../ui/components';
 import { Icon } from '../../ui/icons';
 import { Empty, initials, Shell, Skeleton } from '../../ui/Shell';
 
@@ -320,6 +329,7 @@ function StaffDrawer({
     allBranches: staff ? staff.branchId === null : false,
   });
   const [busy, setBusy] = useState(false);
+  const close = useGuardedClose(f, onClose);
   const [error, setError] = useState<unknown>(null);
   const role = roles.find((r) => r.id === f.roleId);
   const needsPassword = role ? BACK_OFFICE.has(role.name) : false;
@@ -364,10 +374,10 @@ function StaffDrawer({
   return (
     <Drawer
       title={staff ? `Edit ${staff.displayName}` : 'Add staff member'}
-      onClose={onClose}
+      onClose={close}
       footer={
         <>
-          <button type="button" className="btn" onClick={onClose}>
+          <button type="button" className="btn" onClick={close}>
             Cancel
           </button>
           <button type="submit" form="staff-form" className="btn primary" disabled={busy}>

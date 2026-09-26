@@ -377,7 +377,7 @@ export async function reverseStockForOrder(
       kind: 'sale_reversal',
       delta: back,
       after: item.quantity + back,
-      unitCost: null,
+      unitCost: item.unitCost,
       reason: `Order cancelled: ${input.reason}`,
       reference: `Order #${input.orderNumber}`,
       stockCountId: null,
@@ -421,7 +421,8 @@ export async function deductStockForSale(
       kind: 'sale',
       delta,
       after: item.quantity + delta,
-      unitCost: null,
+      // Cost snapshot: what this ingredient cost when it was used (reports total it as cost of goods).
+      unitCost: item.unitCost,
       reason: null,
       reference: `Order #${input.orderNumber}`,
       stockCountId: null,

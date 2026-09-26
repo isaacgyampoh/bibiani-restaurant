@@ -4,7 +4,7 @@ import { type FormEvent, useEffect, useState } from 'react';
 import { linkTo } from '../../infra/router';
 import { api, hasPermission } from '../../infra/session';
 import { useFeed } from '../../infra/use-feed';
-import { Badge, ErrorBox, Modal } from '../../ui/components';
+import { Badge, ErrorBox, Modal, useGuardedClose } from '../../ui/components';
 import { Empty, Shell, Skeleton, Stat } from '../../ui/Shell';
 
 const uuid = () => crypto.randomUUID();
@@ -340,6 +340,7 @@ function ItemDialog({
     isActive: item?.isActive ?? true,
   });
   const [busy, setBusy] = useState(false);
+  const close = useGuardedClose(f, onClose);
   const [error, setError] = useState<unknown>(null);
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -365,7 +366,7 @@ function ItemDialog({
     }
   }
   return (
-    <Modal title={item ? `Edit ${item.name}` : 'New stock item'} onClose={onClose}>
+    <Modal title={item ? `Edit ${item.name}` : 'New stock item'} onClose={close}>
       <form className="form" onSubmit={submit}>
         <label>
           Name
@@ -436,7 +437,7 @@ function ItemDialog({
         )}
         <ErrorBox error={error} />
         <div className="row end">
-          <button type="button" className="btn" onClick={onClose}>
+          <button type="button" className="btn" onClick={close}>
             Cancel
           </button>
           <button type="submit" className="btn primary" disabled={busy}>
@@ -468,6 +469,7 @@ function MoveDialog({
   const [reference, setReference] = useState('');
   const [unitCost, setUnitCost] = useState('');
   const [busy, setBusy] = useState(false);
+  const close = useGuardedClose({ quantity, reason, reference, unitCost }, onClose);
   const [error, setError] = useState<unknown>(null);
   const n = Number(quantity || 0) * (move === 'adjust' ? direction : move === 'waste' ? -1 : 1);
   const after = item.quantity + n;
@@ -495,7 +497,7 @@ function MoveDialog({
   const title =
     move === 'receive' ? 'Receive delivery' : move === 'waste' ? 'Record wastage' : 'Adjust stock';
   return (
-    <Modal title={`${title} — ${item.name}`} onClose={onClose}>
+    <Modal title={`${title} — ${item.name}`} onClose={close}>
       <form className="form" onSubmit={submit}>
         {move === 'adjust' ? (
           <div className="seg light">
@@ -564,7 +566,7 @@ function MoveDialog({
         </div>
         <ErrorBox error={error} />
         <div className="row end">
-          <button type="button" className="btn" onClick={onClose}>
+          <button type="button" className="btn" onClick={close}>
             Cancel
           </button>
           <button type="submit" className="btn primary" disabled={busy || !quantity}>

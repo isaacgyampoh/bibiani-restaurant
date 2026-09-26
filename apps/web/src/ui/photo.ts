@@ -1,9 +1,9 @@
 /**
  * Prepares a photo for upload in the browser: keeps the orientation the camera recorded, scales the
- * longest side down to 800 px, and re-encodes as WebP (JPEG where the browser cannot write WebP).
- * Phone photos of several MB become ~50-150 KB, which keeps the tills fast on restaurant Wi-Fi.
+ * longest side down to 640 px, and re-encodes as WebP (JPEG where the browser cannot write WebP).
+ * (sharp on the largest place a photo is shown, a POS button at 2x). Phone photos become ~40-100 KB, which keeps the tills fast on restaurant Wi-Fi.
  */
-export async function preparePhoto(file: File, maxSide = 800): Promise<Blob> {
+export async function preparePhoto(file: File, maxSide = 640): Promise<Blob> {
   if (!file.type.startsWith('image/')) throw new Error('Choose a photo (JPEG, PNG or WebP).');
   let bitmap: ImageBitmap;
   try {

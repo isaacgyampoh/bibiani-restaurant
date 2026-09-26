@@ -166,6 +166,51 @@ export function ActivityPage({ me }: { me: MeView }) {
       .catch(setError);
   }, [category, search]);
 
+  const [exporting, setExporting] = useState(false);
+  /** Everything matching the current filter and search (up to 1,200 entries) as a spreadsheet file. */
+  async function exportCsv() {
+    setExporting(true);
+    setError(null);
+    try {
+      const rows: ActivityEntryView[] = [];
+      let before: number | null = null;
+      for (let page = 0; page < 20; page++) {
+        const next = await api.activity({ category: category || null, q: search || null, before });
+        rows.push(...next.entries);
+        if (!next.nextBefore) break;
+        before = next.nextBefore;
+      }
+      const cell = (v: string) => `"${v.replace(/"/g, '""')}"`;
+      const lines = [
+        ['When', 'Who', 'Device', 'What', 'Item', 'Details', 'Reason'].map(cell).join(','),
+        ...rows.map((e) => {
+          const d = describeActivity(e, money);
+          return [
+            new Date(e.at).toISOString(),
+            e.actor ?? '',
+            e.device ?? '',
+            d.what,
+            e.entityLabel ?? '',
+            d.detail,
+            e.reason ?? '',
+          ]
+            .map((v) => cell(String(v)))
+            .join(',');
+        }),
+      ];
+      const url = URL.createObjectURL(new Blob([`\ufeff${lines.join('\r\n')}`], { type: 'text/csv' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `activity-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   async function loadMore() {
     if (!view?.nextBefore) return;
     setMore(true);
@@ -188,6 +233,11 @@ export function ActivityPage({ me }: { me: MeView }) {
       me={me}
       title="Activity"
       subtitle="Who changed what, and when: prices, promotions, discounts, stock, staff and PINs. Kept permanently; it cannot be edited."
+      actions={
+        <button type="button" className="btn" disabled={exporting} onClick={() => void exportCsv()}>
+          {exporting ? 'Preparing file…' : 'Export CSV'}
+        </button>
+      }
     >
       <ErrorBox error={error} />
       <section className="card">

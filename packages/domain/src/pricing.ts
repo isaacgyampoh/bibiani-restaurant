@@ -14,7 +14,7 @@ import type { Minor } from './money';
  *  - Receipts, kitchen screens and reports show: quantity × unit price = gross, the promotion
  *    name and its discount, and the net line total.
  */
-export type PromotionKind = 'percent_off' | 'amount_off' | 'fixed_price' | 'bundle_price';
+export type PromotionKind = 'percent_off' | 'amount_off' | 'fixed_price' | 'bundle_price' | 'buy_get_free';
 
 export interface Promotion {
   id: string;
@@ -22,7 +22,10 @@ export interface Promotion {
   kind: PromotionKind;
   percentBp: number | null;
   amount: Minor | null;
+  /** Bundle size (bundle_price), or how many are bought (buy_get_free). */
   bundleQuantity: number | null;
+  /** buy_get_free: how many come free with every `bundleQuantity` bought. */
+  freeQuantity?: number | null;
   appliesToAll: boolean;
   productIds: readonly string[];
   categoryIds: readonly string[];
@@ -65,6 +68,12 @@ export function assertValidPromotion(p: Omit<Promotion, 'id' | 'createdAt'>): vo
       if (p.bundleQuantity === null || p.bundleQuantity < 2 || p.bundleQuantity > 99)
         fail('A bundle is 2 to 99 items', 'bundleQuantity');
       if (p.amount === null || p.amount < 0) fail('Enter the bundle price (it cannot be negative)', 'amount');
+      break;
+    case 'buy_get_free':
+      if (p.bundleQuantity === null || p.bundleQuantity < 1 || p.bundleQuantity > 20)
+        fail('Customers buy 1 to 20 items', 'bundleQuantity');
+      if (!p.freeQuantity || p.freeQuantity < 1 || p.freeQuantity > 20)
+        fail('Give 1 to 20 items free', 'freeQuantity');
       break;
   }
   if (!p.appliesToAll && p.productIds.length === 0 && p.categoryIds.length === 0)
@@ -146,6 +155,13 @@ export function promotionCovers(
   );
 }
 
+/** How many units a promotion needs before it gives anything (1, a bundle, or bought + free). */
+export function promotionGroupSize(p: Pick<Promotion, 'kind' | 'bundleQuantity' | 'freeQuantity'>): number {
+  if (p.kind === 'bundle_price') return p.bundleQuantity ?? 1;
+  if (p.kind === 'buy_get_free') return (p.bundleQuantity ?? 0) + (p.freeQuantity ?? 0) || 1;
+  return 1;
+}
+
 /** Discount a promotion gives on `quantity` units of a product whose base price is `basePrice`. */
 export function promotionDiscount(p: Promotion, basePrice: Minor, quantity: number): Minor {
   const base = basePrice * quantity;
@@ -164,6 +180,14 @@ export function promotionDiscount(p: Promotion, basePrice: Minor, quantity: numb
       const n = p.bundleQuantity ?? 0;
       const bundles = n > 0 ? Math.floor(quantity / n) : 0;
       discount = bundles * Math.max(0, n * basePrice - (p.amount ?? n * basePrice));
+      break;
+    }
+    case 'buy_get_free': {
+      // Buy 2 get 1 free: every complete group of 3 has 1 free item.
+      const buy = p.bundleQuantity ?? 0;
+      const free = p.freeQuantity ?? 0;
+      const groups = buy > 0 && free > 0 ? Math.floor(quantity / (buy + free)) : 0;
+      discount = groups * free * basePrice;
       break;
     }
   }

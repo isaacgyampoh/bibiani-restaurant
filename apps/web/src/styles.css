@@ -21,7 +21,7 @@
   --line-strong: #cfd4dc;
   --ink: #111418;
   --ink-2: #3a414b;
-  --muted: #6b7380;
+  --muted: #666e7b; /* 4.5:1 or better on white and on the page background */
   --faint: #9aa2ae;
 
   /* status (text on soft) */
@@ -265,7 +265,7 @@ input[type="radio"] {
   accent-color: var(--brand);
 }
 input::placeholder {
-  color: var(--faint);
+  color: var(--muted);
 }
 input[aria-invalid="true"],
 select[aria-invalid="true"] {
@@ -614,7 +614,7 @@ table.list .center {
   text-align: center;
 }
 table.list tr.inactive td {
-  color: var(--faint);
+  color: var(--muted);
 }
 table.list.clickable tbody tr {
   cursor: pointer;
@@ -804,7 +804,7 @@ dl.facts dd {
 .tabs-line .count {
   margin-left: 6px;
   font-size: 12px;
-  color: var(--faint);
+  color: var(--muted);
 }
 .seg {
   display: inline-flex;
@@ -991,7 +991,7 @@ dl.facts dd {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--faint);
+  color: var(--muted);
   padding: 4px 10px 6px;
 }
 .nav-item {
@@ -1028,7 +1028,7 @@ dl.facts dd {
 .nav-item .fs {
   margin-left: auto;
   font-size: 11px;
-  color: var(--faint);
+  color: var(--muted);
 }
 .sidebar .me {
   border-top: 1px solid var(--line);
@@ -1672,7 +1672,7 @@ input.needs {
 }
 .product .mods {
   font-size: 11px;
-  color: var(--faint);
+  color: var(--muted);
   font-weight: 600;
 }
 .product.unavailable,
@@ -2129,7 +2129,7 @@ input.needs {
 }
 .ticket li.voided {
   text-decoration: line-through;
-  color: var(--faint);
+  color: var(--muted);
 }
 .ticket .order-note {
   margin: 0 14px 10px;
@@ -2722,7 +2722,7 @@ input.needs {
 }
 s.was,
 .was {
-  color: var(--faint);
+  color: var(--muted);
   font-weight: 400;
   margin-right: 4px;
 }
@@ -2805,7 +2805,7 @@ ul.plain-list li:first-child {
   place-items: center;
   font-size: 32px;
   font-weight: 700;
-  color: var(--faint);
+  color: var(--muted);
   background: var(--fill);
 }
 .product.unavailable .product-photo {
@@ -2823,7 +2823,7 @@ img.thumb,
   display: grid;
   place-items: center;
   background: var(--fill);
-  color: var(--faint);
+  color: var(--muted);
   font-weight: 700;
 }
 .photo-field {
@@ -2849,7 +2849,7 @@ img.thumb,
 }
 .photo-empty {
   font-size: 12px;
-  color: var(--faint);
+  color: var(--muted);
 }
 .photo-actions {
   display: flex;
@@ -3088,12 +3088,12 @@ body {
   font-size: 15px;
 }
 .brand-name .brand-sub {
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.9);
   font-size: 12px;
   font-weight: 500;
 }
 .nav-title {
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.9);
   letter-spacing: 0.04em;
 }
 .nav-item {
@@ -3103,7 +3103,7 @@ body {
   margin-bottom: 2px;
 }
 .nav-item svg {
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.9);
 }
 .nav-item:hover {
   background: rgba(255, 255, 255, 0.12);
@@ -3119,7 +3119,7 @@ body {
   color: var(--sidebar);
 }
 .nav-item .fs {
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.9);
 }
 .nav-item.active .fs {
   color: var(--sidebar);
@@ -3135,7 +3135,7 @@ body {
   color: #fff;
 }
 .sidebar .me .who span {
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.9);
 }
 .sidebar .me .link {
   color: #fff;
@@ -3481,12 +3481,12 @@ a.small:hover {
 }
 .brand-panel .slogan {
   font-size: 17px;
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(255, 255, 255, 0.9);
 }
 .brand-panel .note {
   margin-top: 16px;
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.9);
 }
 .auth:has(> .auth-card) {
   background: var(--surface);
@@ -3545,7 +3545,7 @@ a.small:hover {
   font-size: 24px;
 }
 .splash span {
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 /* POS top bar */
@@ -3559,7 +3559,7 @@ a.small:hover {
   color: #fff;
 }
 .topbar .who {
-  color: rgba(255, 255, 255, 0.78);
+  color: rgba(255, 255, 255, 0.9);
 }
 .topbar a,
 .topbar button.link {
@@ -3596,7 +3596,7 @@ a.small:hover {
 .bar .count,
 .kds .bar .conn,
 .expo .bar .conn {
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.9);
 }
 .bar .dark-btn {
   background: rgba(255, 255, 255, 0.12);
@@ -3617,7 +3617,7 @@ a.small:hover {
 }
 .board header .names .slogan {
   font-size: 18px;
-  color: rgba(255, 255, 255, 0.82);
+  color: rgba(255, 255, 255, 0.9);
 }
 .board header .clock {
   color: #fff;
@@ -3637,4 +3637,24 @@ a.small:hover {
 .topbar .conn .dot,
 .bar .conn .dot {
   box-shadow: 0 0 0 2px #fff;
+}
+
+/* crash screen */
+.crash strong {
+  font-size: 22px;
+  text-align: center;
+}
+.crash span {
+  text-align: center;
+  max-width: 420px;
+}
+.crash-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+.btn.ghost-light {
+  background: transparent;
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.6);
 }

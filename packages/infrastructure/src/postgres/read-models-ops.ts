@@ -221,7 +221,7 @@ export function createOpsReadModels(sql: Sql): OpsModels {
       const range = [branchId, from, to];
       const SOLD = `o.branch_id = $1 and o.business_day between $2::date and $3::date`;
       const LIVE_ITEM = `i.status not in ('pending', 'cancelled', 'voided')`;
-      const [pay, methods, days, orders, hours, products, areas, stations, voids, currency] =
+      const [pay, methods, days, orders, hours, products, areas, stations, voids, currency, cogs, coverage] =
         await Promise.all([
           sql.query(
             `select coalesce(sum(case when p.direction = 'charge' then p.amount else -p.amount end), 0)::bigint as net,
@@ -285,6 +285,21 @@ export function createOpsReadModels(sql: Sql): OpsModels {
             range,
           ),
           sql.query(`select currency from restaurants where id = app.current_restaurant_id()`),
+          sql.query(
+            `select coalesce(round(sum(-m.quantity_delta * m.unit_cost)), 0)::bigint as cost,
+                    count(*) filter (where m.unit_cost is null)::int as uncosted
+             from stock_movements m join orders o on o.id = m.order_id
+             where ${SOLD} and o.status not in ('cancelled', 'voided') and m.kind = 'sale'`,
+            range,
+          ),
+          sql.query(
+            `select coalesce(sum(i.line_total) filter (where r.has_recipe), 0)::bigint as with_recipe,
+                    coalesce(sum(i.line_total) filter (where not r.has_recipe), 0)::bigint as without_recipe
+             from order_items i join orders o on o.id = i.order_id
+             cross join lateral (select exists (select 1 from product_recipe_components rc where rc.product_id = i.product_id) as has_recipe) r
+             where ${SOLD} and o.status not in ('cancelled', 'voided') and ${LIVE_ITEM}`,
+            range,
+          ),
         ]);
       const net = num(pay[0]?.net);
       const paid = num(pay[0]?.orders);
@@ -332,7 +347,12 @@ export function createOpsReadModels(sql: Sql): OpsModels {
           promotionDiscounts: sum('promo'),
           manualDiscounts: sum('manual'),
           itemSales: sum('sales'),
-          cost: null,
+          cost: {
+            ingredients: num(cogs[0]?.cost),
+            salesWithRecipes: num(coverage[0]?.with_recipe),
+            salesWithoutRecipes: num(coverage[0]?.without_recipe),
+            uncostedUses: num(cogs[0]?.uncosted),
+          },
         },
         byPromotion: [...promos.entries()]
           .map(([name, v]) => ({ name, ...v }))

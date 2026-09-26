@@ -19,6 +19,7 @@ const mapPromotion = (r: Row, targets: Row[]): PromotionRecord => ({
   percentBp: r.percent_bp === null ? null : num(r.percent_bp),
   amount: r.amount === null ? null : num(r.amount),
   bundleQuantity: r.bundle_quantity === null ? null : num(r.bundle_quantity),
+  freeQuantity: r.free_quantity === null || r.free_quantity === undefined ? null : num(r.free_quantity),
   appliesToAll: Boolean(r.applies_to_all),
   productIds: targets
     .filter((t) => t.promotion_id === r.id && t.product_id)
@@ -88,14 +89,15 @@ export function createPromotionRepository(sql: Sql): PromotionRepository {
         p.priority,
         p.status,
         staffId,
+        p.freeQuantity ?? null,
       ];
       let created = false;
       if (expectedVersion === null) {
         await sql.query(
           `insert into promotions (id, restaurant_id, branch_id, name, kind, percent_bp, amount, bundle_quantity, applies_to_all,
-             starts_on, ends_on, days_of_week, start_time, end_time, priority, status, created_by_staff_id, updated_by_staff_id)
+             starts_on, ends_on, days_of_week, start_time, end_time, priority, status, created_by_staff_id, updated_by_staff_id, free_quantity)
            values ($1, app.current_restaurant_id(), $2, $3, $4, $5, $6, $7, $8, $9::date, $10::date, $11::int[], $12::time, $13::time,
-                   $14, $15, $16, $16)`,
+                   $14, $15, $16, $16, $17)`,
           params,
         );
         created = true;
@@ -103,9 +105,9 @@ export function createPromotionRepository(sql: Sql): PromotionRepository {
         const rows = await sql.query(
           `update promotions set branch_id = $2, name = $3, kind = $4, percent_bp = $5, amount = $6, bundle_quantity = $7,
              applies_to_all = $8, starts_on = $9::date, ends_on = $10::date, days_of_week = $11::int[], start_time = $12::time,
-             end_time = $13::time, priority = $14, status = $15, updated_by_staff_id = $16, updated_at = now(),
-             version = version + 1
-           where id = $1 and version = $17 returning id`,
+             end_time = $13::time, priority = $14, status = $15, updated_by_staff_id = $16, free_quantity = $17,
+             updated_at = now(), version = version + 1
+           where id = $1 and version = $18 returning id`,
           [...params, expectedVersion],
         );
         if (rows.length === 0)

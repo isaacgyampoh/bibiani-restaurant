@@ -6,6 +6,7 @@ import {
   isPromotionLive,
   type Promotion,
   promotionCovers,
+  promotionGroupSize,
 } from '@rp/domain';
 import { authorize, can, type RequestContext } from '../principal';
 import type { Dependencies } from './shared';
@@ -119,10 +120,11 @@ export function withLivePromotions(
   };
   const currency = menu.currency;
   const products = menu.products.map((p) => {
-    const bundle = live.find(
-      (x) => x.kind === 'bundle_price' && promotionCovers(x, p.id, pathOf(p.categoryId)),
+    // Group deals (bundles, buy X get Y free) are shown for their full group size.
+    const group = live.find(
+      (x) => promotionGroupSize(x) > 1 && promotionCovers(x, p.id, pathOf(p.categoryId)),
     );
-    const quantity = bundle ? (bundle.bundleQuantity ?? 1) : 1;
+    const quantity = group ? promotionGroupSize(group) : 1;
     const chosen = choosePromotion(live, {
       productId: p.id,
       categoryPath: pathOf(p.categoryId),
@@ -135,9 +137,11 @@ export function withLivePromotions(
     const label =
       promo.kind === 'bundle_price'
         ? `${quantity} for ${formatMinor(promo.amount ?? 0, currency)}`
-        : promo.kind === 'percent_off'
-          ? `${(promo.percentBp ?? 0) / 100}% off`
-          : promo.name;
+        : promo.kind === 'buy_get_free'
+          ? `Buy ${promo.bundleQuantity} get ${promo.freeQuantity} free`
+          : promo.kind === 'percent_off'
+            ? `${(promo.percentBp ?? 0) / 100}% off`
+            : promo.name;
     return {
       ...p,
       promotion: {

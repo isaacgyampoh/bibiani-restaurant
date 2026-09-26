@@ -24,6 +24,7 @@ const KIND_LABEL: Record<PromotionView['kind'], string> = {
   amount_off: 'Amount off',
   fixed_price: 'Promotional price',
   bundle_price: 'Bundle price',
+  buy_get_free: 'Buy X get Y free',
 };
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const toMinor = (v: string) => Math.round(Number(v || 0) * 100);
@@ -69,16 +70,23 @@ export function PromotionsPage({ me }: { me: MeView }) {
     const only = !p.appliesToAll && p.categoryIds.length === 0 && p.productIds.length === 1;
     const product = only ? productName.get(p.productIds[0]!) : undefined;
     if (!product) return null;
-    const n = p.kind === 'bundle_price' ? (p.bundleQuantity ?? 1) : 1;
+    const n =
+      p.kind === 'bundle_price'
+        ? (p.bundleQuantity ?? 1)
+        : p.kind === 'buy_get_free'
+          ? (p.bundleQuantity ?? 0) + (p.freeQuantity ?? 0)
+          : 1;
     const normal = product.price * n;
     const promo =
-      p.kind === 'percent_off'
-        ? normal - Math.round((normal * (p.percentBp ?? 0)) / 10_000)
-        : p.kind === 'amount_off'
-          ? Math.max(0, product.price - (p.amount ?? 0)) * n
-          : p.kind === 'fixed_price'
-            ? Math.min(product.price, p.amount ?? product.price)
-            : Math.min(normal, p.amount ?? normal);
+      p.kind === 'buy_get_free'
+        ? product.price * (p.bundleQuantity ?? 0)
+        : p.kind === 'percent_off'
+          ? normal - Math.round((normal * (p.percentBp ?? 0)) / 10_000)
+          : p.kind === 'amount_off'
+            ? Math.max(0, product.price - (p.amount ?? 0)) * n
+            : p.kind === 'fixed_price'
+              ? Math.min(product.price, p.amount ?? product.price)
+              : Math.min(normal, p.amount ?? normal);
     return { n, normal, promo };
   };
 
@@ -289,7 +297,8 @@ function PromotionDrawer({
       percent: promotion?.percentBp ? String(promotion.percentBp / 100) : '10',
       amount:
         promotion?.amount !== null && promotion?.amount !== undefined ? String(promotion.amount / 100) : '',
-      bundleQuantity: String(promotion?.bundleQuantity ?? 3),
+      bundleQuantity: String(promotion?.bundleQuantity ?? (promotion?.kind === 'buy_get_free' ? 2 : 3)),
+      freeQuantity: String(promotion?.freeQuantity ?? 1),
       appliesToAll: promotion?.appliesToAll ?? false,
       productIds: promotion?.productIds ?? [],
       categoryIds: promotion?.categoryIds ?? [],
@@ -321,8 +330,10 @@ function PromotionDrawer({
       name: f.name.trim() || 'Untitled',
       kind: f.kind,
       percentBp: f.kind === 'percent_off' ? Math.round(Number(f.percent || 0) * 100) : null,
-      amount: f.kind === 'percent_off' ? null : toMinor(f.amount),
-      bundleQuantity: f.kind === 'bundle_price' ? Number(f.bundleQuantity || 0) : null,
+      amount: f.kind === 'percent_off' || f.kind === 'buy_get_free' ? null : toMinor(f.amount),
+      bundleQuantity:
+        f.kind === 'bundle_price' || f.kind === 'buy_get_free' ? Number(f.bundleQuantity || 0) : null,
+      freeQuantity: f.kind === 'buy_get_free' ? Number(f.freeQuantity || 0) : null,
       appliesToAll: f.appliesToAll,
       productIds: f.appliesToAll ? [] : f.productIds,
       categoryIds: f.appliesToAll ? [] : f.categoryIds,
@@ -435,7 +446,29 @@ function PromotionDrawer({
                 />
               </Field>
             ) : null}
-            {f.kind !== 'percent_off' ? (
+            {f.kind === 'buy_get_free' ? (
+              <>
+                <Field label="Customer buys">
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={f.bundleQuantity}
+                    onChange={(e) => setF({ ...f, bundleQuantity: e.target.value })}
+                  />
+                </Field>
+                <Field label="Gets free">
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={f.freeQuantity}
+                    onChange={(e) => setF({ ...f, freeQuantity: e.target.value })}
+                  />
+                </Field>
+              </>
+            ) : null}
+            {f.kind !== 'percent_off' && f.kind !== 'buy_get_free' ? (
               <Field
                 label={
                   f.kind === 'amount_off'

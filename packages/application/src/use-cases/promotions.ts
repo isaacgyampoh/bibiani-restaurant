@@ -17,6 +17,7 @@ import {
   type Promotion,
   promotionCovers,
   promotionDiscount,
+  promotionGroupSize,
   promotionPhase,
   promotionsConflict,
 } from '@rp/domain';
@@ -37,7 +38,9 @@ export function describePromotion(p: Omit<Promotion, 'id' | 'createdAt'>, curren
         ? `${money(p.amount ?? 0)} off each`
         : p.kind === 'fixed_price'
           ? `${money(p.amount ?? 0)} each`
-          : `${p.bundleQuantity} for ${money(p.amount ?? 0)}`;
+          : p.kind === 'buy_get_free'
+            ? `Buy ${p.bundleQuantity} get ${p.freeQuantity} free`
+            : `${p.bundleQuantity} for ${money(p.amount ?? 0)}`;
   const days =
     !p.daysOfWeek || p.daysOfWeek.length === 7
       ? 'every day'
@@ -54,6 +57,7 @@ function toView(p: PromotionRecord, now: Date, timeZone: string, currency: strin
   return {
     ...p,
     daysOfWeek: p.daysOfWeek ? [...p.daysOfWeek] : null,
+    freeQuantity: p.freeQuantity ?? null,
     productIds: [...p.productIds],
     categoryIds: [...p.categoryIds],
     phase: promotionPhase(p, now, timeZone),
@@ -67,8 +71,10 @@ function draftFrom(cmd: SavePromotionCommand, id: string): Omit<Promotion, 'crea
     name: cmd.name,
     kind: cmd.kind,
     percentBp: cmd.kind === 'percent_off' ? (cmd.percentBp ?? null) : null,
-    amount: cmd.kind === 'percent_off' ? null : (cmd.amount ?? null),
-    bundleQuantity: cmd.kind === 'bundle_price' ? (cmd.bundleQuantity ?? null) : null,
+    amount: cmd.kind === 'percent_off' || cmd.kind === 'buy_get_free' ? null : (cmd.amount ?? null),
+    bundleQuantity:
+      cmd.kind === 'bundle_price' || cmd.kind === 'buy_get_free' ? (cmd.bundleQuantity ?? null) : null,
+    freeQuantity: cmd.kind === 'buy_get_free' ? (cmd.freeQuantity ?? null) : null,
     appliesToAll: cmd.appliesToAll,
     productIds: cmd.productIds,
     categoryIds: cmd.categoryIds,
@@ -124,7 +130,7 @@ export class PreviewPromotion {
         .map(([id]) => id);
       const products = branchId ? await tx.catalog.productsForSale(branchId, covered) : new Map();
       const promo = { ...draft, createdAt: '' };
-      const qty = draft.kind === 'bundle_price' ? (draft.bundleQuantity ?? 1) : 1;
+      const qty = promotionGroupSize(draft);
       const lines = [...products.values()]
         .map((pr) => {
           const discount = error ? 0 : promotionDiscount(promo, pr.price, qty);

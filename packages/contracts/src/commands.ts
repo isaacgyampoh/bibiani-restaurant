@@ -165,10 +165,13 @@ export const SavePromotionCommand = z.object({
   id: uuid.nullish(),
   expectedVersion: z.number().int().positive().nullish(),
   name: text(60).min(1),
-  kind: z.enum(['percent_off', 'amount_off', 'fixed_price', 'bundle_price']),
+  kind: z.enum(['percent_off', 'amount_off', 'fixed_price', 'bundle_price', 'buy_get_free']),
   percentBp: z.number().int().min(1).max(10_000).nullish(),
   amount: minor.nullish(),
-  bundleQuantity: z.number().int().min(2).max(99).nullish(),
+  /** Bundle size (bundle_price) or how many are bought (buy_get_free). */
+  bundleQuantity: z.number().int().min(1).max(99).nullish(),
+  /** buy_get_free: how many come free. */
+  freeQuantity: z.number().int().min(1).max(20).nullish(),
   appliesToAll: z.boolean().default(false),
   productIds: z.array(uuid).max(500).default([]),
   categoryIds: z.array(uuid).max(200).default([]),

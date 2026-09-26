@@ -593,8 +593,20 @@ export interface SalesReportView {
     manualDiscounts: number;
     /** Net item sales (gross − discounts). Payments may differ by exclusive tax and unpaid bills. */
     itemSales: number;
-    /** Not recorded yet: order lines do not keep a cost price. */
-    cost: null;
+    /**
+     * Cost of goods from recipes: each sale records what its ingredients cost at the time. Items sold
+     * without a recipe have no cost, so their sales are reported separately instead of guessed.
+     */
+    cost: {
+      /** Ingredient cost of the dishes sold (from recipes and stock unit costs). */
+      ingredients: number;
+      /** Net sales of items that have a recipe (the part the cost above belongs to). */
+      salesWithRecipes: number;
+      /** Net sales of items without a recipe: their cost is not recorded. */
+      salesWithoutRecipes: number;
+      /** Ingredient uses recorded before costs were captured (not included in the cost). */
+      uncostedUses: number;
+    };
   };
   byPromotion: { name: string; lines: number; quantity: number; discount: number }[];
   byDay: { day: string; net: number; orders: number }[];
@@ -618,10 +630,11 @@ export type PromotionPhase = 'live' | 'scheduled' | 'upcoming' | 'paused' | 'end
 export interface PromotionView {
   id: string;
   name: string;
-  kind: 'percent_off' | 'amount_off' | 'fixed_price' | 'bundle_price';
+  kind: 'percent_off' | 'amount_off' | 'fixed_price' | 'bundle_price' | 'buy_get_free';
   percentBp: number | null;
   amount: number | null;
   bundleQuantity: number | null;
+  freeQuantity: number | null;
   appliesToAll: boolean;
   productIds: string[];
   categoryIds: string[];

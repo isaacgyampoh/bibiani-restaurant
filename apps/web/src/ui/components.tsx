@@ -338,3 +338,16 @@ export function duration(seconds: number): string {
   if (s >= 3600) return `${Math.floor(s / 3600)}h ${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}m`;
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
+
+/**
+ * Close handler that asks before throwing away unsaved edits. `value` is the form state; it is
+ * compared with what the form opened with.
+ */
+export function useGuardedClose(value: unknown, onClose: () => void, message = 'Discard your changes?') {
+  const [initial] = useState(() => JSON.stringify(value));
+  const dirty = JSON.stringify(value) !== initial;
+  return useCallback(() => {
+    if (dirty && !window.confirm(message)) return;
+    onClose();
+  }, [dirty, message, onClose]);
+}
