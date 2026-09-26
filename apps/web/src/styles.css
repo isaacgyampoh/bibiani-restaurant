@@ -3004,16 +3004,6 @@ li.movement {
   color: var(--danger);
 }
 
-/* Respect "reduce motion" everywhere (loading pulse, PIN shake, arrival highlight). */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
 
 /* ---------------------------------------------------------------- touch targets (POS is a touchscreen) */
 .cart-tools .btn.sm {
@@ -3081,4 +3071,11 @@ li.movement {
 }
 .products.with-photos .product > .stock-pill {
   max-width: calc(100% - 24px);
+}
+/* Respect "reduce motion" for every animation in the product (loading pulse, PIN shake, arrival). */
+@media (prefers-reduced-motion: reduce) {
+  .pin-dots.shake,
+  .board .col.ready .n {
+    animation: none;
+  }
 }
