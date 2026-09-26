@@ -26,7 +26,7 @@ DATA            restaurant "Chefelisha Restaurant" (real) · demo · smoke test 
 | Git repository | github.com/isaacgyampoh/bibiani-restaurant | Production branch `main`; CI on every push; monitor every 5 minutes |
 | Supabase project | `lgoirbfyspuflqekrcgp`, region eu-west-1 | Single production database; migrations in `supabase/migrations` (forward only) |
 | API | Hono on Vercel Node functions, region `dub1` | Clean Architecture: domain → application → infrastructure → apps; every write authorized server-side |
-| Database security | Row level security on every table; the API connects as a restricted role and sets the restaurant per transaction | Verified by `scripts/env/verify-environment.ts` (15 checks) |
+| Database security | Row level security on every table; the API connects as a restricted role and sets the restaurant per transaction | Verified by `scripts/env/verify-environment.ts` (14 checks) |
 | Auth | Supabase Auth | Owners and managers: email + password (at least 10 characters, breached passwords refused). Staff: PIN on a paired till (keyed digest, lockouts). Devices: their own login per pairing. Public sign-up disabled |
 | Email | **Supabase built-in sender today**; production needs custom SMTP (see Domain and email) | Templates: `supabase/templates/` |
 | Storage | Bucket `product-images`, public read, written only by the API | Photos 640 px and 320 px thumbnails, 1-day cache |
@@ -63,7 +63,7 @@ Never deploy first and fix afterwards. In order:
 7. **Production app:** `pnpm release`, which builds, checks the bundle for secrets and deploys with `RELEASE=production-<git sha>`.
 8. **Post-deploy verification:**
    - `curl https://bibiani-restaurant.vercel.app/health/ready` shows `ready`, the new release and the expected schema;
-   - run `scripts/env/verify-environment.ts` against production (15/15);
+   - run `scripts/env/verify-environment.ts` against production (14/14);
    - read-only browser sweep (`e2e/zz-qa-prod-readonly.spec.ts`, demo restaurant): no console errors, no policy violations;
    - CI green on the pushed commit.
 
