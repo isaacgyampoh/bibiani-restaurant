@@ -5,8 +5,8 @@
   "description": "MY FOOD Hub for Windows: runs the restaurant locally, also without internet",
   "author": "MY FOOD",
   "scripts": {
-    "build": "node build.mjs",
-    "start": "node build.mjs && electron .",
+    "build:hub": "node build.mjs",
+    "start": "node build.mjs && electron app",
     "dist:win": "node build.mjs && electron-builder --win nsis --x64",
     "typecheck": "tsc -p tsconfig.json"
   },
