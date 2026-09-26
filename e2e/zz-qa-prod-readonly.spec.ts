@@ -4,8 +4,14 @@ import { type Page, test } from '@playwright/test';
 // Manual-QA helper (not part of CI): READ-ONLY look at production with the demo restaurant.
 // Opens screens and dialogs, never saves, sends, pays or pairs anything.
 const OUT = process.env.QA_OUT!;
-const demo = JSON.parse(readFileSync('.demo-credentials.json', 'utf8')) as { email: string; password: string };
-test.skip(!process.env.QA_OUT || !process.env.E2E_BASE_URL?.includes('bibiani-restaurant'), 'manual production QA only');
+const demo = JSON.parse(readFileSync('.demo-credentials.json', 'utf8')) as {
+  email: string;
+  password: string;
+};
+test.skip(
+  !process.env.QA_OUT || !process.env.E2E_BASE_URL?.includes('bibiani-restaurant'),
+  'manual production QA only',
+);
 test('production read-only review', async ({ browser }) => {
   test.setTimeout(300_000);
   const shot = async (p: Page, n: string, full = true) => {
