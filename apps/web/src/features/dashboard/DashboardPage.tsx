@@ -42,8 +42,8 @@ export function DashboardPage({ me }: { me: MeView }) {
   return (
     <Shell
       me={me}
-      title="Dashboard"
-      subtitle={d ? `Today · ${day}` : 'Today'}
+      title={`Welcome back, ${me.displayName.replace(/\s*\(.*\)$/, '')}`}
+      subtitle={`Here is what is happening at ${me.restaurant.name} today${d ? ` · ${day}` : ''}.`}
       actions={
         <>
           <ConnectionDot state={feed.connection} />
@@ -64,18 +64,21 @@ export function DashboardPage({ me }: { me: MeView }) {
           <div className="metrics">
             <Stat
               label="Sales today"
+              icon="money"
               value={money(d.sales.net)}
               hint={`${d.sales.orders} paid orders`}
               tone="ok"
             />
-            <Stat label="Average order" value={money(d.sales.averageOrder)} />
+            <Stat label="Average order" icon="receipt" value={money(d.sales.averageOrder)} />
             <Stat
               label="Promotions given"
+              icon="tag"
               value={money(d.sales.promotionDiscounts)}
               hint="automatic, on items sold"
             />
             <Stat
               label="Manager discounts"
+              icon="percent"
               value={money(d.sales.manualDiscounts)}
               hint="with reasons, audited"
               tone={d.sales.manualDiscounts ? 'warn' : undefined}
@@ -86,18 +89,21 @@ export function DashboardPage({ me }: { me: MeView }) {
           <div className="metrics">
             <Stat
               label="Open orders"
+              icon="orders"
               value={d.orders.open}
               hint={`${d.orders.takeawayOpen} takeaway`}
               href="/orders"
             />
             <Stat
               label="Preparing"
+              icon="flame"
               value={d.orders.preparing}
               tone={d.stations.some((s) => s.delayedTickets > 0) ? 'warn' : undefined}
               href="/expo"
             />
             <Stat
               label="Ready"
+              icon="bell"
               value={d.orders.ready}
               hint="to serve or collect"
               tone={d.orders.ready ? 'info' : undefined}
@@ -105,10 +111,11 @@ export function DashboardPage({ me }: { me: MeView }) {
             />
             <Stat
               label="Awaiting payment"
+              icon="wallet"
               value={d.orders.awaitingPayment}
               tone={d.orders.awaitingPayment ? 'warn' : undefined}
             />
-            <Stat label="Tables occupied" value={`${d.tables.occupied} / ${d.tables.total}`} />
+            <Stat label="Tables occupied" icon="table" value={`${d.tables.occupied} / ${d.tables.total}`} />
           </div>
 
           <div className="grid-2">
@@ -193,6 +200,7 @@ export function DashboardPage({ me }: { me: MeView }) {
               <div className="metrics">
                 <Stat
                   label="Low stock"
+                  icon="box"
                   value={d.inventory.lowStockItems}
                   hint="at or below minimum"
                   tone={d.inventory.lowStockItems ? 'warn' : undefined}
@@ -200,6 +208,7 @@ export function DashboardPage({ me }: { me: MeView }) {
                 />
                 <Stat
                   label="Out of stock"
+                  icon="alert"
                   value={d.inventory.outOfStockItems}
                   hint="none left"
                   tone={d.inventory.outOfStockItems ? 'danger' : undefined}
@@ -207,6 +216,7 @@ export function DashboardPage({ me }: { me: MeView }) {
                 />
                 <Stat
                   label="Stock counts"
+                  icon="clipboard"
                   value={d.inventory.openStockCounts}
                   hint="in progress"
                   href="/stock-takes"

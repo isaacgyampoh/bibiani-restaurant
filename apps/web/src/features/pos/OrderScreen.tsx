@@ -80,6 +80,7 @@ export function OrderScreen({
   }, [menu.categories]);
   // Photo buttons only once the restaurant has added photos, so a menu without any keeps compact buttons.
   const withPhotos = menu.products.some((p) => p.imageUrl);
+  const photoOf = useMemo(() => new Map(menu.products.map((p) => [p.id, p.imageUrl])), [menu.products]);
   const categoryName = useMemo(() => new Map(menu.categories.map((c) => [c.id, c.name])), [menu.categories]);
   const products = menu.products.filter((p) => {
     if (search) return p.name.toLowerCase().includes(search.toLowerCase());
@@ -274,6 +275,11 @@ export function OrderScreen({
                       <Money minor={p.price} currency={menu.currency} />
                     </span>
                   )}
+                  {p.isAvailable && !closed ? (
+                    <span className="add" aria-hidden>
+                      +
+                    </span>
+                  ) : null}
                 </span>
                 {p.isAvailable && p.ingredients ? (
                   <span
@@ -365,6 +371,7 @@ export function OrderScreen({
             return (
               <div key={i.id} className={`line ${gone ? 'gone' : ''}`}>
                 <div className="name-row">
+                  <Thumb url={photoOf.get(i.productId) ?? null} name={i.name} />
                   <strong>
                     {i.quantity} × {i.name}
                   </strong>
@@ -399,6 +406,7 @@ export function OrderScreen({
           {cart.map((l) => (
             <div key={l.id} className="line new">
               <div className="name-row">
+                <Thumb url={l.product.imageUrl} name={l.product.name} />
                 <strong>{l.product.name}</strong>
                 <span>
                   {promoSaving(l) > 0 ? (
@@ -1191,5 +1199,16 @@ function DiscountDialog({
         <ErrorBox error={error} />
       </form>
     </Modal>
+  );
+}
+
+/** Small dish photo beside a cart line (a quiet initial when there is no photo). */
+function Thumb({ url, name }: { url: string | null; name: string }) {
+  return url ? (
+    <img className="line-thumb" src={url} alt="" loading="lazy" />
+  ) : (
+    <span className="line-thumb empty" aria-hidden>
+      {name.slice(0, 1)}
+    </span>
   );
 }

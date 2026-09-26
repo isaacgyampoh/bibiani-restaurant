@@ -262,7 +262,7 @@ test.describe
     }) => {
       const owner = await signedInPage(browser, 'owner');
       // Owners land on the dashboard; everything else is one click away in the sidebar.
-      await expect(owner.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+      await expect(owner.getByRole('heading', { name: /^Welcome back/ })).toBeVisible();
       await expect(owner.getByText('Sales today')).toBeVisible();
       await owner.getByRole('link', { name: 'Devices & printing' }).click();
       // Devices: every configured device listed with a status from heartbeats

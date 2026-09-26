@@ -97,7 +97,7 @@ test.describe
       await display.getByLabel('Email').fill(env.accounts.owner!.email);
       await display.getByLabel('Password').fill(env.accounts.owner!.password);
       await display.getByRole('button', { name: 'Sign in' }).click();
-      await expect(display.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+      await expect(display.getByRole('heading', { name: /^Welcome back/ })).toBeVisible();
       await display.goto(display.url().replace(/\/dashboard.*/, '/display'));
       await expect(display.getByRole('region', { name: 'Ready' })).toContainText(String(order.orderNumber));
 

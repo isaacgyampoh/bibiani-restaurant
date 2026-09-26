@@ -85,10 +85,7 @@ export function PosScreen({ me }: { me: MeView }) {
     <div className="pos-app">
       <div className="topbar">
         <img className="logo-img" src="/logo-64.png" alt="" />
-        <span className="title">
-          <span>MY FOOD</span>
-          {me.restaurant.name}
-        </span>
+        <span className="title">{me.restaurant.name}</span>
         <div className="tabs" role="tablist">
           {menu.areas.map((a) => (
             <button
