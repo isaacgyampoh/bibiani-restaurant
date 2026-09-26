@@ -286,7 +286,11 @@ export function createAdminRepository(sql: Sql): AdminRepository {
 
     async updateStaff(id, patch) {
       await sql.query(
-        `update staff set display_name = coalesce($2, display_name), is_active = coalesce($3, is_active) where id = $1`,
+        // Deactivating someone frees their PIN (PINs are unique among active staff) and it must be reset on return.
+        `update staff set display_name = coalesce($2, display_name), is_active = coalesce($3, is_active),
+                pin_lookup = case when $3 is false then null else pin_lookup end,
+                pin_set_at = case when $3 is false then null else pin_set_at end
+         where id = $1`,
         [id, patch.displayName ?? null, patch.isActive ?? null],
       );
     },

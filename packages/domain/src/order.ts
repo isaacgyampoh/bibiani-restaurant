@@ -2,6 +2,7 @@ import type { OrderChannel, OrderItemStatus, OrderStatus, PaymentStatus } from '
 import { DomainError, invariant } from './errors';
 import { assertMinor, type Minor, sum } from './money';
 import { isSettled } from './payment-policy';
+import type { AppliedPromotion } from './pricing';
 import { groupByStation, type RouteDecision, type RoutingConfig, resolveRoute } from './routing';
 import { calculateLineTaxes, type TaxLine, type TaxRate } from './tax';
 
@@ -53,6 +54,13 @@ export interface OrderItem {
   quantity: number;
   modifiers: OrderItemModifier[];
   modifiersTotal: Minor;
+  /** (unit price + modifiers) × quantity, before any discount. */
+  grossTotal: Minor;
+  /** Automatic promotion that applied when the line was added (snapshot), or null. */
+  promotion: AppliedPromotion | null;
+  /** This line's share of a manager discount. */
+  manualDiscount: Minor;
+  /** Net amount charged: gross − promotion − manual discount (exclusive taxes are added on top). */
   lineTotal: Minor;
   taxLines: TaxLine[];
   taxTotal: Minor;
@@ -85,8 +93,12 @@ export interface NewItemInput {
   notes: string | null;
 }
 
-/** Prices a new line from the catalog. Validates availability, quantity and modifier rules. */
-export function priceNewItem(input: NewItemInput, product: ProductForSale): OrderItem {
+/** Prices a new line from the catalog (and the promotion live right now, if any). */
+export function priceNewItem(
+  input: NewItemInput,
+  product: ProductForSale,
+  promotion: AppliedPromotion | null = null,
+): OrderItem {
   invariant(
     Number.isInteger(input.quantity) && input.quantity > 0 && input.quantity <= 999,
     'Invalid quantity',
@@ -137,7 +149,9 @@ export function priceNewItem(input: NewItemInput, product: ProductForSale): Orde
   const modifiersTotal = sum(modifiers.map((m) => m.priceDelta));
   const unitGross = assertMinor(product.price + modifiersTotal, 'unit price');
   invariant(unitGross >= 0, 'Line price cannot be negative', { itemId: input.id });
-  const lineTotal = assertMinor(unitGross * input.quantity, 'line total');
+  const grossTotal = assertMinor(unitGross * input.quantity, 'line total');
+  const discount = promotion ? Math.min(promotion.discount, product.price * input.quantity) : 0;
+  const lineTotal = grossTotal - discount;
   const taxes = calculateLineTaxes(lineTotal, product.taxes);
 
   return {
@@ -150,6 +164,9 @@ export function priceNewItem(input: NewItemInput, product: ProductForSale): Orde
     quantity: input.quantity,
     modifiers,
     modifiersTotal,
+    grossTotal,
+    promotion: promotion && discount > 0 ? { ...promotion, discount } : null,
+    manualDiscount: 0,
     lineTotal,
     taxLines: taxes.lines,
     taxTotal: taxes.inclusiveTotal + taxes.exclusiveTotal,
@@ -170,6 +187,38 @@ export function sameItemRequest(existing: OrderItem, input: NewItemInput): boole
     [...existing.modifiers.map((m) => m.modifierId)].sort().join(',') ===
       [...input.modifierIds].sort().join(',')
   );
+}
+
+/**
+ * Re-prices a line after a manager discount changed: the net amount and its taxes are recomputed
+ * from the line's own tax snapshot (rates as they were when it was sold).
+ */
+export function applyManualDiscount(item: OrderItem, manualDiscount: Minor): OrderItem {
+  const promo = item.promotion?.discount ?? 0;
+  invariant(
+    manualDiscount >= 0 && manualDiscount + promo <= item.grossTotal,
+    'Discount larger than the line',
+    { itemId: item.id },
+  );
+  const lineTotal = item.grossTotal - promo - manualDiscount;
+  const taxes = calculateLineTaxes(
+    lineTotal,
+    item.taxLines.map((t, i) => ({
+      id: t.taxRateId,
+      name: t.name,
+      rateBp: t.rateBp,
+      isInclusive: t.isInclusive,
+      isCompound: false,
+      applyOrder: i,
+    })),
+  );
+  return {
+    ...item,
+    manualDiscount,
+    lineTotal,
+    taxLines: taxes.lines,
+    taxTotal: taxes.inclusiveTotal + taxes.exclusiveTotal,
+  };
 }
 
 export function computeTotals(items: readonly OrderItem[]): OrderTotals {

@@ -41,6 +41,16 @@ const STATUS: Record<string, [string, Tone]> = {
   failed: ['Retrying', 'warn'],
   dead: ['Failed', 'danger'],
   claimed: ['Printing', 'info'],
+  // promotions
+  promo_live: ['Live now', 'ok'],
+  promo_scheduled: ['Scheduled', 'info'],
+  promo_upcoming: ['Upcoming', 'info'],
+  promo_paused: ['Paused', 'warn'],
+  promo_ended: ['Ended', 'neutral'],
+  // stock
+  in_stock: ['In stock', 'ok'],
+  low_stock: ['Low stock', 'warn'],
+  out_of_stock: ['Out of stock', 'danger'],
 };
 export function statusLabel(value: string): string {
   return STATUS[value]?.[0] ?? value.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());

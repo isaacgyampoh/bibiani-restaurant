@@ -43,6 +43,7 @@ export function StaffPage({ me }: { me: MeView }) {
   const [error, setError] = useState<unknown>(null);
   const [editing, setEditing] = useState<Staff | 'new' | null>(null);
   const [resetting, setResetting] = useState<Staff | null>(null);
+  const [confirming, setConfirming] = useState<Staff | null>(null);
   const [tab, setTab] = useState<'active' | 'inactive' | 'roles'>('active');
   const toast = useToast();
   const reload = useCallback(() => {
@@ -54,6 +55,7 @@ export function StaffPage({ me }: { me: MeView }) {
   const roles = (config?.roles ?? []).filter((r) => r.permissions.length > 0);
 
   async function toggleActive(s: Staff) {
+    setConfirming(null);
     setError(null);
     try {
       await api.updateStaff(s.id, { isActive: !s.isActive });
@@ -198,13 +200,19 @@ export function StaffPage({ me }: { me: MeView }) {
                         <button type="button" className="btn sm" onClick={() => setEditing(s)}>
                           Edit
                         </button>
-                        <button
-                          type="button"
-                          className={`btn sm ${s.isActive ? 'danger' : ''}`}
-                          onClick={() => void toggleActive(s)}
-                        >
-                          {s.isActive ? 'Deactivate' : 'Reactivate'}
-                        </button>
+                        {s.id === me.staffId ? (
+                          <span className="small muted you" title="Another owner must change your own access">
+                            You
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            className={`btn sm ${s.isActive ? 'danger' : ''}`}
+                            onClick={() => setConfirming(s)}
+                          >
+                            {s.isActive ? 'Deactivate' : 'Reactivate'}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -214,8 +222,35 @@ export function StaffPage({ me }: { me: MeView }) {
           )}
         </section>
       )}
+      {confirming ? (
+        <Modal
+          title={`${confirming.isActive ? 'Deactivate' : 'Reactivate'} ${confirming.displayName}?`}
+          onClose={() => setConfirming(null)}
+          footer={
+            <>
+              <button type="button" className="btn" onClick={() => setConfirming(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={`btn ${confirming.isActive ? 'danger' : 'primary'}`}
+                onClick={() => void toggleActive(confirming)}
+              >
+                {confirming.isActive ? 'Deactivate' : 'Reactivate'}
+              </button>
+            </>
+          }
+        >
+          <p className="muted">
+            {confirming.isActive
+              ? `${confirming.displayName} will be signed out of new sessions, cannot sign in, and their PIN is cleared. Their orders and history stay.`
+              : `${confirming.displayName} can sign in again. Give them a new PIN for the tills.`}
+          </p>
+        </Modal>
+      ) : null}
       {editing && config ? (
         <StaffDrawer
+          self={editing !== 'new' && editing.id === me.staffId}
           config={config}
           branchId={branchId}
           staff={editing === 'new' ? null : editing}
@@ -243,12 +278,14 @@ export function StaffPage({ me }: { me: MeView }) {
 }
 
 function StaffDrawer({
+  self,
   config,
   branchId,
   staff,
   onClose,
   onSaved,
 }: {
+  self: boolean;
   config: ConfigurationView;
   branchId: string;
   staff: Staff | null;
@@ -284,8 +321,8 @@ function StaffDrawer({
       if (staff) {
         await api.updateStaff(staff.id, {
           displayName: f.displayName,
-          roleIds: [f.roleId],
-          branchId: f.allBranches ? null : branchId,
+          // Your own access is changed by another owner (the server refuses it too).
+          ...(self ? {} : { roleIds: [f.roleId], branchId: f.allBranches ? null : branchId }),
           ...(f.password ? { password: f.password } : {}),
         });
         onSaved(`${f.displayName} updated`);
@@ -342,9 +379,16 @@ function StaffDrawer({
             />
           </Field>
         </FormSection>
-        <FormSection title="Access" description="What they can do. The server enforces it on every action.">
+        <FormSection
+          title="Access"
+          description={
+            self
+              ? 'This is you. Another owner changes your own role, so nobody can lock themselves out by mistake.'
+              : 'What they can do. The server enforces it on every action.'
+          }
+        >
           <Field label="Role" required>
-            <select value={f.roleId} onChange={(e) => setF({ ...f, roleId: e.target.value })}>
+            <select disabled={self} value={f.roleId} onChange={(e) => setF({ ...f, roleId: e.target.value })}>
               {roles.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name}
@@ -355,6 +399,7 @@ function StaffDrawer({
           <label className="check">
             <input
               type="checkbox"
+              disabled={self}
               checked={f.allBranches}
               onChange={(e) => setF({ ...f, allBranches: e.target.checked })}
             />

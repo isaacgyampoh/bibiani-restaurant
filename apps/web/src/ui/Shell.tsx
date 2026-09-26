@@ -30,6 +30,7 @@ const ICON = {
   routing: I('M4 6h6l4 6h6M14 12l-4 6H4M18 9l3 3-3 3'),
   floor: I('M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z'),
   devices: I('M6 9V3h12v6M6 18H4v-7h16v7h-2M8 14h8v7H8z'),
+  promo: I('M20 12l-8 8-9-9V3h8l9 9zM7.5 7.5h.01'),
   staff: I('M16 21v-2a4 4 0 0 0-8 0v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'),
   reports: I('M4 20V10M10 20V4M16 20v-7M22 20H2'),
   settings: I('M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0M14 4v4M8 10v4M16 16v4'),
@@ -103,6 +104,7 @@ export const NAV: { title: string; items: NavItem[] }[] = [
   {
     title: 'Management',
     items: [
+      { path: '/promotions', label: 'Promotions', icon: 'promo', anyOf: ['promotions.manage'] },
       { path: '/staff', label: 'Staff', icon: 'staff', anyOf: ['staff.manage'] },
       { path: '/reports', label: 'Reports', icon: 'reports', anyOf: ['reports.view'] },
       { path: '/settings', label: 'Settings', icon: 'settings', anyOf: ['config.manage'] },

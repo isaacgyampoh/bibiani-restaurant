@@ -101,12 +101,22 @@ export interface ReceiptInput {
     quantity: number;
     name: string;
     unitPrice?: number;
+    /** Before promotions and discounts. Absent on old callers: the line total is shown. */
+    grossTotal?: number;
+    promotionName?: string | null;
+    promotionDiscount?: number;
     lineTotal: number;
     modifiers: { name: string; priceDelta: number }[];
     voided: boolean;
   }[];
+  /**
+   * One strategy on every receipt: item lines show the normal (gross) amount with the promotion
+   * under it; then Subtotal (gross), Promotions, Discount (manager, with reason), taxes, TOTAL.
+   */
   subtotal: number;
+  promotionTotal?: number;
   discountTotal: number;
+  discountReason?: string | null;
   taxes: { name: string; rateBp: number; isInclusive: boolean; amount: number }[];
   grandTotal: number;
   payments: {
@@ -156,16 +166,32 @@ export function receiptDocument(r: ReceiptInput): PrintDocument {
   blocks.push({ type: 'divider' });
 
   for (const item of r.items.filter((i) => !i.voided)) {
-    blocks.push({ type: 'columns', left: `${item.quantity} x ${item.name}`, right: money(item.lineTotal) });
+    blocks.push({
+      type: 'columns',
+      left: `${item.quantity} x ${item.name}`,
+      right: money(item.grossTotal ?? item.lineTotal),
+    });
     if (item.quantity > 1 && item.unitPrice !== undefined)
       blocks.push({ type: 'text', text: `   @ ${money(item.unitPrice)} each` });
     for (const m of item.modifiers) {
       blocks.push({ type: 'text', text: `   + ${m.name}${m.priceDelta ? ` (${money(m.priceDelta)})` : ''}` });
     }
+    if (item.promotionName && item.promotionDiscount)
+      blocks.push({
+        type: 'columns',
+        left: `   Promo: ${item.promotionName}`,
+        right: `-${money(item.promotionDiscount)}`,
+      });
   }
   blocks.push({ type: 'divider' }, { type: 'columns', left: 'Subtotal', right: money(r.subtotal) });
+  if (r.promotionTotal && r.promotionTotal > 0)
+    blocks.push({ type: 'columns', left: 'Promotions', right: `-${money(r.promotionTotal)}` });
   if (r.discountTotal > 0)
-    blocks.push({ type: 'columns', left: 'Discount', right: `-${money(r.discountTotal)}` });
+    blocks.push({
+      type: 'columns',
+      left: r.discountReason ? `Discount (${r.discountReason})` : 'Discount',
+      right: `-${money(r.discountTotal)}`,
+    });
   for (const t of r.taxes) {
     const label = `${t.isInclusive ? 'incl. ' : ''}${t.name} ${(t.rateBp / 100).toFixed(2).replace(/\.00$/, '')}%`;
     blocks.push({ type: 'columns', left: label, right: money(t.amount) });

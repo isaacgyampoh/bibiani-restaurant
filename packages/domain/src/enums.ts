@@ -122,6 +122,8 @@ export const PERMISSIONS = [
   'reports.view',
   'inventory.manage',
   'stock.count',
+  'promotions.manage',
+  'discount.apply',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 

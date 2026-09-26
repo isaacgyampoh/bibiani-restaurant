@@ -15,6 +15,7 @@ import type {
   FulfilOrderCommand,
   HeartbeatCommand,
   InventoryView,
+  ManualDiscountCommand,
   MenuView,
   MeView,
   OperationsView,
@@ -24,12 +25,15 @@ import type {
   PrintJobResultCommand,
   PrintQueueView,
   PrintReceiptCommand,
+  PromotionPreviewView,
+  PromotionView,
   ReceiptView,
   RecordCountLineCommand,
   RecordPaymentCommand,
   RecordStockMovementCommand,
   SalesReportView,
   SaveInventoryItemCommand,
+  SavePromotionCommand,
   SaveRecipeCommand,
   SendToKitchenCommand,
   SetTableStatusCommand,
@@ -168,6 +172,15 @@ export class ApiClient {
     this.request<OrderView>('POST', `/v1/orders/${orderId}/transfer`, cmd);
   mergeOrders = (targetOrderId: string, sourceOrderId: string) =>
     this.request<OrderView>('POST', `/v1/orders/${targetOrderId}/merge`, { sourceOrderId });
+  promotions = () => this.request<PromotionView[]>('GET', '/v1/promotions');
+  previewPromotion = (cmd: SavePromotionCommand) =>
+    this.request<PromotionPreviewView>('POST', '/v1/promotions/preview', cmd);
+  savePromotion = (cmd: SavePromotionCommand) => this.request<{ id: string }>('POST', '/v1/promotions', cmd);
+  setPromotionStatus = (id: string, action: 'activate' | 'pause' | 'end', expectedVersion: number) =>
+    this.request<{ ok: true }>('POST', `/v1/promotions/${id}/status`, { action, expectedVersion });
+  applyDiscount = (orderId: string, cmd: ManualDiscountCommand) =>
+    this.request<OrderView>('POST', `/v1/orders/${orderId}/discount`, cmd);
+  removeDiscount = (orderId: string) => this.request<OrderView>('DELETE', `/v1/orders/${orderId}/discount`);
   setPriority = (orderId: string, rush: boolean) =>
     this.request<OrderView>('POST', `/v1/orders/${orderId}/priority`, { rush });
   pinSignIn = (pin: string) =>

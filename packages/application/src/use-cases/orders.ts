@@ -3,9 +3,11 @@ import {
   ACTIVE_ITEM,
   assertOrderOpen,
   businessDay,
+  choosePromotion,
   computeTotals,
   DomainError,
   derivePaymentStatus,
+  isPromotionLive,
   kitchenTicketDocument,
   type NewItemInput,
   type OrderItem,
@@ -78,7 +80,7 @@ export class SubmitOrder {
       }
 
       assertOrderOpen(agg.header.status);
-      await addItems(tx, agg, cmd.items, cmd.branchId, log);
+      await addItems(tx, agg, cmd.items, cmd.branchId, now, log);
       if (cmd.send) {
         await sendPendingItems(this.deps, tx, ctx, agg, cmd.send.submissionId, submissionHash, now, log);
       }
@@ -263,6 +265,7 @@ async function addItems(
   agg: OrderAggregate,
   inputs: readonly SubmitOrderCommand['items'][number][],
   branchId: string,
+  now: Date,
   log: CommitLog,
 ): Promise<void> {
   const fresh: NewItemInput[] = [];
@@ -290,7 +293,14 @@ async function addItems(
   }
   if (fresh.length === 0) return;
 
-  const products = await tx.catalog.productsForSale(branchId, [...new Set(fresh.map((f) => f.productId))]);
+  const [products, promotions, branch] = await Promise.all([
+    tx.catalog.productsForSale(branchId, [...new Set(fresh.map((f) => f.productId))]),
+    tx.promotions.list(),
+    tx.config.branch(branchId),
+  ]);
+  // Promotions live right now for this branch; the chosen one is written onto the line (snapshot).
+  const live = promotions.filter((p) => isPromotionLive(p, now, branch?.timezone ?? 'UTC', branchId));
+  const paths = live.length ? await tx.promotions.productCategoryPaths() : new Map<string, string[]>();
   const priced: OrderItem[] = fresh.map((input) => {
     const product = products.get(input.productId);
     if (!product) {
@@ -298,7 +308,15 @@ async function addItems(
         productId: input.productId,
       });
     }
-    return priceNewItem(input, product);
+    const promotion = live.length
+      ? choosePromotion(live, {
+          productId: product.id,
+          categoryPath: paths.get(product.id) ?? [product.categoryId],
+          basePrice: product.price,
+          quantity: input.quantity,
+        })
+      : null;
+    return priceNewItem(input, product, promotion);
   });
   await tx.orders.insertItems(agg.header.id, priced);
   agg.items.push(...priced);

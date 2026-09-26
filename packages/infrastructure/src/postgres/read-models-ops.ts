@@ -105,7 +105,13 @@ export function createOpsReadModels(sql: Sql): OpsModels {
       const [sales, methods, statuses, tables, stations, stock, recent, currency] = await Promise.all([
         sql.query(
           `select coalesce(sum(case when p.direction = 'charge' then p.amount else -p.amount end), 0)::bigint as net,
-                  count(distinct p.order_id)::int as orders
+                  count(distinct p.order_id)::int as orders,
+                  (select coalesce(sum(i.promotion_discount), 0)::bigint from order_items i join orders o2 on o2.id = i.order_id
+                    where o2.branch_id = $1 and o2.business_day = $2::date and o2.status not in ('cancelled', 'voided', 'draft')
+                      and i.status not in ('pending', 'cancelled', 'voided')) as promo,
+                  (select coalesce(sum(i.manual_discount), 0)::bigint from order_items i join orders o2 on o2.id = i.order_id
+                    where o2.branch_id = $1 and o2.business_day = $2::date and o2.status not in ('cancelled', 'voided', 'draft')
+                      and i.status not in ('pending', 'cancelled', 'voided')) as manual
            from payments p join orders o on o.id = p.order_id
            where o.branch_id = $1 and o.business_day = $2::date and p.status = 'recorded'`,
           [branchId, businessDay],
@@ -145,7 +151,8 @@ export function createOpsReadModels(sql: Sql): OpsModels {
           [branchId, now.toISOString(), businessDay],
         ),
         sql.query(
-          `select (select count(*) from inventory_items i where i.branch_id = $1 and i.is_active and i.quantity <= i.min_quantity)::int as low,
+          `select (select count(*) from inventory_items i where i.branch_id = $1 and i.is_active and i.quantity > 0 and i.quantity <= i.min_quantity)::int as low,
+                  (select count(*) from inventory_items i where i.branch_id = $1 and i.is_active and i.quantity <= 0)::int as out,
                   (select count(*) from stock_counts c where c.branch_id = $1 and c.status in ('open', 'submitted'))::int as counts`,
           [branchId],
         ),
@@ -171,6 +178,8 @@ export function createOpsReadModels(sql: Sql): OpsModels {
           net,
           orders: paidOrders,
           averageOrder: paidOrders ? Math.round(net / paidOrders) : 0,
+          promotionDiscounts: num(sales[0]?.promo),
+          manualDiscounts: num(sales[0]?.manual),
           byMethod: (['cash', 'momo', 'card'] as const).map((method) => {
             const r = methods.find((m) => m.method === method);
             return { method, amount: num(r?.amount ?? 0), count: num(r?.count ?? 0) };
@@ -196,7 +205,12 @@ export function createOpsReadModels(sql: Sql): OpsModels {
           readyToday: num(st.ready_today),
           averagePrepSeconds: st.avg_prep === null ? null : Math.round(Number(st.avg_prep)),
         })),
-        inventory: { lowStockItems: num(stock[0]?.low), openStockCounts: num(stock[0]?.counts) },
+        inventory: {
+          lowStockItems: num(stock[0]?.low),
+          outOfStockItems: num(stock[0]?.out),
+          openStockCounts: num(stock[0]?.counts),
+        },
+        promotions: { live: [], upcoming: [] },
         recentOrders: recent.map(summary),
         generatedAt: now.toISOString(),
       };
@@ -241,7 +255,10 @@ export function createOpsReadModels(sql: Sql): OpsModels {
             range,
           ),
           sql.query(
-            `select i.name, c.name as category, sum(i.quantity)::int as quantity, sum(i.line_total)::bigint as sales
+            `select i.name, c.name as category, sum(i.quantity)::int as quantity, sum(i.line_total)::bigint as sales,
+                  sum(i.gross_total)::bigint as gross, sum(i.promotion_discount)::bigint as promo, sum(i.manual_discount)::bigint as manual,
+                  coalesce(json_agg(json_build_object('name', i.promotion_name, 'quantity', i.quantity, 'discount', i.promotion_discount))
+                    filter (where i.promotion_name is not null), '[]') as promos
            from order_items i join orders o on o.id = i.order_id
            left join products p on p.id = i.product_id left join categories c on c.id = p.category_id
            where ${SOLD} and o.status not in ('cancelled', 'voided') and ${LIVE_ITEM}
@@ -274,8 +291,23 @@ export function createOpsReadModels(sql: Sql): OpsModels {
         name: s(p.name),
         category: sn(p.category),
         quantity: num(p.quantity),
+        gross: num(p.gross),
+        discounts: num(p.promo) + num(p.manual),
         sales: num(p.sales),
+        /** Cost of goods is not recorded on order lines yet. */
+        cost: null,
       }));
+      const promos = new Map<string, { lines: number; quantity: number; discount: number }>();
+      for (const p of products)
+        for (const x of p.promos as { name: string; quantity: number; discount: unknown }[]) {
+          const c = promos.get(x.name) ?? { lines: 0, quantity: 0, discount: 0 };
+          promos.set(x.name, {
+            lines: c.lines + 1,
+            quantity: c.quantity + x.quantity,
+            discount: c.discount + num(x.discount),
+          });
+        }
+      const sum = (k: string) => products.reduce((a, p) => a + num(p[k]), 0);
       const cats = new Map<string, { quantity: number; sales: number }>();
       for (const p of byProduct) {
         const k = p.category ?? 'Uncategorised';
@@ -295,7 +327,15 @@ export function createOpsReadModels(sql: Sql): OpsModels {
           cancelledOrders: num(orders[0]?.cancelled),
           voidedItems: num(voids[0]?.n),
           voidedValue: num(voids[0]?.value),
+          gross: sum('gross'),
+          promotionDiscounts: sum('promo'),
+          manualDiscounts: sum('manual'),
+          itemSales: sum('sales'),
+          cost: null,
         },
+        byPromotion: [...promos.entries()]
+          .map(([name, v]) => ({ name, ...v }))
+          .sort((a, b) => b.discount - a.discount),
         byDay: days.map((d) => ({ day: s(d.day), net: num(d.net), orders: num(d.orders) })),
         byMethod: (['cash', 'momo', 'card'] as const).map((method) => {
           const r = methods.find((m) => m.method === method);

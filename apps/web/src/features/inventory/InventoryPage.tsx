@@ -4,7 +4,7 @@ import { type FormEvent, useEffect, useState } from 'react';
 import { linkTo } from '../../infra/router';
 import { api, hasPermission } from '../../infra/session';
 import { useFeed } from '../../infra/use-feed';
-import { ErrorBox, Modal } from '../../ui/components';
+import { Badge, ErrorBox, Modal } from '../../ui/components';
 import { Empty, Shell, Skeleton, Stat } from '../../ui/Shell';
 
 const uuid = () => crypto.randomUUID();
@@ -85,9 +85,17 @@ export function InventoryPage({ me }: { me: MeView }) {
             <Stat label="Stock items" value={inv.totals.items} />
             <Stat
               label="Low stock"
-              value={inv.totals.lowStock}
-              tone={inv.totals.lowStock ? 'danger' : 'ok'}
-              hint={inv.totals.lowStock ? 'at or below minimum' : 'all above minimum'}
+              value={inv.items.filter((i) => i.isActive && stockState(i) === 'low_stock').length}
+              tone={inv.items.some((i) => i.isActive && stockState(i) === 'low_stock') ? 'warn' : undefined}
+              hint="at or below minimum"
+            />
+            <Stat
+              label="Out of stock"
+              value={inv.items.filter((i) => i.isActive && stockState(i) === 'out_of_stock').length}
+              tone={
+                inv.items.some((i) => i.isActive && stockState(i) === 'out_of_stock') ? 'danger' : undefined
+              }
+              hint="none left"
             />
             <Stat label="Stock value" value={money(inv.totals.value)} hint="at unit cost" />
           </div>
@@ -101,7 +109,7 @@ export function InventoryPage({ me }: { me: MeView }) {
               />
               <label className="check">
                 <input type="checkbox" checked={onlyLow} onChange={(e) => setOnlyLow(e.target.checked)} /> Low
-                stock only
+                or out of stock only
               </label>
             </div>
             {inv.items.length === 0 ? (
@@ -129,6 +137,7 @@ export function InventoryPage({ me }: { me: MeView }) {
                 <thead>
                   <tr>
                     <th>Item</th>
+                    <th>Status</th>
                     <th className="num">On hand</th>
                     <th className="num">Minimum</th>
                     <th className="num">Value</th>
@@ -158,9 +167,10 @@ export function InventoryPage({ me }: { me: MeView }) {
                             .join(' · ')}
                         </div>
                       </td>
-                      <td className="num">
-                        <span className={i.isLow ? 'pill danger' : ''}>{qty(i.quantity, i.unit)}</span>
+                      <td>
+                        <Badge value={stockState(i)} />
                       </td>
+                      <td className="num">{qty(i.quantity, i.unit)}</td>
                       <td className="num muted">{qty(i.minQuantity, i.unit)}</td>
                       <td className="num">{money(i.value)}</td>
                       <td className="muted small">{when(i.lastMovementAt)}</td>
@@ -564,4 +574,9 @@ function MoveDialog({
       </form>
     </Modal>
   );
+}
+
+/** In stock / Low stock (at or below minimum) / Out of stock (nothing left). */
+function stockState(i: { quantity: number; isLow: boolean }): 'in_stock' | 'low_stock' | 'out_of_stock' {
+  return i.quantity <= 0 ? 'out_of_stock' : i.isLow ? 'low_stock' : 'in_stock';
 }

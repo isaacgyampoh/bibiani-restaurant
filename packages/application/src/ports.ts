@@ -34,6 +34,7 @@ import type {
   PrintJobKind,
   PrintJobStatus,
   PrintOutcome,
+  Promotion,
   ReceiptInput,
   RoutingRule,
   StationOutputRole,
@@ -619,6 +620,8 @@ export interface Repositories {
   admin: AdminRepository;
   inventory: InventoryRepository;
   pins: PinRepository;
+  promotions: PromotionRepository;
+  discounts: DiscountRepository;
 }
 
 // ---------------------------------------------------------------------------
@@ -643,6 +646,56 @@ export interface AuthDirectory {
   createSession(userId: string): Promise<AuthSession>;
   /** Emails a single-use recovery link to `email`, landing on `redirectTo`. */
   sendRecoveryEmail(email: string, redirectTo: string): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
+// Pricing: promotions and manager discounts
+// ---------------------------------------------------------------------------
+export interface PromotionRecord extends Promotion {
+  version: number;
+  createdBy: string | null;
+  updatedBy: string | null;
+  updatedAt: string;
+}
+export interface PromotionRepository {
+  /** All promotions of the restaurant (for management and for pricing; callers filter what is live). */
+  list(): Promise<PromotionRecord[]>;
+  get(id: string): Promise<PromotionRecord | null>;
+  save(
+    p: Omit<Promotion, 'createdAt'>,
+    staffId: string | null,
+    expectedVersion: number | null,
+  ): Promise<'created' | 'updated'>;
+  setStatus(
+    id: string,
+    status: 'active' | 'paused',
+    endsOn: string | null | undefined,
+    staffId: string | null,
+    expectedVersion: number,
+  ): Promise<boolean>;
+  /** productId -> [its category, parent, grandparent…] for every product (promotion coverage). */
+  productCategoryPaths(): Promise<Map<string, string[]>>;
+  /** Restaurant currency and the (first active) branch with its time zone, for schedules and previews. */
+  context(): Promise<{ currency: string; branchId: string | null; timeZone: string }>;
+}
+export interface ManualDiscountRecord {
+  id: string;
+  orderId: string;
+  kind: 'amount' | 'percent';
+  value: number;
+  amount: number;
+  reason: string;
+  originalTotal: number;
+  finalTotal: number;
+  appliedByStaffId: string | null;
+}
+export interface DiscountRepository {
+  find(id: string): Promise<ManualDiscountRecord | null>;
+  active(orderId: string): Promise<ManualDiscountRecord | null>;
+  insert(d: ManualDiscountRecord): Promise<void>;
+  remove(id: string, staffId: string | null, at: Date): Promise<void>;
+  /** Writes re-priced lines (manual discount share, net total, taxes). */
+  updateItemPricing(items: readonly OrderItem[]): Promise<void>;
 }
 
 /** Keyed one-way PIN digest (HMAC with a server-only secret). Deterministic per restaurant. */

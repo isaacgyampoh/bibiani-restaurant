@@ -1,6 +1,7 @@
 import type { DashboardView, ExpoView, SalesReportView } from '@rp/contracts';
-import { businessDay, DomainError } from '@rp/domain';
+import { businessDay, DomainError, promotionPhase } from '@rp/domain';
 import { authorize, can, type RequestContext } from '../principal';
+import { describePromotion } from './promotions';
 import type { Dependencies } from './shared';
 
 /** Today's business of one branch: sales, orders, tables, kitchen load, stock alerts. */
@@ -13,7 +14,28 @@ export class GetDashboard {
     return this.deps.uow.run(ctx.principal.restaurantId, async (tx) => {
       const branch = await tx.config.branch(branchId);
       if (!branch) throw new DomainError('NOT_FOUND', 'Branch not found', { branchId });
-      return tx.read.dashboard(branchId, businessDay(now, branch.timezone, branch.businessDayCutoff), now);
+      const [view, promotions] = await Promise.all([
+        tx.read.dashboard(branchId, businessDay(now, branch.timezone, branch.businessDayCutoff), now),
+        tx.promotions.list(),
+      ]);
+      const mine = promotions.filter((p) => !p.branchId || p.branchId === branchId);
+      const phase = (p: (typeof mine)[number]) => promotionPhase(p, now, branch.timezone);
+      return {
+        ...view,
+        promotions: {
+          live: mine
+            .filter((p) => phase(p) === 'live')
+            .map((p) => ({ id: p.id, name: p.name, summary: describePromotion(p, view.currency) })),
+          upcoming: mine
+            .filter((p) => phase(p) === 'upcoming' || phase(p) === 'scheduled')
+            .map((p) => ({
+              id: p.id,
+              name: p.name,
+              summary: describePromotion(p, view.currency),
+              startsOn: p.startsOn,
+            })),
+        },
+      };
     });
   }
 }

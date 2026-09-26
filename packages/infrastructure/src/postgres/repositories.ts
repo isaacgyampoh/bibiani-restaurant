@@ -22,6 +22,7 @@ import { dateOrNull, num, numOrNull, type Sql } from '../db/sql';
 import { createAdminRepository } from './admin';
 import { createInventoryRepository } from './inventory';
 import { createPinRepository } from './pins';
+import { createDiscountRepository, createPromotionRepository } from './pricing';
 import { createReadModels } from './read-models';
 import { assignments, json } from './util';
 
@@ -43,6 +44,8 @@ export function createRepositories(sql: Sql): Repositories {
     admin: createAdminRepository(sql),
     inventory: createInventoryRepository(sql),
     pins: createPinRepository(sql),
+    promotions: createPromotionRepository(sql),
+    discounts: createDiscountRepository(sql),
   };
 }
 
@@ -137,6 +140,15 @@ function orderRepository(sql: Sql): OrderRepository {
               }),
             ),
             modifiersTotal: num(r.modifiers_total),
+            grossTotal: num(r.gross_total),
+            promotion: r.promotion_name
+              ? {
+                  id: s(r.promotion_id),
+                  name: s(r.promotion_name),
+                  discount: num(r.promotion_discount),
+                }
+              : null,
+            manualDiscount: num(r.manual_discount),
             lineTotal: num(r.line_total),
             taxLines: (r.tax_lines as { amount: unknown; rateBp: unknown }[]).map((t) => ({
               ...(t as unknown as OrderItem['taxLines'][number]),
@@ -223,13 +235,16 @@ function orderRepository(sql: Sql): OrderRepository {
       // Position continues after existing lines, computed in the same statement (no extra round trip).
       await sql.query(
         `insert into order_items (id, restaurant_id, order_id, position, product_id, name, kitchen_name, unit_price, quantity,
-           modifiers_total, line_total, tax_total, notes, status)
+           modifiers_total, gross_total, promotion_id, promotion_name, promotion_discount, manual_discount,
+           line_total, tax_total, notes, status)
          select r.id, app.current_restaurant_id(), $1,
                 (select coalesce(max(position), 0) from order_items where order_id = $1) + r.idx,
                 r.product_id, r.name, r.kitchen_name, r.unit_price, r.quantity,
-                r.modifiers_total, r.line_total, r.tax_total, r.notes, 'pending'
+                r.modifiers_total, r.gross_total, r.promotion_id, r.promotion_name, r.promotion_discount, 0,
+                r.line_total, r.tax_total, r.notes, 'pending'
          from jsonb_to_recordset($2::text::jsonb) as r(id uuid, idx int, product_id uuid, name text, kitchen_name text,
-           unit_price bigint, quantity int, modifiers_total bigint, line_total bigint, tax_total bigint, notes text)`,
+           unit_price bigint, quantity int, modifiers_total bigint, gross_total bigint, promotion_id uuid,
+           promotion_name text, promotion_discount bigint, line_total bigint, tax_total bigint, notes text)`,
         [
           orderId,
           json(
@@ -242,6 +257,10 @@ function orderRepository(sql: Sql): OrderRepository {
               unit_price: i.unitPrice,
               quantity: i.quantity,
               modifiers_total: i.modifiersTotal,
+              gross_total: i.grossTotal,
+              promotion_id: i.promotion?.id ?? null,
+              promotion_name: i.promotion?.name ?? null,
+              promotion_discount: i.promotion?.discount ?? 0,
               line_total: i.lineTotal,
               tax_total: i.taxTotal,
               notes: i.notes,

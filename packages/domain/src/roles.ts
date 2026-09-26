@@ -10,6 +10,13 @@ export const ROLE_TEMPLATES: Record<string, readonly Permission[]> = {
   Cashier: ['order.create', 'order.send', 'order.view', 'order.fulfil', 'payment.record', 'receipt.print'],
   Waiter: ['order.create', 'order.send', 'order.view', 'order.fulfil', 'receipt.print'],
   Kitchen: ['kitchen.operate', 'order.view'],
-  Supervisor: ['order.view', 'order.fulfil', 'kitchen.operate', 'receipt.print', 'reports.view'],
+  Supervisor: [
+    'order.view',
+    'order.fulfil',
+    'kitchen.operate',
+    'receipt.print',
+    'reports.view',
+    'discount.apply',
+  ],
   'Inventory Manager': ['inventory.manage', 'stock.count', 'reports.view', 'order.view'],
 };

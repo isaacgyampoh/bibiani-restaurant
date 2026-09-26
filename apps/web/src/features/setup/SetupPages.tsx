@@ -1,5 +1,6 @@
 import type { ConfigEntity, ConfigurationView, MeView } from '@rp/contracts';
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { linkTo } from '../../infra/router';
 import { explainRoute, routingFrom } from '../../infra/routing';
 import { hasPermission } from '../../infra/session';
 import { ErrorBox, Field, FormSection, useToast } from '../../ui/components';
@@ -98,6 +99,70 @@ function RouteMap({ config, branchId }: { config: ConfigurationView; branchId: s
   );
 }
 
+/** Per-station choice: show selling prices on the kitchen screen. Printed kitchen tickets never show prices. */
+function StationPrices({
+  config,
+  branchId,
+  saveBool,
+}: {
+  config: ConfigurationView;
+  branchId: string;
+  saveBool: (e: ConfigEntity, r: Row) => Promise<boolean>;
+}) {
+  return (
+    <section className="card">
+      <div className="card-head">
+        <h2>Kitchen screen settings</h2>
+      </div>
+      <table className="list">
+        <thead>
+          <tr>
+            <th>Station</th>
+            <th>Target time</th>
+            <th>Show prices on screen</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(config.stations as Row[])
+            .filter((st) => st.branchId === branchId)
+            .map((st) => (
+              <tr key={str(st.id)}>
+                <td>
+                  <strong>{str(st.name)}</strong>
+                </td>
+                <td className="muted">
+                  {st.targetPrepSeconds ? `${Math.round(Number(st.targetPrepSeconds) / 60)} min` : '—'}
+                </td>
+                <td>
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(st.showPrices)}
+                      onChange={(e) =>
+                        void saveBool('station', {
+                          id: st.id,
+                          branchId: st.branchId,
+                          name: st.name,
+                          code: st.code,
+                          targetPrepSeconds: st.targetPrepSeconds ?? null,
+                          autoReady: Boolean(st.autoReady),
+                          isActive: Boolean(st.isActive),
+                          sortOrder: Number(st.sortOrder ?? 0),
+                          showPrices: e.target.checked,
+                        })
+                      }
+                    />
+                    {st.showPrices ? 'Prices shown' : 'Hidden'}
+                  </label>
+                </td>
+              </tr>
+            ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
 export function RoutingPage({ me }: { me: MeView }) {
   const branchId = me.branches[0]?.id ?? '';
   const { config, error, setError, reload, saveBool } = useSetup();
@@ -113,56 +178,7 @@ export function RoutingPage({ me }: { me: MeView }) {
       ) : (
         <>
           <RouteMap config={config} branchId={branchId} />
-          <section className="card">
-            <div className="card-head">
-              <h2>Kitchen screen settings</h2>
-            </div>
-            <table className="list">
-              <thead>
-                <tr>
-                  <th>Station</th>
-                  <th>Target time</th>
-                  <th>Show prices on screen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(config.stations as Row[])
-                  .filter((st) => st.branchId === branchId)
-                  .map((st) => (
-                    <tr key={str(st.id)}>
-                      <td>
-                        <strong>{str(st.name)}</strong>
-                      </td>
-                      <td className="muted">
-                        {st.targetPrepSeconds ? `${Math.round(Number(st.targetPrepSeconds) / 60)} min` : '—'}
-                      </td>
-                      <td>
-                        <label className="check">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(st.showPrices)}
-                            onChange={(e) =>
-                              void saveBool('station', {
-                                id: st.id,
-                                branchId: st.branchId,
-                                name: st.name,
-                                code: st.code,
-                                targetPrepSeconds: st.targetPrepSeconds ?? null,
-                                autoReady: Boolean(st.autoReady),
-                                isActive: Boolean(st.isActive),
-                                sortOrder: Number(st.sortOrder ?? 0),
-                                showPrices: e.target.checked,
-                              })
-                            }
-                          />
-                          {st.showPrices ? 'Prices shown' : 'Hidden'}
-                        </label>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </section>
+          <StationPrices config={config} branchId={branchId} saveBool={saveBool} />
           <StationsTab
             config={config}
             branchId={branchId}
@@ -211,17 +227,119 @@ export function DevicesPage({ me }: { me: MeView }) {
   );
 }
 
+const SETTINGS_GROUPS = [
+  ['restaurant', 'Restaurant'],
+  ['pos', 'POS'],
+  ['kitchen', 'Kitchen'],
+  ['inventory', 'Inventory'],
+  ['staff', 'Staff'],
+  ['promotions', 'Promotions'],
+] as const;
+type SettingsGroup = (typeof SETTINGS_GROUPS)[number][0];
+
 export function SettingsPage({ me }: { me: MeView }) {
   const branchId = me.branches[0]?.id ?? '';
-  const { config, error, save } = useSetup();
+  const { config, error, save, saveBool } = useSetup();
   const branch = (config?.branches as Row[] | undefined)?.find((b) => b.id === branchId);
+  const [group, setGroup] = useState<SettingsGroup>(() => {
+    const h = window.location.hash.slice(1);
+    return (SETTINGS_GROUPS.find(([k]) => k === h)?.[0] ?? 'restaurant') as SettingsGroup;
+  });
+  const [dirty, setDirty] = useState(false);
+  function choose(g: SettingsGroup) {
+    if (dirty && !window.confirm('You have unsaved restaurant settings. Leave without saving?')) return;
+    setDirty(false);
+    setGroup(g);
+    window.history.replaceState(null, '', `#${g}`);
+  }
+  const link = (href: string, label: string) => (
+    <a className="btn" href={href} onClick={linkTo(href)}>
+      {label}
+    </a>
+  );
   return (
-    <Shell me={me} title="Settings" subtitle="Restaurant details and how the business day works.">
+    <Shell me={me} title="Settings" subtitle="Everything that shapes how the restaurant runs, in one place.">
       <ErrorBox error={error} />
+      <div className="tabs-line" role="tablist" aria-label="Settings groups">
+        {SETTINGS_GROUPS.map(([k, label]) => (
+          <button
+            key={k}
+            type="button"
+            role="tab"
+            aria-selected={group === k}
+            className={group === k ? 'on' : ''}
+            onClick={() => choose(k)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       {!config || !branch ? (
         <Skeleton rows={6} />
+      ) : group === 'restaurant' ? (
+        <BranchForm config={config} branch={branch} save={save} onDirty={setDirty} />
+      ) : group === 'kitchen' ? (
+        <>
+          <StationPrices config={config} branchId={branchId} saveBool={saveBool} />
+          <section className="card">
+            <div className="card-body small muted">
+              Kitchen screens show quantity × unit price, any promotion, and the line and ticket totals, from
+              the price saved on the order. Printed kitchen tickets are production tickets and never show
+              prices. {link('/routing', 'Stations, screens & routing')}
+            </div>
+          </section>
+        </>
       ) : (
-        <BranchForm config={config} branch={branch} save={save} />
+        <section className="card">
+          <div className="card-body settings-summary">
+            {group === 'pos' ? (
+              <>
+                <p>
+                  Service areas (dine-in, takeaway), tables, and whether an area is paid before or after the
+                  food is served. Tills lock themselves after a few idle minutes; staff unlock them with their
+                  own PIN.
+                </p>
+                <div className="row">
+                  {link('/floor', 'Floor, areas & tables')}
+                  {link('/devices', 'Tills, screens & printers')}
+                </div>
+              </>
+            ) : group === 'inventory' ? (
+              <>
+                <p>
+                  Stock items with a minimum level (Low stock at or below it, Out of stock at zero), recipes
+                  that deduct stock when an order is sent to the kitchen, and stock takes with approval.
+                  Promotions never change how much stock a dish uses.
+                </p>
+                <div className="row">
+                  {link('/inventory', 'Stock items')}
+                  {link('/menu', 'Recipes')}
+                  {link('/stock-takes', 'Stock taking')}
+                </div>
+              </>
+            ) : group === 'staff' ? (
+              <>
+                <p>
+                  People, roles and PINs. PINs are unique among active staff, never shown after they are set,
+                  and locked out after repeated wrong attempts. Owners and managers also use an email and
+                  password for the back office.
+                </p>
+                <div className="row">{link('/staff', 'Staff & roles')}</div>
+              </>
+            ) : (
+              <>
+                <p>
+                  Automatic promotions (percentage off, amount off, promotional price, bundles) with dates,
+                  days and times. Manager discounts are separate: they need the discount permission and a
+                  reason, and are recorded in the audit history.
+                </p>
+                <div className="row">
+                  {hasPermission(me, 'promotions.manage') ? link('/promotions', 'Promotions') : null}
+                </div>
+              </>
+            )}
+          </div>
+        </section>
       )}
     </Shell>
   );
@@ -231,10 +349,12 @@ function BranchForm({
   config,
   branch,
   save,
+  onDirty,
 }: {
   config: ConfigurationView;
   branch: Row;
   save: (e: ConfigEntity, r: Row) => Promise<string | null>;
+  onDirty: (dirty: boolean) => void;
 }) {
   const toast = useToast();
   const [r, setR] = useState({
@@ -249,6 +369,16 @@ function BranchForm({
     businessDayCutoff: str(branch.businessDayCutoff),
   });
   const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(() => JSON.stringify({ r, f }));
+  const dirty = JSON.stringify({ r, f }) !== saved;
+  useEffect(() => onDirty(dirty), [dirty, onDirty]);
+  // Unsaved-change protection when closing or reloading the tab.
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -266,7 +396,10 @@ function BranchForm({
         businessDayCutoff: f.businessDayCutoff,
       }));
     setBusy(false);
-    if (ok) toast('Settings saved');
+    if (ok) {
+      setSaved(JSON.stringify({ r, f }));
+      toast('Settings saved');
+    }
   }
   return (
     <section className="card">
@@ -319,7 +452,8 @@ function BranchForm({
           </dl>
         </FormSection>
         <div className="form-actions">
-          <button type="submit" className="btn primary" disabled={busy}>
+          {dirty ? <span className="small muted grow">Unsaved changes</span> : null}
+          <button type="submit" className="btn primary" disabled={busy || !dirty}>
             {busy ? 'Saving…' : 'Save settings'}
           </button>
         </div>

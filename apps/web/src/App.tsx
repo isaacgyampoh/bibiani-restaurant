@@ -13,6 +13,7 @@ import { KdsScreen } from './features/kds/KdsScreen';
 import { MenuPage } from './features/menu/MenuPage';
 import { OrdersPage } from './features/orders/OrdersPage';
 import { PosScreen } from './features/pos/PosScreen';
+import { PromotionsPage } from './features/promotions/PromotionsPage';
 import { ReportsPage } from './features/reports/ReportsPage';
 import { DevicesPage, FloorPage, RoutingPage, SettingsPage } from './features/setup/SetupPages';
 import { StaffPage } from './features/staff/StaffPage';
@@ -118,6 +119,7 @@ export function App() {
   if (path.startsWith('/routing')) return <RoutingPage me={me} />;
   if (path.startsWith('/floor')) return <FloorPage me={me} />;
   if (path.startsWith('/staff')) return <StaffPage me={me} />;
+  if (path.startsWith('/promotions')) return <PromotionsPage me={me} />;
   if (path.startsWith('/devices') || path.startsWith('/admin')) return <DevicesPage me={me} />;
   if (path.startsWith('/reports')) return <ReportsPage me={me} />;
   if (path.startsWith('/settings')) return <SettingsPage me={me} />;

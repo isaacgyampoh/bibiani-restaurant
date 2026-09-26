@@ -1,5 +1,5 @@
 import type { MenuView, MeView, OrderSummaryView, OrderView } from '@rp/contracts';
-import { useMemo, useState } from 'react';
+import { type FormEvent, useMemo, useState } from 'react';
 import { api, hasPermission, topics } from '../../infra/session';
 import { useFeed } from '../../infra/use-feed';
 import { Badge, ConnectionDot, ErrorBox, Field, Modal, Money, useToast } from '../../ui/components';
@@ -53,7 +53,9 @@ export function OrderScreen({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [modFor, setModFor] = useState<Product | null>(null);
-  const [dialog, setDialog] = useState<'pay' | 'correct' | 'receipt' | 'move' | 'merge' | null>(null);
+  const [dialog, setDialog] = useState<'pay' | 'correct' | 'receipt' | 'move' | 'merge' | 'discount' | null>(
+    null,
+  );
   const [printed, setPrinted] = useState<string | null>(null);
 
   const feed = useFeed<OrderView | null>(known ? `order:${orderId}` : null, () => api.getOrder(orderId), {
@@ -97,7 +99,14 @@ export function OrderScreen({
       .flatMap((g) => g.modifiers)
       .filter((m) => l.modifierIds.includes(m.id))
       .reduce((a, m) => a + m.priceDelta, 0);
-  const cartEstimate = cart.reduce((acc, l) => acc + unitPrice(l) * l.quantity, 0);
+  /** Estimate only: the server applies the promotion live when the items are added. */
+  const promoSaving = (l: CartLine) => {
+    const p = l.product.promotion;
+    if (!p) return 0;
+    return Math.floor(l.quantity / p.minQuantity) * p.saving;
+  };
+  const lineEstimate = (l: CartLine) => unitPrice(l) * l.quantity - promoSaving(l);
+  const cartEstimate = cart.reduce((acc, l) => acc + lineEstimate(l), 0);
 
   async function run(label: string, fn: () => Promise<OrderView | unknown>) {
     setBusy(label);
@@ -229,9 +238,25 @@ export function OrderScreen({
                 onClick={() => (p.modifierGroups.length ? setModFor(p) : add(p))}
               >
                 <span className="name">{p.name}</span>
+                {p.promotion && p.isAvailable ? (
+                  <span className="promo-tag" title={p.promotion.name}>
+                    {p.promotion.label}
+                  </span>
+                ) : null}
                 <span className="row">
                   <span className="price grow">
-                    {p.isAvailable ? <Money minor={p.price} currency={menu.currency} /> : 'Sold out'}
+                    {!p.isAvailable ? (
+                      'Sold out'
+                    ) : p.promotion && p.promotion.minQuantity === 1 ? (
+                      <>
+                        <s className="was">
+                          <Money minor={p.price} currency={menu.currency} />
+                        </s>{' '}
+                        <Money minor={p.promotion.price} currency={menu.currency} />
+                      </>
+                    ) : (
+                      <Money minor={p.price} currency={menu.currency} />
+                    )}
                   </span>
                   {p.modifierGroups.length ? <span className="mods">OPTIONS</span> : null}
                 </span>
@@ -278,6 +303,11 @@ export function OrderScreen({
                   </button>
                 </>
               ) : null}
+              {hasPermission(me, 'discount.apply') && order.items.some((i) => i.status !== 'voided') ? (
+                <button type="button" className="btn sm" onClick={() => setDialog('discount')}>
+                  {order.discount ? 'Discount ✓' : 'Discount'}
+                </button>
+              ) : null}
               {hasPermission(me, 'order.cancel') || hasPermission(me, 'order.void') ? (
                 <button type="button" className="btn sm" onClick={() => setDialog('correct')}>
                   Cancel / void…
@@ -313,10 +343,22 @@ export function OrderScreen({
                   <strong>
                     {i.quantity} × {i.name}
                   </strong>
-                  <Money minor={i.lineTotal} currency={menu.currency} />
+                  <span>
+                    {i.grossTotal !== i.lineTotal ? (
+                      <s className="was">
+                        <Money minor={i.grossTotal} currency={menu.currency} />
+                      </s>
+                    ) : null}{' '}
+                    <Money minor={i.lineTotal} currency={menu.currency} />
+                  </span>
                 </div>
                 {i.modifiers.length ? (
                   <div className="sub">+ {i.modifiers.map((m) => m.name).join(', ')}</div>
+                ) : null}
+                {i.promotion ? (
+                  <div className="sub promo-line">
+                    {i.promotion.name} −<Money minor={i.promotion.discount} currency={menu.currency} />
+                  </div>
                 ) : null}
                 {i.notes ? <div className="note-text">“{i.notes}”</div> : null}
                 <div className="row small">
@@ -333,8 +375,21 @@ export function OrderScreen({
             <div key={l.id} className="line new">
               <div className="name-row">
                 <strong>{l.product.name}</strong>
-                <Money minor={unitPrice(l) * l.quantity} currency={menu.currency} />
+                <span>
+                  {promoSaving(l) > 0 ? (
+                    <s className="was">
+                      <Money minor={unitPrice(l) * l.quantity} currency={menu.currency} />
+                    </s>
+                  ) : null}{' '}
+                  <Money minor={lineEstimate(l)} currency={menu.currency} />
+                </span>
               </div>
+              {l.product.promotion ? (
+                <div className="sub promo-line">
+                  {l.product.promotion.name}
+                  {promoSaving(l) === 0 ? ` · buy ${l.product.promotion.minQuantity} to get it` : ''}
+                </div>
+              ) : null}
               {l.modifierIds.length ? (
                 <div className="sub">
                   +{' '}
@@ -397,6 +452,28 @@ export function OrderScreen({
             ) : null}
             {order ? (
               <>
+                {order.items.some((i) => i.promotion) ? (
+                  <>
+                    <span className="muted">Promotions</span>
+                    <span className="promo-line">
+                      −
+                      <Money
+                        minor={order.items
+                          .filter((i) => i.status !== 'voided' && i.status !== 'cancelled')
+                          .reduce((a, i) => a + (i.promotion?.discount ?? 0), 0)}
+                        currency={menu.currency}
+                      />
+                    </span>
+                  </>
+                ) : null}
+                {order.discount ? (
+                  <>
+                    <span className="muted">Discount ({order.discount.reason})</span>
+                    <span className="promo-line">
+                      −<Money minor={order.discount.amount} currency={menu.currency} />
+                    </span>
+                  </>
+                ) : null}
                 <span className="muted">Tax (included)</span>
                 <Money minor={order.taxTotal} currency={menu.currency} />
                 <span className="muted">Paid</span>
@@ -557,6 +634,18 @@ export function OrderScreen({
             setDialog(null);
             toast(`Order #${o.orderNumber} moved`);
             onOpenOrder({ id: o.id, areaId: o.areaId, tableId: o.table?.id ?? null });
+          }}
+        />
+      ) : null}
+      {dialog === 'discount' && order ? (
+        <DiscountDialog
+          order={order}
+          currency={menu.currency}
+          onClose={() => setDialog(null)}
+          onDone={(message) => {
+            setDialog(null);
+            feed.refresh();
+            toast(message);
           }}
         />
       ) : null}
@@ -930,6 +1019,151 @@ function CorrectionModal({
         </fieldset>
       ) : null}
       <ErrorBox error={error} />
+    </Modal>
+  );
+}
+
+/**
+ * Manager discount (separate from automatic promotions): needs the discount permission and a reason,
+ * never more than what is still unpaid, recorded with who, when, and the totals before and after.
+ */
+function DiscountDialog({
+  order,
+  currency,
+  onClose,
+  onDone,
+}: {
+  order: OrderView;
+  currency: string;
+  onClose: () => void;
+  onDone: (message: string) => void;
+}) {
+  const [kind, setKind] = useState<'amount' | 'percent'>(order.discount?.kind ?? 'amount');
+  const [value, setValue] = useState(
+    // Stored as basis points or minor units: both are hundredths of what is typed.
+    order.discount ? String(order.discount.value / 100) : '',
+  );
+  const [reason, setReason] = useState(order.discount?.reason ?? '');
+  const [discountId] = useState(uuid);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const live = order.items.filter((i) => i.status !== 'voided' && i.status !== 'cancelled');
+  const before = live.reduce((a, i) => a + i.lineTotal + i.manualDiscount, 0);
+  const minor = Math.round(Number(value || 0) * 100);
+  const amount = kind === 'percent' ? Math.round((before * minor) / 10_000) : minor;
+  const paid = order.paidTotal - order.refundedTotal;
+  const maxOff = order.grandTotal + (order.discount?.amount ?? 0) - paid;
+  const tooBig = amount > before || amount > maxOff;
+  async function apply(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const o = await api.applyDiscount(order.id, { discountId, kind, value: minor, reason: reason.trim() });
+      onDone(`Discount applied to order #${o.orderNumber}`);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function remove() {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.removeDiscount(order.id);
+      onDone('Discount removed');
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Modal
+      title={`Discount — order #${order.orderNumber}`}
+      onClose={onClose}
+      footer={
+        <>
+          {order.discount ? (
+            <button type="button" className="btn danger" disabled={busy} onClick={() => void remove()}>
+              Remove discount
+            </button>
+          ) : null}
+          <span className="grow" />
+          <button type="button" className="btn" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="discount-form"
+            className="btn primary"
+            disabled={busy || amount <= 0 || tooBig || reason.trim().length < 3}
+          >
+            {busy ? 'Applying…' : order.discount ? 'Replace discount' : 'Apply discount'}
+          </button>
+        </>
+      }
+    >
+      <form id="discount-form" className="form" onSubmit={apply}>
+        <div className="muted small">
+          A manager discount is recorded with your name, the reason and the totals before and after. Automatic
+          promotions are applied separately and are not affected.
+        </div>
+        <div className="seg">
+          {(
+            [
+              ['amount', `Amount (${currency})`],
+              ['percent', 'Percentage'],
+            ] as const
+          ).map(([k, label]) => (
+            <button
+              key={k}
+              type="button"
+              aria-pressed={kind === k}
+              className={kind === k ? 'on' : ''}
+              onClick={() => setKind(k)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <Field label={kind === 'percent' ? 'Percentage off' : `Amount off (${currency})`} required>
+          <input
+            type="number"
+            min={0.01}
+            step={0.01}
+            max={kind === 'percent' ? 100 : undefined}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+          />
+        </Field>
+        <Field label="Reason" required hint="e.g. Regular customer, late food, staff meal">
+          <input value={reason} maxLength={200} onChange={(e) => setReason(e.target.value)} />
+        </Field>
+        <div className="totals">
+          <span className="muted">Items</span>
+          <Money minor={before} currency={currency} />
+          <span className="muted">Discount</span>
+          <span>
+            −<Money minor={Math.max(0, amount)} currency={currency} />
+          </span>
+          <strong>New total</strong>
+          <strong>
+            <Money
+              minor={Math.max(0, order.grandTotal + (order.discount?.amount ?? 0) - amount)}
+              currency={currency}
+            />
+          </strong>
+        </div>
+        {tooBig ? (
+          <div className="field-error">
+            That is more than what is still unpaid (<Money minor={Math.max(0, maxOff)} currency={currency} />
+            ).
+          </div>
+        ) : null}
+        <ErrorBox error={error} />
+      </form>
     </Modal>
   );
 }

@@ -98,6 +98,64 @@ export function ReportsPage({ me }: { me: MeView }) {
               tone={report.totals.voidedItems + report.totals.cancelledOrders ? 'warn' : undefined}
             />
           </div>
+          <section className="card">
+            <div className="card-head">
+              <h2>Gross to net</h2>
+            </div>
+            <div className="table-scroll">
+              <table className="list">
+                <tbody>
+                  <tr>
+                    <td>Items at normal prices (gross)</td>
+                    <td className="num">{money(report.totals.gross)}</td>
+                  </tr>
+                  <tr>
+                    <td>Automatic promotions</td>
+                    <td className="num">−{money(report.totals.promotionDiscounts)}</td>
+                  </tr>
+                  <tr>
+                    <td>Manager discounts</td>
+                    <td className="num">−{money(report.totals.manualDiscounts)}</td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong>Net item sales</strong>
+                    </td>
+                    <td className="num">
+                      <strong>{money(report.totals.itemSales)}</strong>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      Cost of goods
+                      <div className="small muted">Order lines do not record a cost price yet.</div>
+                    </td>
+                    <td className="num muted">NOT RECORDED</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            {report.byPromotion.length ? (
+              <table className="list">
+                <thead>
+                  <tr>
+                    <th>Promotion</th>
+                    <th className="num">Items</th>
+                    <th className="num">Given away</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.byPromotion.map((p) => (
+                    <tr key={p.name}>
+                      <td>{p.name}</td>
+                      <td className="num">{p.quantity}</td>
+                      <td className="num">{money(p.discount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : null}
+          </section>
           <div className="grid-2">
             <section className="card">
               <div className="card-head">
@@ -108,7 +166,8 @@ export function ReportsPage({ me }: { me: MeView }) {
                   <tr>
                     <th>Product</th>
                     <th className="num">Qty</th>
-                    <th className="num">Sales</th>
+                    <th className="num">Gross</th>
+                    <th className="num">Net</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -119,6 +178,7 @@ export function ReportsPage({ me }: { me: MeView }) {
                         <div className="small muted">{p.category}</div>
                       </td>
                       <td className="num">{p.quantity}</td>
+                      <td className="num muted">{money(p.gross)}</td>
                       <td className="num">{money(p.sales)}</td>
                     </tr>
                   ))}

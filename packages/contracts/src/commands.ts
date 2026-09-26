@@ -157,3 +157,43 @@ export const SaveRecipeCommand = z.object({
   components: z.array(z.object({ itemId: uuid, quantity: quantity.positive() })).max(30),
 });
 export type SaveRecipeCommand = z.infer<typeof SaveRecipeCommand>;
+
+// Pricing: promotions (automatic) and manager discounts (manual).
+const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use HH:MM');
+const day = z.iso.date();
+export const SavePromotionCommand = z.object({
+  id: uuid.nullish(),
+  expectedVersion: z.number().int().positive().nullish(),
+  name: text(60).min(1),
+  kind: z.enum(['percent_off', 'amount_off', 'fixed_price', 'bundle_price']),
+  percentBp: z.number().int().min(1).max(10_000).nullish(),
+  amount: minor.nullish(),
+  bundleQuantity: z.number().int().min(2).max(99).nullish(),
+  appliesToAll: z.boolean().default(false),
+  productIds: z.array(uuid).max(500).default([]),
+  categoryIds: z.array(uuid).max(200).default([]),
+  branchId: uuid.nullish(),
+  startsOn: day.nullish(),
+  endsOn: day.nullish(),
+  daysOfWeek: z.array(z.number().int().min(0).max(6)).max(7).nullish(),
+  startTime: hhmm.nullish(),
+  endTime: hhmm.nullish(),
+  priority: z.number().int().min(0).max(100).default(0),
+  status: z.enum(['active', 'paused']).default('active'),
+});
+export type SavePromotionCommand = z.infer<typeof SavePromotionCommand>;
+
+export const SetPromotionStatusCommand = z.object({
+  action: z.enum(['activate', 'pause', 'end']),
+  expectedVersion: z.number().int().positive(),
+});
+export type SetPromotionStatusCommand = z.infer<typeof SetPromotionStatusCommand>;
+
+export const ManualDiscountCommand = z.object({
+  discountId: uuid,
+  kind: z.enum(['amount', 'percent']),
+  /** Minor units, or basis points for a percentage (1000 = 10%). */
+  value: z.number().int().positive().max(1_000_000_000),
+  reason: text(200).min(3),
+});
+export type ManualDiscountCommand = z.infer<typeof ManualDiscountCommand>;

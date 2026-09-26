@@ -55,7 +55,9 @@ describe('Staff PINs, floor operations, stock reversal, kitchen prices, branded 
       expect(row!.pin_lookup).toMatch(/^[0-9a-f]{64}$/);
       expect(row!.pin_lookup).not.toContain('4821');
       const config = JSON.stringify(await t.app.getConfiguration.execute(await owner()));
-      expect(config).not.toMatch(/pin_lookup|pinLookup|4821/);
+      // (Checked by field name and by the stored digest: a 4-digit string can occur inside random ids.)
+      expect(config).not.toMatch(/pin_lookup|pinLookup/);
+      expect(config).not.toContain(row!.pin_lookup);
       // Cashiers cannot assign PINs.
       await expect(
         t.app.assignStaffPin.execute(await t.as(f.authUsers.cashier), waiter, '7310'),
@@ -148,6 +150,29 @@ describe('Staff PINs, floor operations, stock reversal, kitchen prices, branded 
       expect(auth.recoveryEmails.slice(before)).toEqual([
         { email: 'esi@example.com', redirectTo: 'https://app.test/reset-pin' },
       ]);
+    });
+  });
+
+  describe('PINs and deactivation', () => {
+    it('deactivating someone frees their PIN (unique among active staff); nobody can deactivate themselves', async () => {
+      const esi = await staffIdOf(f.authUsers.waiter);
+      const kofi = await staffIdOf(f.authUsers.cashier);
+      await t.app.assignStaffPin.execute(await owner(), esi, '6153');
+      await expect(t.app.assignStaffPin.execute(await owner(), kofi, '6153')).rejects.toMatchObject({
+        code: 'PIN_IN_USE',
+      });
+      await t.app.updateStaff.execute(await owner(), esi, { isActive: false });
+      const [row] = await db.query<{ pin_lookup: string | null }>(
+        'select pin_lookup from staff where id = $1',
+        [esi],
+      );
+      expect(row!.pin_lookup).toBeNull();
+      await t.app.assignStaffPin.execute(await owner(), kofi, '6153');
+      await t.app.updateStaff.execute(await owner(), esi, { isActive: true });
+      const me = await owner();
+      await expect(
+        t.app.updateStaff.execute(me, me.principal.staffId!, { isActive: false }),
+      ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
     });
   });
 

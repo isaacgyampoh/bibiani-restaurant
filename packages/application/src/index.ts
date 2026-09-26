@@ -37,6 +37,14 @@ import {
   RetryPrintJob,
 } from './use-cases/printing';
 import {
+  ApplyManualDiscount,
+  ListPromotions,
+  PreviewPromotion,
+  RemoveManualDiscount,
+  SavePromotion,
+  SetPromotionStatus,
+} from './use-cases/promotions';
+import {
   GetCustomerBoard,
   GetOrder,
   GetStationBoard,
@@ -113,6 +121,12 @@ export function createApplication(deps: Dependencies) {
     createPairingCode: new CreatePairingCode(deps),
     pairDevice: new PairDevice(deps),
     revokeDevice: new RevokeDevice(deps),
+    listPromotions: new ListPromotions(deps),
+    previewPromotion: new PreviewPromotion(deps),
+    savePromotion: new SavePromotion(deps),
+    setPromotionStatus: new SetPromotionStatus(deps),
+    applyManualDiscount: new ApplyManualDiscount(deps),
+    removeManualDiscount: new RemoveManualDiscount(deps),
   };
 }
 export type Application = ReturnType<typeof createApplication>;

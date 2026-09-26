@@ -99,7 +99,7 @@ describe.skipIf(HOSTED)('Query budget per operation', () => {
       'KDS ticket ready': 17,
       'record payment': 14,
       'station board (KDS load)': 6,
-      'menu (POS load)': 8,
+      'menu (POS load)': 10, // + live promotions and the branch time zone
       'print agent claim': 9,
     };
     for (const r of results) expect(r.queries, r.name).toBeLessThanOrEqual(budget[r.name]!);

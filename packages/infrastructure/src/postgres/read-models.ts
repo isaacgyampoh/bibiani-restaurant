@@ -30,7 +30,12 @@ export function createReadModels(sql: Sql): ReadModels {
     async order(orderId): Promise<OrderView | null> {
       const [o] = await sql.query(
         `select o.*, o.business_day::text as business_day_text, a.name as area_name, t.label as table_label, r.currency,
-                (select count(*) from print_jobs pj where pj.order_id = o.id and pj.kind = 'receipt')::int as receipts_printed
+                (select count(*) from print_jobs pj where pj.order_id = o.id and pj.kind = 'receipt')::int as receipts_printed,
+                (select json_build_object('id', d.id, 'kind', d.kind, 'value', d.value, 'amount', d.amount,
+                   'reason', d.reason, 'originalTotal', d.original_total, 'finalTotal', d.final_total,
+                   'appliedBy', st.display_name, 'createdAt', d.created_at)
+                 from order_discounts d left join staff st on st.id = d.applied_by_staff_id
+                 where d.order_id = o.id and d.removed_at is null) as discount
          from orders o
          join operational_areas a on a.id = o.area_id
          join restaurants r on r.id = o.restaurant_id
@@ -63,6 +68,7 @@ export function createReadModels(sql: Sql): ReadModels {
         ),
         sql.query('select * from payments where order_id = $1 order by created_at, id', [orderId]),
       ]);
+      const d = (o.discount ?? null) as Record<string, unknown> | null;
       const paid = num(o.paid_total);
       const refunded = num(o.refunded_total);
       return {
@@ -95,6 +101,19 @@ export function createReadModels(sql: Sql): ReadModels {
         isRush: Boolean(o.is_rush),
         mergedIntoOrderId: sn(o.merged_into_order_id),
         receiptsPrinted: num(o.receipts_printed),
+        discount: d
+          ? {
+              id: s(d.id),
+              kind: d.kind as 'amount' | 'percent',
+              value: num(d.value),
+              amount: num(d.amount),
+              reason: s(d.reason),
+              originalTotal: num(d.originalTotal),
+              finalTotal: num(d.finalTotal),
+              appliedBy: sn(d.appliedBy),
+              createdAt: isoOf(d.createdAt)!,
+            }
+          : null,
         items: items.map((i) => ({
           id: s(i.id),
           productId: s(i.product_id),
@@ -107,6 +126,11 @@ export function createReadModels(sql: Sql): ReadModels {
               priceDelta: num(m.priceDelta),
             }),
           ),
+          grossTotal: num(i.gross_total),
+          promotion: i.promotion_name
+            ? { id: sn(i.promotion_id), name: s(i.promotion_name), discount: num(i.promotion_discount) }
+            : null,
+          manualDiscount: num(i.manual_discount),
           lineTotal: num(i.line_total),
           taxTotal: num(i.tax_total),
           notes: sn(i.notes),
@@ -230,6 +254,7 @@ export function createReadModels(sql: Sql): ReadModels {
         ),
         sql.query(
           `select pti.ticket_id, i.id, i.quantity, coalesce(i.kitchen_name, i.name) as name, i.notes, i.status, i.line_total,
+                  i.unit_price, i.gross_total, i.promotion_name, i.promotion_discount, i.manual_discount,
              coalesce((select json_agg(m.name order by m.name) from order_item_modifiers m where m.order_item_id = i.id), '[]'::json) as modifiers
            from production_ticket_items pti
            join production_tickets t on t.id = pti.ticket_id
@@ -285,7 +310,23 @@ export function createReadModels(sql: Sql): ReadModels {
                 modifiers: i.modifiers as string[],
                 notes: sn(i.notes),
                 status: i.status as StationTicketView['items'][number]['status'],
-                lineTotal: station.show_prices ? num(i.line_total) : null,
+                ...(station.show_prices
+                  ? {
+                      unitPrice: num(i.unit_price),
+                      grossTotal: num(i.gross_total),
+                      promotionName: sn(i.promotion_name),
+                      promotionDiscount: num(i.promotion_discount),
+                      manualDiscount: num(i.manual_discount),
+                      lineTotal: num(i.line_total),
+                    }
+                  : {
+                      unitPrice: null,
+                      grossTotal: null,
+                      promotionName: null,
+                      promotionDiscount: null,
+                      manualDiscount: null,
+                      lineTotal: null,
+                    }),
               })),
           }),
         ),
@@ -371,6 +412,7 @@ export function createReadModels(sql: Sql): ReadModels {
           categoryId: s(p.category_id),
           name: s(p.name),
           price: num(p.price),
+          promotion: null,
           isAvailable: Boolean(p.is_available),
           modifierGroups: groups
             .filter((g) => g.product_id === p.id)
@@ -513,9 +555,11 @@ export function createReadModels(sql: Sql): ReadModels {
       if (!o) return null;
       const [items, taxes, payments] = await Promise.all([
         sql.query(
-          `select i.quantity, i.name, i.unit_price, i.line_total, i.status,
+          `select i.quantity, i.name, i.unit_price, i.line_total, i.gross_total, i.promotion_name, i.promotion_discount,
+             i.manual_discount, i.status,
              coalesce((select json_agg(json_build_object('name', m.name, 'priceDelta', m.price_delta) order by m.name)
-                       from order_item_modifiers m where m.order_item_id = i.id), '[]'::json) as modifiers
+                       from order_item_modifiers m where m.order_item_id = i.id), '[]'::json) as modifiers,
+             (select d.reason from order_discounts d where d.order_id = i.order_id and d.removed_at is null) as discount_reason
            from order_items i where i.order_id = $1 order by i.position`,
           [orderId],
         ),
@@ -531,6 +575,8 @@ export function createReadModels(sql: Sql): ReadModels {
         ]),
       ]);
       const grand = num(o.grand_total);
+      const live = items.filter((i) => i.status !== 'voided' && i.status !== 'cancelled');
+      const total = (k: string) => live.reduce((a, i) => a + num(i[k]), 0);
       return {
         restaurantName: s(o.restaurant_name),
         restaurantPhone: sn(o.restaurant_phone),
@@ -547,6 +593,9 @@ export function createReadModels(sql: Sql): ReadModels {
           quantity: num(i.quantity),
           name: s(i.name),
           unitPrice: num(i.unit_price),
+          grossTotal: num(i.gross_total),
+          promotionName: sn(i.promotion_name),
+          promotionDiscount: num(i.promotion_discount),
           lineTotal: num(i.line_total),
           modifiers: (i.modifiers as { name: string; priceDelta: unknown }[]).map((m) => ({
             name: m.name,
@@ -554,8 +603,10 @@ export function createReadModels(sql: Sql): ReadModels {
           })),
           voided: i.status === 'voided' || i.status === 'cancelled',
         })),
-        subtotal: num(o.subtotal),
-        discountTotal: 0,
+        subtotal: total('gross_total'),
+        promotionTotal: total('promotion_discount'),
+        discountTotal: total('manual_discount'),
+        discountReason: sn(items[0]?.discount_reason),
         taxes: taxes.map((t) => ({
           name: s(t.name),
           rateBp: num(t.rate_bp),

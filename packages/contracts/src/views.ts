@@ -22,6 +22,13 @@ export interface OrderItemView {
   quantity: number;
   unitPrice: number;
   modifiers: { modifierId: string; name: string; priceDelta: number }[];
+  /** (unit price + modifiers) × quantity, before any promotion or discount. */
+  grossTotal: number;
+  /** Automatic promotion applied when the item was added (snapshot). */
+  promotion: { id: string | null; name: string; discount: number } | null;
+  /** This line's share of a manager discount on the order. */
+  manualDiscount: number;
+  /** What the line costs: gross − promotion − manager discount. */
   lineTotal: number;
   taxTotal: number;
   notes: string | null;
@@ -88,6 +95,8 @@ export interface OrderView {
   mergedIntoOrderId: string | null;
   /** Receipts queued so far; the next print is a REPRINT when this is above zero. */
   receiptsPrinted: number;
+  /** Active manager discount on this order, if any. */
+  discount: ManualDiscountView | null;
   items: OrderItemView[];
   tickets: TicketView[];
   payments: PaymentView[];
@@ -133,7 +142,13 @@ export interface StationTicketView {
     modifiers: string[];
     notes: string | null;
     status: OrderItemStatus;
-    /** Authoritative line total from the order, only when the station is set to show prices. */
+    // Price snapshot from the order line; all null when the station hides prices.
+    unitPrice: number | null;
+    grossTotal: number | null;
+    promotionName: string | null;
+    promotionDiscount: number | null;
+    /** This line's share of a manager discount on the order. */
+    manualDiscount: number | null;
     lineTotal: number | null;
   }[];
 }
@@ -255,6 +270,19 @@ export interface MenuView {
     categoryId: string;
     name: string;
     price: number;
+    /** The promotion live right now for one unit of this product (the POS shows it; the server decides). */
+    /**
+     * `saving` is what the promotion takes off every `minQuantity` units (1, or the bundle size);
+     * `price` is the per-unit price shown on the button.
+     */
+    promotion: {
+      id: string;
+      name: string;
+      price: number;
+      label: string;
+      minQuantity: number;
+      saving: number;
+    } | null;
     isAvailable: boolean;
     modifierGroups: {
       id: string;
@@ -391,6 +419,9 @@ export interface DashboardView {
     net: number;
     orders: number;
     averageOrder: number;
+    /** Today's automatic promotion and manager discounts on sold items. */
+    promotionDiscounts: number;
+    manualDiscounts: number;
     byMethod: { method: 'cash' | 'momo' | 'card'; amount: number; count: number }[];
   };
   orders: {
@@ -413,7 +444,11 @@ export interface DashboardView {
     readyToday: number;
     averagePrepSeconds: number | null;
   }[];
-  inventory: { lowStockItems: number; openStockCounts: number };
+  inventory: { lowStockItems: number; outOfStockItems: number; openStockCounts: number };
+  promotions: {
+    live: { id: string; name: string; summary: string }[];
+    upcoming: { id: string; name: string; summary: string; startsOn: string | null }[];
+  };
   recentOrders: OrderSummaryView[];
   generatedAt: string;
 }
@@ -536,12 +571,81 @@ export interface SalesReportView {
     cancelledOrders: number;
     voidedItems: number;
     voidedValue: number;
+    /** Items at normal prices, before promotions and manager discounts. */
+    gross: number;
+    promotionDiscounts: number;
+    manualDiscounts: number;
+    /** Net item sales (gross − discounts). Payments may differ by exclusive tax and unpaid bills. */
+    itemSales: number;
+    /** Not recorded yet: order lines do not keep a cost price. */
+    cost: null;
   };
+  byPromotion: { name: string; lines: number; quantity: number; discount: number }[];
   byDay: { day: string; net: number; orders: number }[];
   byMethod: { method: 'cash' | 'momo' | 'card'; amount: number; count: number }[];
   byHour: { hour: number; orders: number; sales: number }[];
-  byProduct: { name: string; category: string | null; quantity: number; sales: number }[];
+  byProduct: {
+    name: string;
+    category: string | null;
+    quantity: number;
+    gross: number;
+    discounts: number;
+    sales: number;
+    cost: null;
+  }[];
   byCategory: { name: string; quantity: number; sales: number }[];
   byArea: { name: string; orders: number; sales: number }[];
   stations: { name: string; tickets: number; averagePrepSeconds: number | null }[];
+}
+
+export type PromotionPhase = 'live' | 'scheduled' | 'upcoming' | 'paused' | 'ended';
+export interface PromotionView {
+  id: string;
+  name: string;
+  kind: 'percent_off' | 'amount_off' | 'fixed_price' | 'bundle_price';
+  percentBp: number | null;
+  amount: number | null;
+  bundleQuantity: number | null;
+  appliesToAll: boolean;
+  productIds: string[];
+  categoryIds: string[];
+  branchId: string | null;
+  startsOn: string | null;
+  endsOn: string | null;
+  daysOfWeek: number[] | null;
+  startTime: string | null;
+  endTime: string | null;
+  priority: number;
+  status: 'active' | 'paused';
+  phase: PromotionPhase;
+  /** Plain-language rule, e.g. "3 for GH₵ 25.00 · Fri, Sat, 17:00–22:00". */
+  summary: string;
+  createdAt: string;
+  createdBy: string | null;
+  updatedBy: string | null;
+  updatedAt: string;
+  version: number;
+}
+
+export interface PromotionPreviewView {
+  valid: boolean;
+  error: string | null;
+  summary: string;
+  phase: PromotionPhase;
+  lines: { productId: string; name: string; quantity: number; normalPrice: number; promoPrice: number }[];
+  /** Names of promotions this one would clash with (same items, same time, same priority). */
+  conflicts: string[];
+  restaurantDate: string;
+}
+
+export interface ManualDiscountView {
+  id: string;
+  kind: 'amount' | 'percent';
+  value: number;
+  amount: number;
+  reason: string;
+  originalTotal: number;
+  finalTotal: number;
+  appliedBy: string | null;
+  createdAt: string;
 }

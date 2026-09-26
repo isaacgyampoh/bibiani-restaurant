@@ -300,6 +300,19 @@ function Board({
                         + {m}
                       </span>
                     ))}
+                    {i.unitPrice !== null && i.grossTotal !== null ? (
+                      <span className="price-calc">
+                        {i.quantity} × {money(i.unitPrice)}
+                        {i.grossTotal !== i.quantity * i.unitPrice ? ' + extras' : ''} = {money(i.grossTotal)}
+                        {i.promotionName && i.promotionDiscount ? (
+                          <>
+                            {' '}
+                            · {i.promotionName} −{money(i.promotionDiscount)}
+                          </>
+                        ) : null}
+                        {i.manualDiscount ? <> · Discount −{money(i.manualDiscount)}</> : null}
+                      </span>
+                    ) : null}
                     {i.notes ? <span className="note">! {i.notes}</span> : null}
                   </li>
                 ))}

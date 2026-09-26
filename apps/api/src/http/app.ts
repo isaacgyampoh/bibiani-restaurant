@@ -10,6 +10,7 @@ import {
   CreateStaffCommand,
   FulfilOrderCommand,
   HeartbeatCommand,
+  ManualDiscountCommand,
   MergeOrderCommand,
   OrderPriorityCommand,
   PairDeviceCommand,
@@ -22,8 +23,10 @@ import {
   RecordStockMovementCommand,
   RefundPaymentCommand,
   SaveInventoryItemCommand,
+  SavePromotionCommand,
   SaveRecipeCommand,
   SendToKitchenCommand,
+  SetPromotionStatusCommand,
   SetTableStatusCommand,
   StartStockCountCommand,
   StockCountDecisionCommand,
@@ -477,6 +480,38 @@ export function createHttpApp(deps: HttpDependencies) {
         (await body(c, OrderPriorityCommand)).rush,
       ),
     ),
+  );
+
+  // Pricing: automatic promotions and manager discounts
+  v1.get('/promotions', async (c) => c.json(await deps.app.listPromotions.execute(c.var.ctx)));
+  v1.post('/promotions/preview', async (c) =>
+    c.json(await deps.app.previewPromotion.execute(c.var.ctx, await body(c, SavePromotionCommand))),
+  );
+  v1.post('/promotions', async (c) =>
+    c.json(await deps.app.savePromotion.execute(c.var.ctx, await body(c, SavePromotionCommand))),
+  );
+  v1.post('/promotions/:promotionId/status', async (c) => {
+    const cmd = await body(c, SetPromotionStatusCommand);
+    return c.json(
+      await deps.app.setPromotionStatus.execute(
+        c.var.ctx,
+        id(c, 'promotionId'),
+        cmd.action,
+        cmd.expectedVersion,
+      ),
+    );
+  });
+  v1.post('/orders/:orderId/discount', async (c) =>
+    c.json(
+      await deps.app.applyManualDiscount.execute(
+        c.var.ctx,
+        id(c, 'orderId'),
+        await body(c, ManualDiscountCommand),
+      ),
+    ),
+  );
+  v1.delete('/orders/:orderId/discount', async (c) =>
+    c.json(await deps.app.removeManualDiscount.execute(c.var.ctx, id(c, 'orderId'))),
   );
 
   // Staff PINs (sign-in happens on a registered till: the caller is the till's device login)

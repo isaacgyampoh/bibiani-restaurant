@@ -51,6 +51,7 @@ export function DashboardPage({ me }: { me: MeView }) {
         <Skeleton rows={6} />
       ) : (
         <>
+          <h2 className="section-title">Today</h2>
           <div className="metrics">
             <Stat
               label="Sales today"
@@ -59,6 +60,21 @@ export function DashboardPage({ me }: { me: MeView }) {
               tone="ok"
             />
             <Stat label="Average order" value={money(d.sales.averageOrder)} />
+            <Stat
+              label="Promotions given"
+              value={money(d.sales.promotionDiscounts)}
+              hint="automatic, on items sold"
+            />
+            <Stat
+              label="Manager discounts"
+              value={money(d.sales.manualDiscounts)}
+              hint="with reasons, audited"
+              tone={d.sales.manualDiscounts ? 'warn' : undefined}
+            />
+          </div>
+
+          <h2 className="section-title">Operations</h2>
+          <div className="metrics">
             <Stat
               label="Open orders"
               value={d.orders.open}
@@ -84,17 +100,6 @@ export function DashboardPage({ me }: { me: MeView }) {
               tone={d.orders.awaitingPayment ? 'warn' : undefined}
             />
             <Stat label="Tables occupied" value={`${d.tables.occupied} / ${d.tables.total}`} />
-            <Stat
-              label="Low stock"
-              value={d.inventory.lowStockItems}
-              hint={
-                d.inventory.openStockCounts
-                  ? `${d.inventory.openStockCounts} stock count(s) in progress`
-                  : 'items at or below minimum'
-              }
-              tone={d.inventory.lowStockItems ? 'danger' : undefined}
-              href="/inventory"
-            />
           </div>
 
           <div className="grid-2">
@@ -170,6 +175,64 @@ export function DashboardPage({ me }: { me: MeView }) {
                   })}
                 </div>
               )}
+            </section>
+          </div>
+
+          <div className="grid-2">
+            <section>
+              <h2 className="section-title">Inventory</h2>
+              <div className="metrics">
+                <Stat
+                  label="Low stock"
+                  value={d.inventory.lowStockItems}
+                  hint="at or below minimum"
+                  tone={d.inventory.lowStockItems ? 'warn' : undefined}
+                  href="/inventory"
+                />
+                <Stat
+                  label="Out of stock"
+                  value={d.inventory.outOfStockItems}
+                  hint="none left"
+                  tone={d.inventory.outOfStockItems ? 'danger' : undefined}
+                  href="/inventory"
+                />
+                <Stat
+                  label="Stock counts"
+                  value={d.inventory.openStockCounts}
+                  hint="in progress"
+                  href="/stock-takes"
+                />
+              </div>
+            </section>
+            <section>
+              <h2 className="section-title">Promotions</h2>
+              <section className="card">
+                {d.promotions.live.length + d.promotions.upcoming.length === 0 ? (
+                  <Empty title="No promotions running">
+                    {hasPermission(me, 'promotions.manage') ? (
+                      <a href="/promotions" onClick={linkTo('/promotions')}>
+                        Create one →
+                      </a>
+                    ) : null}
+                  </Empty>
+                ) : (
+                  <ul className="plain-list">
+                    {d.promotions.live.map((p) => (
+                      <li key={p.id}>
+                        <Badge value="promo_live" /> <strong>{p.name}</strong>
+                        <div className="small muted">{p.summary}</div>
+                      </li>
+                    ))}
+                    {d.promotions.upcoming.map((p) => (
+                      <li key={p.id}>
+                        <Badge value={p.startsOn ? 'promo_upcoming' : 'promo_scheduled'} />{' '}
+                        <strong>{p.name}</strong>
+                        <div className="small muted">{p.summary}</div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
             </section>
           </div>
 
