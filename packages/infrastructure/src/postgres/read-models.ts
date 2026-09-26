@@ -374,8 +374,13 @@ export function createReadModels(sql: Sql): ReadModels {
           `select id, name, parent_id, sort_order from categories where is_active order by sort_order, name`,
         ),
         sql.query(
-          `select p.id, p.category_id, p.name, p.image_path, coalesce(bp.price_override, p.base_price) as price,
-                  (p.is_active and p.deleted_at is null and coalesce(bp.is_available, true)) as is_available
+          `select p.id, p.category_id, p.name, p.description, p.image_path, coalesce(bp.price_override, p.base_price) as price,
+                  (p.is_active and p.deleted_at is null and coalesce(bp.is_available, true)) as is_available,
+                  (select json_build_object(
+                     'out', coalesce(json_agg(i.name order by i.name) filter (where i.quantity <= 0), '[]'),
+                     'low', coalesce(json_agg(i.name order by i.name) filter (where i.quantity > 0 and i.quantity <= i.min_quantity), '[]'))
+                     from product_recipe_components rc join inventory_items i on i.id = rc.item_id
+                    where rc.product_id = p.id and i.branch_id = $1 and i.is_active) as ingredient_stock
            from products p left join branch_products bp on bp.product_id = p.id and bp.branch_id = $1
            where p.deleted_at is null and p.is_active order by p.name`,
           [branchId],
@@ -411,6 +416,8 @@ export function createReadModels(sql: Sql): ReadModels {
           id: s(p.id),
           categoryId: s(p.category_id),
           name: s(p.name),
+          description: sn(p.description),
+          ingredients: ingredientStock(p.ingredient_stock),
           price: num(p.price),
           imagePath: sn(p.image_path),
           promotion: null,
@@ -539,6 +546,72 @@ export function createReadModels(sql: Sql): ReadModels {
         }),
         generatedAt: now.toISOString(),
       };
+    },
+
+    async activity(filter) {
+      const params: unknown[] = [];
+      const where: string[] = [];
+      if (filter.category) {
+        params.push(ACTIVITY_PATTERNS[filter.category]);
+        where.push(`x.action like any ($${params.length}::text[])`);
+      }
+      if (filter.search) {
+        params.push(`%${filter.search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+        const n = params.length;
+        where.push(
+          `(x.entity_label ilike $${n} or x.actor ilike $${n} or x.reason ilike $${n} or x.action ilike $${n})`,
+        );
+      }
+      if (filter.before !== null) {
+        params.push(filter.before);
+        where.push(`x.id < $${params.length}`);
+      }
+      params.push(filter.limit);
+      const rows = await sql.query(
+        `select * from (
+           select a.id, a.created_at, a.action, a.entity_type, a.entity_id, a.reason, a.before_data, a.after_data,
+                  s.display_name as actor, d.name as device,
+                  case a.entity_type
+                    when 'product' then (select name from products where id::text = a.entity_id)
+                    when 'promotion' then (select name from promotions where id::text = a.entity_id)
+                    when 'staff' then (select display_name from staff where id::text = a.entity_id)
+                    when 'order' then (select '#' || order_number from orders where id::text = a.entity_id)
+                    when 'payment' then (select '#' || o.order_number from payments p join orders o on o.id = p.order_id
+                                          where p.id::text = a.entity_id)
+                    when 'inventory_item' then (select name from inventory_items where id::text = a.entity_id)
+                    when 'category' then (select name from categories where id::text = a.entity_id)
+                    when 'device' then (select name from devices where id::text = a.entity_id)
+                    when 'station' then (select name from stations where id::text = a.entity_id)
+                    when 'modifierGroup' then (select name from modifier_groups where id::text = a.entity_id)
+                    when 'modifier' then (select name from modifiers where id::text = a.entity_id)
+                    when 'taxRate' then (select name from tax_rates where id::text = a.entity_id)
+                    when 'area' then (select name from operational_areas where id::text = a.entity_id)
+                    when 'table' then (select 'Table ' || label from dining_tables where id::text = a.entity_id)
+                    when 'role' then (select name from roles where id::text = a.entity_id)
+                    when 'branchProduct' then (select name from products where id::text = split_part(a.entity_id, ':', 2))
+                  end as entity_label
+             from audit_logs a
+             left join staff s on s.id = a.actor_staff_id
+             left join devices d on d.id = a.actor_device_id
+         ) x
+         ${where.length ? `where ${where.join(' and ')}` : ''}
+         order by x.id desc
+         limit $${params.length}`,
+        params,
+      );
+      return rows.map((r) => ({
+        id: num(r.id),
+        at: isoOf(r.created_at)!,
+        actor: sn(r.actor),
+        device: sn(r.device),
+        action: s(r.action),
+        entityType: s(r.entity_type),
+        entityId: s(r.entity_id),
+        entityLabel: sn(r.entity_label),
+        reason: sn(r.reason),
+        before: (r.before_data ?? null) as Record<string, unknown> | null,
+        after: (r.after_data ?? null) as Record<string, unknown> | null,
+      }));
     },
 
     async receiptData(orderId) {
@@ -789,3 +862,41 @@ export function createReadModels(sql: Sql): ReadModels {
     },
   };
 }
+
+/** Recipe ingredients that are out of stock or low (information only: sales are never blocked by it). */
+function ingredientStock(v: unknown): { state: 'out' | 'low'; items: string[] } | null {
+  const x = v as { out?: string[]; low?: string[] } | null;
+  if (x?.out?.length) return { state: 'out', items: x.out };
+  if (x?.low?.length) return { state: 'low', items: x.low };
+  return null;
+}
+
+/** Which audit actions belong to each Activity filter. */
+const ACTIVITY_PATTERNS: Record<string, string[]> = {
+  menu: [
+    'config.product.%',
+    'config.category.%',
+    'config.modifier%',
+    'config.taxRate.%',
+    'config.branchProduct.%',
+    'menu.%',
+    'product.%',
+  ],
+  promotions: ['promotion.%'],
+  payments: ['payment.%', 'order.discount%'],
+  orders: ['order.cancel%', 'order.void%', 'order.transfer%', 'order.merge%', 'order.priority%', 'receipt.%'],
+  inventory: ['inventory.%', 'stock_count.%'],
+  staff: ['staff.%', 'security.%', 'config.role.%'],
+  setup: [
+    'config.restaurant.%',
+    'config.branch.%',
+    'config.area.%',
+    'config.table.%',
+    'config.station%',
+    'config.routingRule%',
+    'config.device.%',
+    'config.printer%',
+    'device.%',
+    'print_job.%',
+  ],
+};

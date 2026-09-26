@@ -176,5 +176,55 @@ describe('kitchen ticket document', () => {
     expect(text).toContain('HALL - TABLE 12');
     expect(text).toContain('2 x GRILLED CHICKEN');
     expect(text).toContain('15:42');
+    // No prices unless the station shows them.
+    expect(doc.blocks.some((b) => 'right' in b && /GHS/.test(b.right))).toBe(false);
+  });
+
+  it('prints the actual order price (after promotion), line totals and the ticket total when the station shows prices', () => {
+    const doc = kitchenTicketDocument({
+      stationName: 'Grill',
+      orderNumber: 1042,
+      channel: 'dine_in',
+      areaName: 'Hall',
+      tableLabel: '8',
+      customerName: null,
+      orderNotes: null,
+      createdAt: new Date('2026-09-25T12:30:00Z'),
+      timeZone: 'Africa/Accra',
+      submissionSeq: 1,
+      ticketId: 'abcdef12-0000',
+      currency: 'GHS',
+      items: [
+        {
+          quantity: 1,
+          name: 'Yam',
+          modifiers: [],
+          notes: null,
+          unitPrice: 5000,
+          grossTotal: 5000,
+          lineTotal: 5000,
+        },
+        {
+          quantity: 3,
+          name: 'Kebab',
+          modifiers: [],
+          notes: null,
+          unitPrice: 1000,
+          grossTotal: 3000,
+          promotionName: 'Lunch Promotion',
+          promotionDiscount: 600,
+          lineTotal: 2400,
+        },
+      ],
+    });
+    const rows = doc.blocks.filter((b) => b.type === 'columns').map((b) => [b.left.trim(), b.right]);
+    expect(rows).toEqual([
+      ['12:30', ''],
+      ['1 x GHS 50.00', 'GHS 50.00'],
+      ['3 x GHS 10.00', 'GHS 30.00'],
+      ['Lunch Promotion', '-GHS 6.00'],
+      ['Line total', 'GHS 24.00'],
+      ['TOTAL', 'GHS 74.00'],
+    ]);
   });
 });

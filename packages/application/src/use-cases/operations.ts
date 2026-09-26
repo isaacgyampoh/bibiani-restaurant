@@ -14,14 +14,16 @@ export class GetDashboard {
     return this.deps.uow.run(ctx.principal.restaurantId, async (tx) => {
       const branch = await tx.config.branch(branchId);
       if (!branch) throw new DomainError('NOT_FOUND', 'Branch not found', { branchId });
-      const [view, promotions] = await Promise.all([
+      const [view, promotions, movements] = await Promise.all([
         tx.read.dashboard(branchId, businessDay(now, branch.timezone, branch.businessDayCutoff), now),
         tx.promotions.list(),
+        tx.read.stockMovements(branchId, null, 6),
       ]);
       const mine = promotions.filter((p) => !p.branchId || p.branchId === branchId);
       const phase = (p: (typeof mine)[number]) => promotionPhase(p, now, branch.timezone);
       return {
         ...view,
+        inventory: { ...view.inventory, recentMovements: movements },
         promotions: {
           live: mine
             .filter((p) => phase(p) === 'live')

@@ -390,6 +390,31 @@ describe('Promotions and discounts (end to end through the use cases and the dat
     expect(Number(tax!.total)).toBeGreaterThan(0);
   });
 
+  it('printed kitchen tickets carry the order prices when the station shows prices; none when it hides them', async () => {
+    const printed = async (orderId: string) => {
+      const rows = await db.query<{
+        document: { blocks: { type: string; left?: string; right?: string }[] };
+      }>(
+        `select document from print_jobs where order_id = $1 and kind = 'kitchen_ticket' order by created_at limit 1`,
+        [orderId],
+      );
+      return rows[0]!.document.blocks
+        .filter((b) => b.type === 'columns')
+        .map((b) => [b.left!.trim(), b.right]);
+    };
+    const shown = await order([line(f.products.jollof, 2)]);
+    expect(await printed(shown.id)).toEqual(
+      expect.arrayContaining([
+        ['2 x GHS 45.00', 'GHS 90.00'],
+        ['TOTAL', 'GHS 90.00'],
+      ]),
+    );
+    await db.query('update stations set show_prices = false where id = $1', [f.stations.kitchen]);
+    const hidden = await order([line(f.products.jollof, 1)]);
+    expect((await printed(hidden.id)).some(([, right]) => /GHS/.test(right ?? ''))).toBe(false);
+    await db.query('update stations set show_prices = true where id = $1', [f.stations.kitchen]);
+  });
+
   it('receipt document: one strategy (gross lines, promo lines, subtotal, promotions, discount, total)', () => {
     const doc = receiptDocument({
       restaurantName: 'Chefelisha Restaurant',

@@ -15,6 +15,15 @@ const mins = (s: number | null) =>
       : `${Math.round(s / 60)} min`;
 
 /** "How is the restaurant doing right now?" Real figures for today's business day. */
+const MOVEMENT: Record<string, string> = {
+  receive: 'Delivery',
+  waste: 'Wastage',
+  adjust: 'Adjustment',
+  count: 'Stock count',
+  sale: 'Sold',
+  sale_reversal: 'Returned (order cancelled)',
+};
+
 export function DashboardPage({ me }: { me: MeView }) {
   const branchId = me.branches[0]?.id ?? '';
   const feed = useFeed(`dashboard:${branchId}`, () => api.dashboard(branchId), {
@@ -203,6 +212,37 @@ export function DashboardPage({ me }: { me: MeView }) {
                   href="/stock-takes"
                 />
               </div>
+              <section className="card">
+                <div className="card-head">
+                  <h2>Recent stock changes</h2>
+                  <a href="/inventory" onClick={linkTo('/inventory')}>
+                    Stock →
+                  </a>
+                </div>
+                {d.inventory.recentMovements.length === 0 ? (
+                  <Empty title="No stock changes yet">
+                    Deliveries, sales with a recipe, wastage and counts appear here.
+                  </Empty>
+                ) : (
+                  <ul className="plain-list">
+                    {d.inventory.recentMovements.map((m) => (
+                      <li key={m.id} className="movement">
+                        <span className="grow">
+                          <strong>{m.itemName}</strong>{' '}
+                          <span className="small muted">
+                            {MOVEMENT[m.kind] ?? m.kind}
+                            {m.reference ? ` · ${m.reference}` : ''}
+                          </span>
+                        </span>
+                        <span className={`tabular ${m.quantityDelta < 0 ? 'neg' : 'plus'}`}>
+                          {m.quantityDelta > 0 ? '+' : ''}
+                          {m.quantityDelta} {m.unit}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
             </section>
             <section>
               <h2 className="section-title">Promotions</h2>

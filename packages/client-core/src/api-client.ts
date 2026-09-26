@@ -1,4 +1,5 @@
 import type {
+  ActivityView,
   AgentConfigView,
   ApiErrorBody,
   CancelOrderCommand,
@@ -174,6 +175,13 @@ export class ApiClient {
     this.request<OrderView>('POST', `/v1/orders/${orderId}/transfer`, cmd);
   mergeOrders = (targetOrderId: string, sourceOrderId: string) =>
     this.request<OrderView>('POST', `/v1/orders/${targetOrderId}/merge`, { sourceOrderId });
+  activity = (filter: { category?: string | null; q?: string | null; before?: number | null }) => {
+    const qs = new URLSearchParams();
+    if (filter.category) qs.set('category', filter.category);
+    if (filter.q) qs.set('q', filter.q);
+    if (filter.before) qs.set('before', String(filter.before));
+    return this.request<ActivityView>('GET', `/v1/activity${qs.size ? `?${qs}` : ''}`);
+  };
   /** Uploads a product photo (already resized by the caller). */
   setProductImage = (productId: string, image: Blob) =>
     this.request<{ imageUrl: string }>('POST', `/v1/products/${productId}/image`, image);

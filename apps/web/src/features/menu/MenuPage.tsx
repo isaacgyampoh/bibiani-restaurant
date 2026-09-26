@@ -3,9 +3,9 @@ import { formatMinor } from '@rp/domain';
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { explainRoute, routingFrom } from '../../infra/routing';
 import { api, hasPermission } from '../../infra/session';
-import { ErrorBox, Modal } from '../../ui/components';
-import { preparePhoto } from '../../ui/photo';
+import { ErrorBox, Modal, useToast } from '../../ui/components';
 import { Empty, Shell, Skeleton } from '../../ui/Shell';
+import { ProductEditor } from './ProductEditor';
 
 type Row = Record<string, unknown>;
 const str = (v: unknown) => (v === null || v === undefined ? '' : String(v));
@@ -50,12 +50,14 @@ export function MenuPage({ me }: { me: MeView }) {
   const [category, setCategory] = useState('');
   const [available, setAvailable] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
+  const toast = useToast();
+  const refreshAvailability = useCallback(() => {
     api
       .menu(branchId)
       .then((m) => setAvailable(Object.fromEntries(m.products.map((p) => [p.id, p.isAvailable]))))
       .catch(() => undefined);
   }, [branchId]);
+  useEffect(refreshAvailability, [refreshAvailability]);
 
   const routing = useMemo(() => (config ? routingFrom(config) : null), [config]);
   const defaultArea = (config?.areas as Row[] | undefined)?.find(
@@ -391,12 +393,19 @@ export function MenuPage({ me }: { me: MeView }) {
       )}
 
       {config && dialog?.kind === 'product' ? (
-        <ProductDialog
+        <ProductEditor
+          me={me}
           config={config}
+          branchId={branchId}
           product={dialog.product}
+          available={dialog.product ? (available[str(dialog.product.id)] ?? true) : true}
           onClose={() => setDialog(null)}
-          save={save}
-          reload={reload}
+          onSaved={(message) => {
+            setDialog(null);
+            toast(message);
+            reload();
+            refreshAvailability();
+          }}
         />
       ) : null}
       {config && dialog?.kind === 'recipe' ? (
@@ -425,251 +434,6 @@ export function MenuPage({ me }: { me: MeView }) {
 }
 
 type Save = (entity: ConfigEntity, record: Row) => Promise<string | null>;
-
-function ProductDialog({
-  config,
-  product,
-  onClose,
-  save,
-  reload,
-}: {
-  config: ConfigurationView;
-  product: Row | null;
-  onClose: () => void;
-  save: Save;
-  reload: () => void;
-}) {
-  // Photo: uploaded straight away for an existing product; for a new one, right after it is created.
-  const [photoUrl, setPhotoUrl] = useState<string | null>((product?.imageUrl as string | null) ?? null);
-  const [pendingPhoto, setPendingPhoto] = useState<Blob | null>(null);
-  const [photoBusy, setPhotoBusy] = useState(false);
-  const [photoError, setPhotoError] = useState<unknown>(null);
-  useEffect(() => {
-    if (!pendingPhoto) return;
-    const url = URL.createObjectURL(pendingPhoto);
-    setPhotoUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [pendingPhoto]);
-  async function choosePhoto(file: File | undefined) {
-    if (!file) return;
-    setPhotoError(null);
-    setPhotoBusy(true);
-    try {
-      const blob = await preparePhoto(file);
-      if (product) {
-        const { imageUrl } = await api.setProductImage(str(product.id), blob);
-        setPhotoUrl(imageUrl);
-        reload();
-      } else {
-        setPendingPhoto(blob);
-      }
-    } catch (e) {
-      setPhotoError(e);
-    } finally {
-      setPhotoBusy(false);
-    }
-  }
-  async function removePhoto() {
-    setPhotoError(null);
-    if (!product) {
-      setPendingPhoto(null);
-      setPhotoUrl(null);
-      return;
-    }
-    setPhotoBusy(true);
-    try {
-      await api.removeProductImage(str(product.id));
-      setPhotoUrl(null);
-      reload();
-    } catch (e) {
-      setPhotoError(e);
-    } finally {
-      setPhotoBusy(false);
-    }
-  }
-  const [f, setF] = useState({
-    name: str(product?.name),
-    categoryId: str(product?.categoryId ?? (config.categories as Row[])[0]?.id),
-    price: product ? String(Number(product.basePrice) / 100) : '',
-    kitchenName: str(product?.kitchenName),
-    taxRateIds: (product?.taxRateIds ??
-      ((config.taxRates as Row[])[0] ? [(config.taxRates as Row[])[0]!.id] : [])) as string[],
-    modifierGroupIds: (product?.modifierGroupIds ?? []) as string[],
-    isActive: product ? Boolean(product.isActive) : true,
-  });
-  const [busy, setBusy] = useState(false);
-  const toggle = (list: string[], id: string) =>
-    list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    const id = await save('product', {
-      id: product?.id,
-      name: f.name,
-      categoryId: f.categoryId,
-      basePrice: Math.round(Number(f.price || 0) * 100),
-      kitchenName: f.kitchenName || null,
-      taxRateIds: f.taxRateIds,
-      modifierGroupIds: f.modifierGroupIds,
-      isActive: f.isActive,
-    });
-    if (id && pendingPhoto) {
-      try {
-        await api.setProductImage(id, pendingPhoto);
-        reload();
-      } catch (e) {
-        // The product is saved; only the photo failed. Keep the dialog closed and say so.
-        setPhotoError(e);
-        setBusy(false);
-        return;
-      }
-    }
-    setBusy(false);
-    if (id) onClose();
-  }
-  return (
-    <Modal title={product ? `Edit ${str(product.name)}` : 'New product'} onClose={onClose}>
-      <form className="form" onSubmit={submit}>
-        <div className="photo-field">
-          <div className="photo-frame">
-            {photoUrl ? (
-              <img src={photoUrl} alt={f.name || 'Product photo'} />
-            ) : (
-              <span className="photo-empty">No photo</span>
-            )}
-          </div>
-          <div className="photo-actions">
-            <strong>Photo</strong>
-            <span className="small muted">
-              Shown on the POS buttons. A clear, well-lit photo of the dish works best.
-            </span>
-            <div className="row">
-              <label className={`btn sm ${photoBusy ? 'disabled' : ''}`}>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  hidden
-                  disabled={photoBusy}
-                  onChange={(e) => {
-                    void choosePhoto(e.target.files?.[0]);
-                    e.target.value = '';
-                  }}
-                />
-                {photoBusy ? 'Saving photo…' : photoUrl ? 'Change photo' : 'Add photo'}
-              </label>
-              {photoUrl ? (
-                <button
-                  type="button"
-                  className="btn sm"
-                  disabled={photoBusy}
-                  onClick={() => void removePhoto()}
-                >
-                  Remove
-                </button>
-              ) : null}
-            </div>
-            {!product && pendingPhoto ? (
-              <span className="small muted">The photo is saved with the product.</span>
-            ) : null}
-            <ErrorBox error={photoError} />
-          </div>
-        </div>
-        <label>
-          Name
-          <input required value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
-        </label>
-        <div className="form-row">
-          <label>
-            Category
-            <select value={f.categoryId} onChange={(e) => setF({ ...f, categoryId: e.target.value })}>
-              {(config.categories as Row[]).map((c) => (
-                <option key={str(c.id)} value={str(c.id)}>
-                  {str(c.name)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Price ({config.restaurant.currency})
-            <input
-              required
-              type="number"
-              min="0"
-              step="0.01"
-              value={f.price}
-              onChange={(e) => setF({ ...f, price: e.target.value })}
-            />
-          </label>
-        </div>
-        <label>
-          Name on kitchen tickets (optional)
-          <input
-            value={f.kitchenName}
-            onChange={(e) => setF({ ...f, kitchenName: e.target.value })}
-            placeholder="e.g. JOLLOF"
-          />
-        </label>
-        <fieldset>
-          <legend>Tax</legend>
-          <div className="chips">
-            {(config.taxRates as Row[]).map((t) => (
-              <label
-                key={str(t.id)}
-                className={`chip selectable ${f.taxRateIds.includes(str(t.id)) ? 'on' : ''}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={f.taxRateIds.includes(str(t.id))}
-                  onChange={() => setF({ ...f, taxRateIds: toggle(f.taxRateIds, str(t.id)) })}
-                />
-                {str(t.name)} {Number(t.rateBp) / 100}%
-              </label>
-            ))}
-          </div>
-        </fieldset>
-        <fieldset>
-          <legend>Modifier groups</legend>
-          <div className="chips">
-            {(config.modifierGroups as Row[]).map((g) => (
-              <label
-                key={str(g.id)}
-                className={`chip selectable ${f.modifierGroupIds.includes(str(g.id)) ? 'on' : ''}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={f.modifierGroupIds.includes(str(g.id))}
-                  onChange={() => setF({ ...f, modifierGroupIds: toggle(f.modifierGroupIds, str(g.id)) })}
-                />
-                {str(g.name)}
-              </label>
-            ))}
-            {(config.modifierGroups as Row[]).length === 0 ? (
-              <span className="small muted">No modifier groups yet</span>
-            ) : null}
-          </div>
-        </fieldset>
-        {product ? (
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={f.isActive}
-              onChange={(e) => setF({ ...f, isActive: e.target.checked })}
-            />{' '}
-            Active (shown on the POS)
-          </label>
-        ) : null}
-        <div className="row end">
-          <button type="button" className="btn" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="submit" className="btn primary" disabled={busy}>
-            {busy ? 'Saving…' : 'Save product'}
-          </button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
 
 function RecipeDialog({
   branchId,

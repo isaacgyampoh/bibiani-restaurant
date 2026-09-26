@@ -398,7 +398,8 @@ function Board({
       {board && board.tickets.length === 0 ? (
         <div className="kds-empty">
           <img className="empty-logo" src="/logo-192.png" alt="" />
-          No open tickets. New orders appear here the moment they are sent.
+          <strong>Kitchen is clear</strong>
+          <span>No active orders are waiting. New orders appear here the moment they are sent.</span>
         </div>
       ) : null}
     </div>

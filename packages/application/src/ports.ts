@@ -1,4 +1,6 @@
 import type {
+  ActivityCategory,
+  ActivityEntryView,
   ConfigEntity,
   ConfigurationView,
   CustomerBoardView,
@@ -211,6 +213,10 @@ export interface StationRecord {
   name: string;
   autoReady: boolean;
   isActive: boolean;
+  /** Show selling prices on this station's screen and printed tickets. */
+  showPrices: boolean;
+  /** Restaurant currency (for prices on printed tickets). */
+  currency: string;
 }
 
 export interface StationOutputRecord {
@@ -603,6 +609,13 @@ export interface ReadModels {
   stockCounts(branchId: string): Promise<StockCountSummaryView[]>;
   stockCount(countId: string): Promise<StockCountView | null>;
   recipe(productId: string): Promise<{ itemId: string; name: string; unit: string; quantity: number }[]>;
+  /** The audit history, newest first (one page). */
+  activity(filter: {
+    category: ActivityCategory | null;
+    search: string | null;
+    before: number | null;
+    limit: number;
+  }): Promise<ActivityEntryView[]>;
   receiptData(orderId: string): Promise<Omit<ReceiptInput, 'issuedAt'> | null>;
   configuration(): Promise<ConfigurationView>;
   me(principal: { staffId: string | null; deviceId: string | null }): Promise<{

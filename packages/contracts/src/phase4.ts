@@ -129,6 +129,7 @@ export const ConfigSchemas = {
     id,
     categoryId: uuid,
     name: text(80).min(1),
+    description: text(300).nullish(),
     kitchenName: text(40).nullish(),
     basePrice: z.number().int().min(0).max(100_000_000),
     requiresPreparation: z.boolean().default(true),

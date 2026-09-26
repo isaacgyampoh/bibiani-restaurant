@@ -137,7 +137,7 @@ export function withLivePromotions(
         ? `${quantity} for ${formatMinor(promo.amount ?? 0, currency)}`
         : promo.kind === 'percent_off'
           ? `${(promo.percentBp ?? 0) / 100}% off`
-          : `${formatMinor(price, currency)}`;
+          : promo.name;
     return {
       ...p,
       promotion: {

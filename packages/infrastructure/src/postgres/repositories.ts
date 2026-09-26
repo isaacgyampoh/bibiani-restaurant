@@ -475,7 +475,11 @@ function configurationReader(sql: Sql): ConfigurationReader {
 
     async routingSnapshot(branchId): Promise<RoutingSnapshot> {
       const [stations, outputs, rules, extras, categories] = await Promise.all([
-        sql.query('select id, name, auto_ready, is_active from stations where branch_id = $1', [branchId]),
+        sql.query(
+          `select s.id, s.name, s.auto_ready, s.is_active, s.show_prices, r.currency
+             from stations s join restaurants r on r.id = s.restaurant_id where s.branch_id = $1`,
+          [branchId],
+        ),
         sql.query(
           `select so.station_id, so.device_id, so.role, so.copies, d.kind as device_kind, d.is_active as device_active,
                   pr.backup_printer_id, coalesce(bd.is_active, false) as backup_active
@@ -509,6 +513,8 @@ function configurationReader(sql: Sql): ConfigurationReader {
           id: s(r.id),
           name: s(r.name),
           autoReady: Boolean(r.auto_ready),
+          showPrices: Boolean(r.show_prices),
+          currency: String(r.currency ?? '').trim(),
           isActive: Boolean(r.is_active),
         })),
         outputs: outputs.map((r) => ({

@@ -74,6 +74,7 @@ const ENTITIES: Record<ConfigEntity, EntityMap> = {
     columns: {
       categoryId: 'category_id',
       name: 'name',
+      description: 'description',
       kitchenName: 'kitchen_name',
       basePrice: 'base_price',
       requiresPreparation: 'requires_preparation',

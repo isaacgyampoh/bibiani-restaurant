@@ -15,6 +15,8 @@
   --bg: #f5f6f8;
   --surface: #ffffff;
   --surface-2: #f9fafb;
+  /* Quiet fill for placeholders, pressed states and empty frames (one grey, not four). */
+  --fill: #f1f3f5;
   --line: #e3e6eb;
   --line-strong: #cfd4dc;
   --ink: #111418;
@@ -191,7 +193,7 @@ textarea:focus-visible,
   background: transparent;
 }
 .btn.ghost:hover:not(:disabled) {
-  background: #eef0f3;
+  background: var(--fill);
 }
 .btn.sm {
   height: var(--h-sm);
@@ -405,7 +407,7 @@ label.chip.selectable {
   border-radius: 4px;
   font-size: 12px;
   font-weight: 600;
-  background: #eef0f3;
+  background: var(--fill);
   color: var(--ink-2);
   white-space: nowrap;
 }
@@ -434,7 +436,7 @@ label.chip.selectable {
   color: var(--info);
 }
 .tone-neutral {
-  background: #eef0f3;
+  background: var(--fill);
   color: var(--ink-2);
 }
 .tone-brand {
@@ -449,7 +451,7 @@ label.chip.selectable {
   border-radius: 4px;
   font-size: 12px;
   font-weight: 600;
-  background: #eef0f3;
+  background: var(--fill);
   color: var(--ink-2);
 }
 .pill.ok {
@@ -747,7 +749,7 @@ table.matrix .no {
 .sk-line {
   height: 14px;
   border-radius: 4px;
-  background: #eceef2;
+  background: var(--fill);
   animation: sk 1.3s ease-in-out infinite;
 }
 .sk-line:nth-child(3n) {
@@ -812,7 +814,7 @@ dl.facts dd {
 .seg {
   display: inline-flex;
   border-radius: var(--r-sm);
-  background: #eceef2;
+  background: var(--fill);
   padding: 3px;
   gap: 2px;
 }
@@ -843,7 +845,7 @@ dl.facts dd {
   color: var(--night);
 }
 .seg.light {
-  background: #eceef2;
+  background: var(--fill);
 }
 
 /* ---------------------------------------------------------------- overlays */
@@ -933,7 +935,7 @@ dl.facts dd {
   color: var(--muted);
 }
 .close-x:hover {
-  background: #eef0f3;
+  background: var(--fill);
   color: var(--ink);
 }
 
@@ -1017,7 +1019,7 @@ dl.facts dd {
   color: var(--muted);
 }
 .nav-item:hover {
-  background: #f1f3f5;
+  background: var(--fill);
   color: var(--ink);
 }
 .nav-item.active {
@@ -1044,7 +1046,7 @@ dl.facts dd {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #eef0f3;
+  background: var(--fill);
   display: grid;
   place-items: center;
   font-weight: 700;
@@ -1153,7 +1155,7 @@ a.metric:hover {
 .bar-track {
   height: 6px;
   border-radius: 3px;
-  background: #eceef2;
+  background: var(--fill);
   overflow: hidden;
   flex: 1;
 }
@@ -1375,7 +1377,7 @@ input.needs {
   font-variant-numeric: tabular-nums;
 }
 .numpad button:hover:not(:disabled) {
-  background: #eef0f3;
+  background: var(--fill);
 }
 .numpad button:active:not(:disabled) {
   background: #e3e6eb;
@@ -1630,7 +1632,7 @@ input.needs {
   cursor: pointer;
 }
 .cat:hover {
-  background: #f1f3f5;
+  background: var(--fill);
 }
 .cat.active {
   background: var(--ink);
@@ -1645,7 +1647,7 @@ input.needs {
   overflow-y: auto;
 }
 .product {
-  height: 96px;
+  min-height: 96px;
   border-radius: var(--r-md);
   border: 1px solid var(--line);
   background: var(--surface);
@@ -1660,7 +1662,7 @@ input.needs {
   border-color: var(--ink-2);
 }
 .product:active:not(:disabled) {
-  background: #f1f3f5;
+  background: var(--fill);
   transform: scale(0.99);
 }
 .product .name {
@@ -2097,7 +2099,7 @@ input.needs {
 }
 .ticket li {
   padding: 8px 0;
-  border-bottom: 1px solid #eef0f3;
+  border-bottom: 1px solid var(--fill);
   font-size: 19px;
   font-weight: 700;
   line-height: 1.25;
@@ -2177,7 +2179,7 @@ input.needs {
 .ticket .actions button.kbtn-minor {
   flex: 0 0 auto;
   width: 96px;
-  background: #eef0f3;
+  background: var(--fill);
   color: var(--ink-2);
   border: 0;
 }
@@ -2211,6 +2213,10 @@ input.needs {
 }
 .kds-empty,
 .expo-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   text-align: center;
   padding: 96px 20px;
   font-size: 22px;
@@ -2306,7 +2312,7 @@ input.needs {
   margin: 0 14px 10px;
   height: 28px;
   border-radius: var(--r-sm);
-  background: #eef0f3;
+  background: var(--fill);
   overflow: hidden;
 }
 .progress-fill {
@@ -2747,10 +2753,6 @@ input.needs {
   font-weight: 700;
   letter-spacing: 0.02em;
 }
-.product .price .was {
-  display: block;
-  font-size: 12px;
-}
 s.was,
 .was {
   color: var(--faint);
@@ -2810,13 +2812,12 @@ ul.plain-list li:first-child {
 
 /* ---------------------------------------------------------------- product photos */
 .products.with-photos {
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
 }
 .products.with-photos .product {
   height: auto;
   min-height: 96px;
   padding: 0 0 10px;
-  overflow: hidden;
   justify-content: flex-start;
   gap: 4px;
 }
@@ -2827,7 +2828,7 @@ ul.plain-list li:first-child {
 .product-photo {
   display: block;
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 16 / 10;
   object-fit: cover;
   background: var(--line);
   margin-bottom: 6px;
@@ -2838,7 +2839,7 @@ ul.plain-list li:first-child {
   font-size: 32px;
   font-weight: 700;
   color: var(--faint);
-  background: #f1f3f5;
+  background: var(--fill);
 }
 .product.unavailable .product-photo {
   filter: grayscale(1);
@@ -2854,7 +2855,7 @@ img.thumb,
 .thumb.thumb-empty {
   display: grid;
   place-items: center;
-  background: #f1f3f5;
+  background: var(--fill);
   color: var(--faint);
   font-weight: 700;
 }
@@ -2872,7 +2873,7 @@ img.thumb,
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  background: #f7f8fa;
+  background: var(--surface-2);
 }
 .photo-frame img {
   width: 100%;
@@ -2891,4 +2892,193 @@ img.thumb,
 label.btn.disabled {
   opacity: 0.6;
   pointer-events: none;
+}
+
+/* ---------------------------------------------------------------- product editor */
+.ok-text {
+  color: var(--ok);
+  font-weight: 600;
+}
+.photo-tips {
+  font-size: 13px;
+  color: var(--muted);
+}
+.photo-tips summary {
+  cursor: pointer;
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.photo-tips ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+.recipe-row {
+  grid-template-columns: 1fr 140px auto;
+}
+ul.plain-list.compact li {
+  padding: 8px 0;
+}
+ul.plain-list.compact li:first-child {
+  padding-top: 0;
+}
+
+/* ---------------------------------------------------------------- POS product buttons */
+.product .meta {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.3;
+}
+.product .price-row {
+  display: flex;
+  align-items: baseline;
+  margin-top: auto;
+  padding-top: 4px;
+}
+.product .price {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.product .price .was {
+  display: inline;
+  font-size: 12px;
+  font-weight: 400;
+}
+.stock-pill {
+  align-self: flex-start;
+  display: inline-block;
+  max-width: 100%;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stock-pill.out {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.stock-pill.low {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.product.unavailable,
+.product:disabled {
+  opacity: 0.6;
+}
+.product-description {
+  margin: 0 0 12px;
+}
+
+/* ---------------------------------------------------------------- activity */
+.nowrap {
+  white-space: nowrap;
+}
+.card-body.center {
+  display: flex;
+  justify-content: center;
+}
+table.list.activity td {
+  vertical-align: top;
+}
+.seg {
+  flex-wrap: wrap;
+}
+
+.kds-empty strong {
+  color: var(--night-ink);
+  font-size: 28px;
+}
+.expo-total {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+li.movement {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.neg {
+  color: var(--danger);
+}
+
+/* Respect "reduce motion" everywhere (loading pulse, PIN shake, arrival highlight). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------- touch targets (POS is a touchscreen) */
+.cart-tools .btn.sm {
+  height: var(--h-md);
+  padding: 0 14px;
+  font-size: 14px;
+}
+.qty button {
+  width: 44px;
+  height: 44px;
+}
+.product:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* Rows grow with their content (photo, name, category, price, stock note) and never clip the price. */
+.products {
+  grid-auto-rows: max-content;
+}
+.products.with-photos .product-photo {
+  border-radius: calc(var(--r-md) - 1px) calc(var(--r-md) - 1px) 0 0;
+}
+
+/* Side panels are narrow: sections stack (title above fields) instead of two columns. */
+.drawer .form-section {
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+/* Products without a photo: a quiet tile, not a broken image. */
+.products.with-photos .product-photo.photo-placeholder {
+  background: var(--surface-2);
+  color: var(--line-strong);
+  font-size: 30px;
+}
+
+/* Activity on a phone: each entry is a small card (when / who, what, details). */
+@media (max-width: 640px) {
+  table.list.activity thead {
+    display: none;
+  }
+  table.list.activity tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 10px 12px;
+    border-top: 1px solid var(--line);
+  }
+  table.list.activity td {
+    border: 0;
+    padding: 2px 0;
+  }
+  table.list.activity td:nth-child(3),
+  table.list.activity td:nth-child(4) {
+    grid-column: 1 / -1;
+  }
+}
+.product .price-row {
+  flex-wrap: wrap;
+  column-gap: 6px;
+}
+.product .price .tabular,
+.product .price s {
+  white-space: nowrap;
+}
+.products.with-photos .product > .stock-pill {
+  max-width: calc(100% - 24px);
 }

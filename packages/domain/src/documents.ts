@@ -40,7 +40,20 @@ export interface KitchenTicketInput {
   timeZone: string;
   submissionSeq: number;
   ticketId: string;
-  items: { quantity: number; name: string; modifiers: string[]; notes: string | null }[];
+  items: {
+    quantity: number;
+    name: string;
+    modifiers: string[];
+    notes: string | null;
+    /** Price snapshot from the order line; printed only when `currency` is set. */
+    unitPrice?: number;
+    grossTotal?: number;
+    promotionName?: string | null;
+    promotionDiscount?: number;
+    lineTotal?: number;
+  }[];
+  /** Set when the station shows prices (the default): each line and the ticket total are printed. */
+  currency?: string | null;
 }
 
 export function kitchenTicketDocument(t: KitchenTicketInput): PrintDocument {
@@ -59,6 +72,10 @@ export function kitchenTicketDocument(t: KitchenTicketInput): PrintDocument {
     },
     { type: 'divider' },
   ];
+  const currency = t.currency ?? null;
+  const money = (minor: number) => formatMinor(minor, currency ?? '');
+  const priced = (i: KitchenTicketInput['items'][number]) =>
+    currency !== null && i.lineTotal !== undefined && i.unitPrice !== undefined;
   for (const item of t.items) {
     blocks.push({
       type: 'text',
@@ -68,9 +85,37 @@ export function kitchenTicketDocument(t: KitchenTicketInput): PrintDocument {
     });
     for (const m of item.modifiers) blocks.push({ type: 'text', text: `   + ${m}` });
     if (item.notes) blocks.push({ type: 'text', text: `   ! ${item.notes}`, bold: true });
+    // Prices: the actual order price (after any promotion), the same numbers as the screen and receipt.
+    if (priced(item)) {
+      const gross = item.grossTotal ?? item.lineTotal!;
+      blocks.push({
+        type: 'columns',
+        left: `   ${item.quantity} x ${money(item.unitPrice!)}${gross !== item.quantity * item.unitPrice! ? ' + extras' : ''}`,
+        right: money(gross),
+      });
+      if (item.promotionName && item.promotionDiscount)
+        blocks.push({
+          type: 'columns',
+          left: `   ${item.promotionName}`,
+          right: `-${money(item.promotionDiscount)}`,
+        });
+      if (gross !== item.lineTotal)
+        blocks.push({ type: 'columns', left: '   Line total', right: money(item.lineTotal!), bold: true });
+    }
   }
   if (t.orderNotes) {
     blocks.push({ type: 'divider' }, { type: 'text', text: `NOTE: ${t.orderNotes}`, bold: true });
+  }
+  if (currency !== null && t.items.length > 0 && t.items.every(priced)) {
+    blocks.push(
+      { type: 'divider' },
+      {
+        type: 'columns',
+        left: 'TOTAL',
+        right: money(t.items.reduce((a, i) => a + i.lineTotal!, 0)),
+        bold: true,
+      },
+    );
   }
   blocks.push(
     { type: 'divider' },
@@ -171,7 +216,7 @@ export function receiptDocument(r: ReceiptInput): PrintDocument {
       left: `${item.quantity} x ${item.name}`,
       right: money(item.grossTotal ?? item.lineTotal),
     });
-    if (item.quantity > 1 && item.unitPrice !== undefined)
+    if (item.unitPrice !== undefined)
       blocks.push({ type: 'text', text: `   @ ${money(item.unitPrice)} each` });
     for (const m of item.modifiers) {
       blocks.push({ type: 'text', text: `   + ${m.name}${m.priceDelta ? ` (${money(m.priceDelta)})` : ''}` });

@@ -215,6 +215,7 @@ export function ExpoScreen({ me }: { me: MeView }) {
                 {o.delayed && o.holdingStation ? (
                   <span className="pill danger">Waiting on {o.holdingStation}</span>
                 ) : null}
+                <span className="expo-total">Total {formatMinor(o.grandTotal, me.restaurant.currency)}</span>
                 {o.balanceDue > 0 && o.paymentStatus !== 'paid' ? (
                   <span className="pill warn">{formatMinor(o.balanceDue, me.restaurant.currency)} due</span>
                 ) : (

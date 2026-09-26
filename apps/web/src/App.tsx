@@ -1,5 +1,6 @@
 import type { MeView } from '@rp/contracts';
 import { useCallback, useEffect, useState } from 'react';
+import { ActivityPage } from './features/activity/ActivityPage';
 import { LoginScreen } from './features/auth/LoginScreen';
 import { PairScreen } from './features/auth/PairScreen';
 import { PinSetupScreen } from './features/auth/PinSetupScreen';
@@ -120,6 +121,7 @@ export function App() {
   if (path.startsWith('/floor')) return <FloorPage me={me} />;
   if (path.startsWith('/staff')) return <StaffPage me={me} />;
   if (path.startsWith('/promotions')) return <PromotionsPage me={me} />;
+  if (path.startsWith('/activity')) return <ActivityPage me={me} />;
   if (path.startsWith('/devices') || path.startsWith('/admin')) return <DevicesPage me={me} />;
   if (path.startsWith('/reports')) return <ReportsPage me={me} />;
   if (path.startsWith('/settings')) return <SettingsPage me={me} />;

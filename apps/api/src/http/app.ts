@@ -1,6 +1,7 @@
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { Application, Logger, RequestContext } from '@rp/application';
 import {
+  type ActivityCategory,
   AssignPinCommand,
   CancelOrderCommand,
   ChangePinCommand,
@@ -74,6 +75,15 @@ export interface HttpDependencies {
 
 const digest = (value: string) => createHash('sha256').update(value).digest();
 
+const ACTIVITY_CATEGORIES: readonly ActivityCategory[] = [
+  'menu',
+  'promotions',
+  'payments',
+  'orders',
+  'inventory',
+  'staff',
+  'setup',
+];
 const PASSWORD_ONLY: ReadonlySet<string> = new Set(['staff.manage', 'device.manage', 'config.manage']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -483,6 +493,21 @@ export function createHttpApp(deps: HttpDependencies) {
       ),
     ),
   );
+
+  // Activity: the audit history for owners and managers.
+  v1.get('/activity', async (c) => {
+    const category = c.req.query('category');
+    const before = Number(c.req.query('before'));
+    return c.json(
+      await deps.app.listActivity.execute(c.var.ctx, {
+        category: ACTIVITY_CATEGORIES.includes(category as ActivityCategory)
+          ? (category as ActivityCategory)
+          : null,
+        search: c.req.query('q') ?? null,
+        before: Number.isSafeInteger(before) && before > 0 ? before : null,
+      }),
+    );
+  });
 
   // Product photos: the raw image is the request body (the browser resizes it first).
   v1.post('/products/:productId/image', async (c) => {

@@ -80,6 +80,7 @@ export function OrderScreen({
   }, [menu.categories]);
   // Photo buttons only once the restaurant has added photos, so a menu without any keeps compact buttons.
   const withPhotos = menu.products.some((p) => p.imageUrl);
+  const categoryName = useMemo(() => new Map(menu.categories.map((c) => [c.id, c.name])), [menu.categories]);
   const products = menu.products.filter((p) => {
     if (search) return p.name.toLowerCase().includes(search.toLowerCase());
     return !category || descendants.get(category)?.has(p.categoryId);
@@ -249,28 +250,41 @@ export function OrderScreen({
                   )
                 ) : null}
                 <span className="name">{p.name}</span>
+                <span className="meta">
+                  {categoryName.get(p.categoryId) ?? ''}
+                  {p.modifierGroups.length ? ' · options' : ''}
+                </span>
                 {p.promotion && p.isAvailable ? (
                   <span className="promo-tag" title={p.promotion.name}>
                     {p.promotion.label}
                   </span>
                 ) : null}
-                <span className="row">
-                  <span className="price grow">
-                    {!p.isAvailable ? (
-                      'Sold out'
-                    ) : p.promotion && p.promotion.minQuantity === 1 ? (
-                      <>
-                        <s className="was">
-                          <Money minor={p.price} currency={menu.currency} />
-                        </s>{' '}
-                        <Money minor={p.promotion.price} currency={menu.currency} />
-                      </>
-                    ) : (
+                <span className="price-row">
+                  {!p.isAvailable ? (
+                    <span className="stock-pill out">Sold out</span>
+                  ) : p.promotion && p.promotion.minQuantity === 1 ? (
+                    <span className="price">
+                      <s className="was">
+                        <Money minor={p.price} currency={menu.currency} />
+                      </s>
+                      <Money minor={p.promotion.price} currency={menu.currency} />
+                    </span>
+                  ) : (
+                    <span className="price">
                       <Money minor={p.price} currency={menu.currency} />
-                    )}
-                  </span>
-                  {p.modifierGroups.length ? <span className="mods">OPTIONS</span> : null}
+                    </span>
+                  )}
                 </span>
+                {p.isAvailable && p.ingredients ? (
+                  <span
+                    className={`stock-pill ${p.ingredients.state}`}
+                    title={`${p.ingredients.state === 'out' ? 'Out of stock' : 'Running low'}: ${p.ingredients.items.join(', ')}. Still on sale.`}
+                  >
+                    {p.ingredients.state === 'out' ? 'Ingredient out' : 'Ingredient low'}:{' '}
+                    {p.ingredients.items.slice(0, 2).join(', ')}
+                    {p.ingredients.items.length > 2 ? '…' : ''}
+                  </span>
+                ) : null}
               </button>
             ))}
             {products.length === 0 ? <div className="muted">No products match “{search}”.</div> : null}
@@ -729,6 +743,7 @@ function ModifierModal({
         </>
       }
     >
+      {product.description ? <p className="muted product-description">{product.description}</p> : null}
       {product.modifierGroups.map((g) => (
         <fieldset key={g.id}>
           <legend>

@@ -269,6 +269,12 @@ export interface MenuView {
     id: string;
     categoryId: string;
     name: string;
+    description: string | null;
+    /**
+     * Recipe ingredients running out at this branch (null when all fine or no recipe). Information for
+     * staff only: the product stays on sale unless someone marks it sold out.
+     */
+    ingredients: { state: 'out' | 'low'; items: string[] } | null;
     price: number;
     /** Product photo (public URL), or null when none has been added. */
     imageUrl: string | null;
@@ -446,7 +452,13 @@ export interface DashboardView {
     readyToday: number;
     averagePrepSeconds: number | null;
   }[];
-  inventory: { lowStockItems: number; outOfStockItems: number; openStockCounts: number };
+  inventory: {
+    lowStockItems: number;
+    outOfStockItems: number;
+    openStockCounts: number;
+    /** The latest stock changes (sales, deliveries, wastage, counts), newest first. */
+    recentMovements: StockMovementView[];
+  };
   promotions: {
     live: { id: string; name: string; summary: string }[];
     upcoming: { id: string; name: string; summary: string; startsOn: string | null }[];
@@ -466,6 +478,8 @@ export interface ExpoOrderView {
   customerName: string | null;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
+  /** What the order costs (from the order's price snapshot). */
+  grandTotal: number;
   balanceDue: number;
   firstSubmittedAt: string | null;
   elapsedSeconds: number;
@@ -650,4 +664,33 @@ export interface ManualDiscountView {
   finalTotal: number;
   appliedBy: string | null;
   createdAt: string;
+}
+
+export type ActivityCategory =
+  | 'menu'
+  | 'promotions'
+  | 'payments'
+  | 'orders'
+  | 'inventory'
+  | 'staff'
+  | 'setup';
+export interface ActivityEntryView {
+  id: number;
+  at: string;
+  /** Who did it (staff name), or null for a device acting on its own. */
+  actor: string | null;
+  device: string | null;
+  action: string;
+  entityType: string;
+  entityId: string;
+  /** Human name of what changed (product, promotion, staff member, order #…), when it still exists. */
+  entityLabel: string | null;
+  reason: string | null;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+}
+export interface ActivityView {
+  entries: ActivityEntryView[];
+  /** Pass as `before` to load older entries; null when there are no more. */
+  nextBefore: number | null;
 }

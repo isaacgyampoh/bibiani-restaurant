@@ -1,3 +1,4 @@
+import { ListActivity } from './use-cases/activity';
 import {
   CreatePairingCode,
   CreateStaff,
@@ -122,6 +123,7 @@ export function createApplication(deps: Dependencies) {
     createPairingCode: new CreatePairingCode(deps),
     pairDevice: new PairDevice(deps),
     revokeDevice: new RevokeDevice(deps),
+    listActivity: new ListActivity(deps),
     setProductImage: new SetProductImage(deps),
     removeProductImage: new RemoveProductImage(deps),
     listPromotions: new ListPromotions(deps),

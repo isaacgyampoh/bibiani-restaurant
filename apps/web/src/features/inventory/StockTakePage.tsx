@@ -1,6 +1,6 @@
 import type { MeView, StockCountView } from '@rp/contracts';
 import { formatMinor } from '@rp/domain';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { linkTo, navigate } from '../../infra/router';
 import { api, hasPermission } from '../../infra/session';
 import { useFeed } from '../../infra/use-feed';
@@ -152,6 +152,7 @@ function CountDetail({ me, countId }: { me: MeView; countId: string }) {
   useEffect(load, [load]);
 
   const open = count?.status === 'open';
+  const pending = useRef(new Set<Promise<unknown>>());
   const money = (m: number) => formatMinor(m, me.restaurant.currency);
 
   async function saveLine(itemId: string) {
@@ -161,11 +162,19 @@ function CountDetail({ me, countId }: { me: MeView; countId: string }) {
     const counted = d.counted.trim() === '' ? null : Number(d.counted);
     if (counted === line.countedQuantity && (d.reason || null) === line.reason) return;
     setError(null);
+    const saving = api.recordCountLine(countId, {
+      itemId,
+      countedQuantity: counted,
+      reason: d.reason || null,
+    });
+    pending.current.add(saving);
     try {
-      await api.recordCountLine(countId, { itemId, countedQuantity: counted, reason: d.reason || null });
+      await saving;
       load();
     } catch (e) {
       setError(e);
+    } finally {
+      pending.current.delete(saving);
     }
   }
   async function decide(action: 'submit' | 'approve' | 'cancel') {
@@ -175,7 +184,16 @@ function CountDetail({ me, countId }: { me: MeView; countId: string }) {
     setBusy(action);
     setError(null);
     try {
-      await api.decideStockCount(countId, action, count.version);
+      let version = count.version;
+      if (action === 'submit') {
+        // A quantity or reason typed just before tapping Submit is still being saved: finish every
+        // save first (and save anything not saved yet), so nothing typed is lost.
+        await Promise.allSettled([...pending.current]);
+        for (const itemId of Object.keys(draft)) await saveLine(itemId);
+        await Promise.allSettled([...pending.current]);
+        version = (await api.stockCount(countId)).version;
+      }
+      await api.decideStockCount(countId, action, version);
       load();
     } catch (e) {
       setError(e);

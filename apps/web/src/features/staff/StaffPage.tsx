@@ -51,7 +51,11 @@ export function StaffPage({ me }: { me: MeView }) {
   }, []);
   useEffect(reload, [reload]);
   const roleName = (id: string) => config?.roles.find((r) => r.id === id)?.name ?? '';
-  const people = (config?.staff ?? []).filter((s) => (tab === 'inactive' ? !s.isActive : s.isActive));
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const people = (config?.staff ?? [])
+    .filter((s) => (tab === 'inactive' ? !s.isActive : s.isActive))
+    .filter((s) => !q || `${s.displayName} ${s.email ?? ''}`.toLowerCase().includes(q));
   const roles = (config?.roles ?? []).filter((r) => r.permissions.length > 0);
 
   async function toggleActive(s: Staff) {
@@ -140,7 +144,18 @@ export function StaffPage({ me }: { me: MeView }) {
         </section>
       ) : (
         <section className="card">
-          {people.length === 0 ? (
+          <div className="toolbar">
+            <input
+              className="search"
+              placeholder="Search by name or email"
+              aria-label="Search staff"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+          {people.length === 0 && q ? (
+            <Empty title="Nothing matches">Try another name or email.</Empty>
+          ) : people.length === 0 ? (
             <Empty
               title={tab === 'inactive' ? 'No inactive staff' : 'No staff yet'}
               action={

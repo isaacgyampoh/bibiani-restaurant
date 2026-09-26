@@ -423,6 +423,7 @@ async function sendPendingItems(
       timeZone: branch.timezone,
       submissionSeq: seq,
       ticketId: ticket.id,
+      currency: station.showPrices ? station.currency : null,
       items: ticket.itemIds.map((id) => {
         const item = agg.items.find((i) => i.id === id)!;
         return {
@@ -430,6 +431,11 @@ async function sendPendingItems(
           name: item.kitchenName ?? item.name,
           modifiers: item.modifiers.map((m) => m.name),
           notes: item.notes,
+          unitPrice: item.unitPrice,
+          grossTotal: item.grossTotal,
+          promotionName: item.promotion?.name ?? null,
+          promotionDiscount: item.promotion?.discount ?? 0,
+          lineTotal: item.lineTotal,
         };
       }),
     });
