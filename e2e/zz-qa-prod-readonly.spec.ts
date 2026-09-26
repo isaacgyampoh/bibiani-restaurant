@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { type Page, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 // Manual-QA helper (not part of CI): READ-ONLY look at production with the demo restaurant.
 // Opens screens and dialogs, never saves, sends, pays or pairs anything.
@@ -18,7 +18,15 @@ test('production read-only review', async ({ browser }) => {
     await p.waitForTimeout(2000);
     await p.screenshot({ path: `${OUT}/${n}.png`, fullPage: full });
   };
+  const problems: string[] = [];
+  const watch = (page: Page) => {
+    page.on('console', (m) => {
+      if (m.type() === 'error' || /Content Security Policy/i.test(m.text())) problems.push(m.text());
+    });
+    page.on('pageerror', (e) => problems.push(e.message));
+  };
   const p = await (await browser.newContext({ viewport: { width: 1366, height: 900 } })).newPage();
+  watch(p);
   await p.goto('/login');
   await shot(p, 'p01-login');
   await p.getByLabel('Email').fill(demo.email);
@@ -46,6 +54,7 @@ test('production read-only review', async ({ browser }) => {
   await shot(p, 'p04-product-editor', false);
   await p.getByRole('button', { name: 'Cancel' }).click();
   const pos = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage();
+  watch(pos);
   await pos.goto('/login');
   await pos.getByLabel('Email').fill(demo.email);
   await pos.getByLabel('Password').fill(demo.password);
@@ -55,4 +64,5 @@ test('production read-only review', async ({ browser }) => {
   await pos.getByRole('tab', { name: 'Takeaway' }).click();
   await pos.getByRole('button', { name: /New takeaway order/ }).click();
   await shot(pos, 'p14-pos', false);
+  expect(problems).toEqual([]);
 });

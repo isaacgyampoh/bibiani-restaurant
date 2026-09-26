@@ -255,3 +255,27 @@ Historical orders are never recalculated.
 |---|---|
 | No emoji or symbol icons; brand surface on every screen | **VERIFIED** (code scan; staging screenshots of sign-in, PIN, dashboard, POS, kitchen, supervisor, customer display) |
 | Tests | **VERIFIED**: 169/169 automated; 16/16 staging browser tests (one updated: the route arrow is now an icon) |
+
+## 17. Production readiness pass (2026-09-26, release `production-2738a3c`, schema `20260926000400`)
+
+| Item | Status |
+|---|---|
+| **Crash protection:** any screen error shows a branded "Something went wrong" page with Reload and Go to start, instead of a blank page | **VERIFIED** (build and typecheck) |
+| **Content-Security-Policy** on every response, allowing only: this app, this environment's Supabase (API, realtime, photos), Google Fonts. Also no inline scripts, framing or plugins. Added to the existing HSTS, nosniff, frame, referrer and permissions headers | **VERIFIED**: staging sweep of 15 back-office screens plus paired kitchen, customer display and POS; production read-only sweep of 14 screens. No violations and no console errors |
+| **Text contrast (WCAG AA):** body text 4.5:1 or better (measured); faint grey kept for borders only; white labels on brand surfaces 4.9:1 | **VERIFIED** (computed ratios) |
+| **Cost of goods:** each sale records its ingredients' unit cost at the time. Reports show ingredient cost, margin on dishes with a recipe, and sales of items without a recipe (never guessed). Cancelled orders excluded | **VERIFIED** (test: price change mid-day, cancelled order, item without recipe) |
+| **Buy X get Y free** promotions (e.g. buy 2 get 1 free), with POS label and editor | **VERIFIED** (tests; migration applied on staging and production) |
+| **Activity export** to CSV (current filter and search, up to 1,200 entries) | **VERIFIED** (build) |
+| **Unsaved-change warnings** on staff, stock item and stock movement forms (plus product editor, promotions, settings) | **VERIFIED** |
+| Product photos prepared at 640 px (lighter; still sharp on 2x POS screens) | **VERIFIED** |
+| Dependency audit (production dependencies) | **VERIFIED**: no known vulnerabilities |
+| Tests | **VERIFIED**: 171/171 automated; 16/16 staging browser tests; production verifier 15/15; `/health/ready` ready |
+
+### Remaining (updated)
+
+1. **Physical thermal printing** of priced kitchen tickets and receipts: not tested (no hardware). Do a test print on the restaurant's printers before opening day.
+2. **Backups:** Supabase manages database backups for the production project. Confirm the backup plan and retention in the Supabase dashboard; it can't be checked from here.
+3. **Real dish photos:** to be added by the restaurant in Menu & recipes.
+4. **Full screen-reader audit** (contrast and keyboard basics are done).
+5. **By design:** permissions are per role, not per person. A manager discount given after a kitchen ticket has printed shows on screens and the receipt, not on that paper ticket.
+6. **Owner choice:** late kitchen tickets use red headers, the same family as the brand bar. They are labelled "LATE". Amber is an option if they should stand out more.
