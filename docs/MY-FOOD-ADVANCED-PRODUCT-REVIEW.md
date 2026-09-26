@@ -211,3 +211,18 @@ Real staging receipt #5012:
 | Security: cashier refused (403), fake image (SVG) refused, browser cannot write, delete or list the bucket | **VERIFIED** (staging and production) |
 | Production cycle on the demo restaurant: upload → public read (identical bytes) → remove (bucket empty afterwards) | **VERIFIED**; no photo was left on the demo or the real restaurant |
 | Real dish photos | **REMAINING**: the restaurant needs to take and add its own photos. None were invented or copied from elsewhere |
+
+## 12. Latest verified state (2026-09-26, release `production-6fea1a9`)
+
+This pass focused on the restaurant experience as a whole. The full details and every VERIFIED / REMAINING item are in [MY-FOOD-FINAL-PRODUCT-QA.md](MY-FOOD-FINAL-PRODUCT-QA.md).
+
+| Change | Status |
+|---|---|
+| **Printed kitchen tickets now show prices** (quantity × unit price, promotion, line total, ticket total) whenever the station shows prices (the default), matching the kitchen screen. This replaces the earlier "printed tickets stay price-free" decision, as now requested | **VERIFIED** (tests; physical printer **REMAINING**) |
+| Receipt shows the unit price on every line | **VERIFIED** |
+| Product description, and a sectioned product editor (basic information, price & availability, photo with guidance and states, recipe, kitchen with route preview) | **VERIFIED** |
+| POS buttons: category, readable price under the photo, promotion tag, Sold out (not sellable) versus ingredient low or out (warning only) | **VERIFIED** |
+| Activity page: plain-language audit history for owners and managers | **VERIFIED** |
+| Dashboard recent stock changes; supervisor order total; "Kitchen is clear"; staff search | **VERIFIED** |
+| Stock-count fix: a reason typed just before Submit is no longer lost | **VERIFIED** |
+| Tests | **169 / 169** automated tests; **16 / 16** staging browser tests |
