@@ -3462,3 +3462,17 @@ a.metric:hover {
   display: block;
   margin: 0;
 }
+.pill {
+  white-space: nowrap;
+}
+.empty a,
+.card-head a,
+a.small {
+  color: var(--brand);
+  font-weight: 600;
+  text-decoration: none;
+}
+.empty a:hover,
+a.small:hover {
+  text-decoration: underline;
+}
