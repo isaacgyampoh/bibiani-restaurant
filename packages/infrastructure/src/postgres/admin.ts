@@ -285,6 +285,25 @@ export function createAdminRepository(sql: Sql): AdminRepository {
       );
     },
 
+    async systemRoleId(name) {
+      const [r] = await sql.query('select id from roles where name = $1 and is_system limit 1', [name]);
+      return r ? (r.id as string) : null;
+    },
+
+    async staffIdForUser(userId) {
+      const [r] = await sql.query('select id from staff where user_id = $1', [userId]);
+      return r ? (r.id as string) : null;
+    },
+
+    async acceptOwnerInvitation(invitationId, staffId, at) {
+      const rows = await sql.query(
+        `update owner_invitations set accepted_at = $3, accepted_staff_id = $2
+         where id = $1 and accepted_at is null and revoked_at is null returning id`,
+        [invitationId, staffId, at.toISOString()],
+      );
+      return rows.length > 0;
+    },
+
     async productImage(productId) {
       const [r] = await sql.query('select image_path from products where id = $1 and deleted_at is null', [
         productId,
@@ -293,7 +312,19 @@ export function createAdminRepository(sql: Sql): AdminRepository {
     },
 
     async setProductImage(productId, path) {
-      await sql.query('update products set image_path = $2 where id = $1', [productId, path]);
+      await sql.query('update products set image_path = $2, image_thumb_path = null where id = $1', [
+        productId,
+        path,
+      ]);
+    },
+
+    async productImageThumb(productId) {
+      const [r] = await sql.query('select image_thumb_path from products where id = $1', [productId]);
+      return (r?.image_thumb_path ?? null) as string | null;
+    },
+
+    async setProductImageThumb(productId, path) {
+      await sql.query('update products set image_thumb_path = $2 where id = $1', [productId, path]);
     },
 
     async updateStaff(id, patch) {

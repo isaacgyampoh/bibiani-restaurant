@@ -102,6 +102,7 @@ describe('Scenario A — Hall, Table 12', () => {
     const customerBoard = await t.app.getCustomerBoard.execute(display, f.branchId);
     expect(customerBoard.ready).toEqual([{ orderNumber: 5001, channel: 'dine_in' }]);
     expect(customerBoard.preparing).toEqual([]);
+    expect(customerBoard.received).toEqual([]);
 
     // Waiter serves the table.
     view = await t.app.fulfilOrder.execute(waiter, orderId, {});

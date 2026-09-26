@@ -56,6 +56,7 @@ async function pairedPage(browser: Browser, deviceName: string): Promise<Page> {
   );
   const page = await (await browser.newContext()).newPage();
   await page.goto('/pair');
+  await page.getByRole('button', { name: 'I have a code from a manager' }).click();
   await page.getByLabel('Pairing code').fill(code);
   await page.getByRole('button', { name: 'Pair device' }).click();
   return page;
@@ -118,7 +119,7 @@ test.describe
       await expect(ticket(kds.drinks!)).toContainText('2 × Coke');
       await expect(ticket(kds.grill!)).toContainText('Table 12');
 
-      await expect(display.getByRole('region', { name: 'Preparing' })).toContainText(orderNumber);
+      await expect(display.getByRole('region', { name: 'Order received' })).toContainText(orderNumber);
       await ticket(kds.kitchen!).getByRole('button', { name: 'START' }).click();
       for (const station of ['kitchen', 'grill', 'pastry', 'drinks'] as const) {
         await ticket(kds[station]!).getByRole('button', { name: 'READY' }).click();

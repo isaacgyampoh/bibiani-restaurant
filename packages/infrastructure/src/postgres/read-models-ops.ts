@@ -377,6 +377,23 @@ export function createOpsReadModels(sql: Sql): OpsModels {
     },
 
     async expo(branchId, now): Promise<ExpoView> {
+      const handed = await sql.query(
+        `select o.id, o.order_number, o.channel, o.customer_name, o.grand_total, o.fulfilled_at, a.name as area_name, t.label as table_label
+         from orders o join operational_areas a on a.id = o.area_id left join dining_tables t on t.id = o.table_id
+         where o.branch_id = $1 and o.fulfilled_at > $2::timestamptz - interval '1 hour'
+         order by o.fulfilled_at desc limit 20`,
+        [branchId, now.toISOString()],
+      );
+      const handedOver = handed.map((o) => ({
+        id: s(o.id),
+        orderNumber: num(o.order_number),
+        where:
+          o.channel === 'dine_in'
+            ? `${s(o.area_name)}${o.table_label ? ` · Table ${s(o.table_label)}` : ''}`
+            : `Takeaway${o.customer_name ? ` · ${s(o.customer_name)}` : ''}`,
+        grandTotal: num(o.grand_total),
+        handedOverAt: isoOf(o.fulfilled_at)!,
+      }));
       const orders = await sql.query(
         `select o.*, a.name as area_name, t.label as table_label
          from orders o join operational_areas a on a.id = o.area_id left join dining_tables t on t.id = o.table_id
@@ -385,7 +402,7 @@ export function createOpsReadModels(sql: Sql): OpsModels {
          limit 60`,
         [branchId],
       );
-      if (orders.length === 0) return { branchId, orders: [], generatedAt: now.toISOString() };
+      if (orders.length === 0) return { branchId, orders: [], handedOver, generatedAt: now.toISOString() };
       const ids = orders.map((o) => s(o.id));
       const [tickets, items] = await Promise.all([
         sql.query(
@@ -465,7 +482,7 @@ export function createOpsReadModels(sql: Sql): OpsModels {
           stations,
         };
       });
-      return { branchId, orders: view, generatedAt: now.toISOString() };
+      return { branchId, orders: view, handedOver, generatedAt: now.toISOString() };
     },
 
     async inventory(branchId): Promise<InventoryView> {

@@ -49,6 +49,7 @@ async function paired(browser: Browser, deviceName: string) {
     .body;
   const page = await (await browser.newContext()).newPage();
   await page.goto('/pair');
+  await page.getByRole('button', { name: 'I have a code from a manager' }).click();
   await page.getByLabel('Pairing code').fill(code);
   await page.getByRole('button', { name: 'Pair device' }).click();
   return page;

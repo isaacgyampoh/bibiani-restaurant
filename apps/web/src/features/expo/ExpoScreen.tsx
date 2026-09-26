@@ -105,7 +105,7 @@ export function ExpoScreen({ me }: { me: MeView }) {
   return (
     <div className="expo">
       <div className="bar">
-        <a href="/dashboard" onClick={linkTo('/dashboard')} className="back">
+        <a href="/dashboard" onClick={linkTo('/dashboard')} className="back" aria-label="Back to dashboard">
           <Icon name="arrow-left" size={20} />
         </a>
         <img className="bar-logo" src="/logo-64.png" alt="" />
@@ -238,6 +238,22 @@ export function ExpoScreen({ me }: { me: MeView }) {
           );
         })}
       </div>
+      {feed.data?.handedOver.length ? (
+        <section className="handed" aria-label="Handed over in the last hour">
+          <h2>Handed over · last hour</h2>
+          <ul>
+            {feed.data.handedOver.map((h) => (
+              <li key={h.id}>
+                <strong>#{h.orderNumber}</strong> <span>{h.where}</span>{' '}
+                <span className="t">{formatMinor(h.grandTotal, me.restaurant.currency)}</span>{' '}
+                <span className="t">
+                  {Math.max(0, Math.round((Date.now() - Date.parse(h.handedOverAt)) / 60_000))} min ago
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {feed.data && orders.length === 0 ? (
         <div className="expo-empty">
           <img className="empty-logo" src="/logo-192.png" alt="" />

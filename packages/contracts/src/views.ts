@@ -176,6 +176,8 @@ export interface StationBoardView {
 
 /** Customer-facing board: order numbers and state only. No names, phones or totals. */
 export interface CustomerBoardView {
+  /** Sent, not yet started by any station. */
+  received: { orderNumber: number; channel: OrderChannel }[];
   preparing: { orderNumber: number; channel: OrderChannel }[];
   ready: { orderNumber: number; channel: OrderChannel }[];
   generatedAt: string;
@@ -278,6 +280,8 @@ export interface MenuView {
     price: number;
     /** Product photo (public URL), or null when none has been added. */
     imageUrl: string | null;
+    /** Small version for buttons and lists; falls back to the photo for older photos. */
+    thumbUrl: string | null;
     /** The promotion live right now for one unit of this product (the POS shows it; the server decides). */
     /**
      * `saving` is what the promotion takes off every `minQuantity` units (1, or the bundle size);
@@ -505,6 +509,8 @@ export interface ExpoOrderView {
 export interface ExpoView {
   branchId: string;
   orders: ExpoOrderView[];
+  /** Served or collected in the last hour, newest first. */
+  handedOver: { id: string; orderNumber: number; where: string; grandTotal: number; handedOverAt: string }[];
   generatedAt: string;
 }
 

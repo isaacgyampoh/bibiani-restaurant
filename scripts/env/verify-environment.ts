@@ -23,8 +23,8 @@ check('migrations applied match repository', JSON.stringify(applied) === JSON.st
   expected: expectedMigrations.length,
 });
 const tables = await admin`select tablename, rowsecurity from pg_tables where schemaname = 'public'`;
-// Raise with each migration that adds tables (49 after 20260925002100_pricing_promotions).
-const EXPECTED_TABLES = 49;
+// Raise with each migration that adds tables (51 after 20260926000600_device_pairing_requests).
+const EXPECTED_TABLES = 51;
 check('public tables', tables.length === EXPECTED_TABLES, tables.length);
 check(
   'RLS on every table',

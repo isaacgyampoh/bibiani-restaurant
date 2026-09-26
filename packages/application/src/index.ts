@@ -1,10 +1,13 @@
 import { ListActivity } from './use-cases/activity';
 import {
+  ApproveDevicePairing,
+  CollectDevicePairing,
   CreatePairingCode,
   CreateStaff,
   DeleteConfig,
   GetConfiguration,
   PairDevice,
+  RequestDevicePairing,
   RevokeDevice,
   SaveConfig,
   UpdateStaff,
@@ -25,6 +28,7 @@ import {
   SubmitStockCount,
 } from './use-cases/inventory';
 import { FulfilOrder, MarkOrderReady, TransitionTicket } from './use-cases/kitchen';
+import { AcceptOwnerInvitation, StartOwnerOnboarding } from './use-cases/onboarding';
 import { GetDashboard, GetExpoBoard, GetSalesReport } from './use-cases/operations';
 import { CancelOrder, GetReceipt, PrintReceipt, VoidItems } from './use-cases/order-corrections';
 import { SendOrderToKitchen, SubmitOrder } from './use-cases/orders';
@@ -37,7 +41,7 @@ import {
   ReportPrintJobResult,
   RetryPrintJob,
 } from './use-cases/printing';
-import { RemoveProductImage, SetProductImage } from './use-cases/product-images';
+import { RemoveProductImage, SetProductImage, SetProductImageThumb } from './use-cases/product-images';
 import {
   ApplyManualDiscount,
   ListPromotions,
@@ -122,9 +126,15 @@ export function createApplication(deps: Dependencies) {
     updateStaff: new UpdateStaff(deps),
     createPairingCode: new CreatePairingCode(deps),
     pairDevice: new PairDevice(deps),
+    requestDevicePairing: new RequestDevicePairing(deps),
+    approveDevicePairing: new ApproveDevicePairing(deps),
+    collectDevicePairing: new CollectDevicePairing(deps),
     revokeDevice: new RevokeDevice(deps),
     listActivity: new ListActivity(deps),
+    startOwnerOnboarding: new StartOwnerOnboarding(deps),
+    acceptOwnerInvitation: new AcceptOwnerInvitation(deps),
     setProductImage: new SetProductImage(deps),
+    setProductImageThumb: new SetProductImageThumb(deps),
     removeProductImage: new RemoveProductImage(deps),
     listPromotions: new ListPromotions(deps),
     previewPromotion: new PreviewPromotion(deps),

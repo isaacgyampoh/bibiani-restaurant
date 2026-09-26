@@ -586,7 +586,10 @@ export interface InventoryRepository {
 
 /** The menu as stored: products carry their photo's storage path (the use case turns it into a URL). */
 export type MenuData = Omit<MenuView, 'products'> & {
-  products: (Omit<MenuView['products'][number], 'imageUrl'> & { imagePath: string | null })[];
+  products: (Omit<MenuView['products'][number], 'imageUrl' | 'thumbUrl'> & {
+    imagePath: string | null;
+    imageThumbPath: string | null;
+  })[];
 };
 
 /** Read models: denormalised, screen-shaped queries. */
@@ -659,6 +662,8 @@ export interface AuthDirectory {
   }): Promise<{ id: string }>;
   deleteUser(id: string): Promise<void>;
   updatePassword(id: string, password: string): Promise<void>;
+  /** The login's verified email address. */
+  getUser(id: string): Promise<{ email: string | null }>;
   signIn(email: string, password: string): Promise<AuthSession>;
   /** Server-side session for an existing user (PIN sign-in on a registered till). */
   createSession(userId: string): Promise<AuthSession>;
@@ -759,8 +764,16 @@ export interface AdminRepository {
   updateStaff(id: string, patch: { displayName?: string; isActive?: boolean }): Promise<void>;
   /** The product's current photo path; `undefined` when the product does not exist (or was deleted). */
   productImage(productId: string): Promise<string | null | undefined>;
+  /** Sets the photo and clears its thumbnail (a new photo needs a new thumbnail). */
   setProductImage(productId: string, path: string | null): Promise<void>;
+  productImageThumb(productId: string): Promise<string | null>;
+  setProductImageThumb(productId: string, path: string | null): Promise<void>;
   setStaffRoles(staffId: string, roleIds: readonly string[], branchId: string | null): Promise<void>;
+  /** A built-in role of this restaurant by name (e.g. 'Owner'). */
+  systemRoleId(name: string): Promise<string | null>;
+  /** This restaurant's staff record for a login, if any. */
+  staffIdForUser(userId: string): Promise<string | null>;
+  acceptOwnerInvitation(invitationId: string, staffId: string, at: Date): Promise<boolean>;
   staff(
     staffId: string,
   ): Promise<{ id: string; userId: string | null; displayName: string; isActive: boolean } | null>;
@@ -804,6 +817,38 @@ export interface IdentityRegistry {
     previousAuthUserId: string | null;
   } | null>;
   bindDeviceIdentity(deviceId: string, authUserId: string): Promise<void>;
+  /** Device-initiated pairing (the device shows a code; a manager approves it). */
+  createPairingRequest(codeHash: string, secretHash: string, expiresAt: Date, now: Date): Promise<void>;
+  approvePairingRequest(
+    codeHash: string,
+    restaurantId: string,
+    deviceId: string,
+    staffId: string | null,
+    now: Date,
+  ): Promise<boolean>;
+  collectPairingRequest(
+    secretHash: string,
+    now: Date,
+  ): Promise<
+    | { status: 'waiting' | 'expired' }
+    | {
+        status: 'approved';
+        device: {
+          deviceId: string;
+          restaurantId: string;
+          branchId: string;
+          kind: string;
+          name: string;
+          stationId: string | null;
+          previousAuthUserId: string | null;
+        } | null;
+      }
+  >;
+  /** The open (not accepted, revoked or expired) owner invitation for an email, across restaurants. */
+  findOwnerInvitation(
+    email: string,
+    now: Date,
+  ): Promise<{ id: string; restaurantId: string; restaurantName: string } | null>;
 }
 
 /** Cryptographically secure random values. */

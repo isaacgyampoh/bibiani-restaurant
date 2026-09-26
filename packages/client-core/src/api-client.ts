@@ -175,6 +175,8 @@ export class ApiClient {
     this.request<OrderView>('POST', `/v1/orders/${orderId}/transfer`, cmd);
   mergeOrders = (targetOrderId: string, sourceOrderId: string) =>
     this.request<OrderView>('POST', `/v1/orders/${targetOrderId}/merge`, { sourceOrderId });
+  approvePairing = (deviceId: string, code: string) =>
+    this.request<{ ok: true }>('POST', `/v1/admin/devices/${deviceId}/approve-pairing`, { code });
   activity = (filter: { category?: string | null; q?: string | null; before?: number | null }) => {
     const qs = new URLSearchParams();
     if (filter.category) qs.set('category', filter.category);
@@ -185,6 +187,8 @@ export class ApiClient {
   /** Uploads a product photo (already resized by the caller). */
   setProductImage = (productId: string, image: Blob) =>
     this.request<{ imageUrl: string }>('POST', `/v1/products/${productId}/image`, image);
+  setProductImageThumb = (productId: string, image: Blob) =>
+    this.request<{ thumbUrl: string }>('POST', `/v1/products/${productId}/image/thumb`, image);
   removeProductImage = (productId: string) =>
     this.request<{ ok: true }>('DELETE', `/v1/products/${productId}/image`);
   promotions = () => this.request<PromotionView[]>('GET', '/v1/promotions');

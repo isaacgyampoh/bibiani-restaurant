@@ -45,32 +45,49 @@ export function CustomerDisplay({ me }: { me: MeView }) {
         ) : null}
       </header>
       <div className="cols">
-        <section className="col preparing" aria-label="Preparing">
-          <h2>NOW PREPARING</h2>
-          <div className="nums">
-            {board?.preparing.map((o) => (
-              <span key={o.orderNumber} className="n">
-                {o.orderNumber}
-              </span>
-            ))}
-            {board && board.preparing.length === 0 ? <span className="none">—</span> : null}
-          </div>
-        </section>
-        <section className="col ready" aria-label="Ready">
-          <h2>READY FOR COLLECTION</h2>
-          <div className="nums">
-            {board?.ready.map((o) => (
-              <span key={o.orderNumber} className="n">
-                {o.orderNumber}
-              </span>
-            ))}
-            {board && board.ready.length === 0 ? (
-              <span className="none">Your number appears here when it is ready</span>
-            ) : null}
-          </div>
-        </section>
+        <Column name="Order received" className="received" orders={board?.received} empty="" />
+        <Column name="Preparing" className="preparing" orders={board?.preparing} empty="" />
+        <Column
+          name="Ready"
+          title="Ready — please collect"
+          className="ready"
+          orders={board?.ready}
+          empty="Your number appears here when your order is ready"
+        />
       </div>
-      <footer>{feed.connection === 'live' ? 'Food is better than love' : 'Updating…'}</footer>
+      <footer>
+        {feed.connection === 'live'
+          ? 'Please collect your order when your number is under Ready'
+          : 'Updating…'}
+      </footer>
     </div>
+  );
+}
+
+function Column({
+  name,
+  title,
+  className,
+  orders,
+  empty,
+}: {
+  name: string;
+  title?: string;
+  className: string;
+  orders: { orderNumber: number }[] | undefined;
+  empty: string;
+}) {
+  return (
+    <section className={`col ${className}`} aria-label={name}>
+      <h2>{title ?? name}</h2>
+      <div className="nums">
+        {orders?.map((o) => (
+          <span key={o.orderNumber} className="n">
+            {o.orderNumber}
+          </span>
+        ))}
+        {orders && orders.length === 0 && empty ? <span className="none">{empty}</span> : null}
+      </div>
+    </section>
   );
 }

@@ -84,6 +84,15 @@ export class SupabaseAuthDirectory implements AuthDirectory {
     await this.call(`/admin/users/${id}`, { method: 'DELETE' }, this.secretKey);
   }
 
+  async getUser(id: string) {
+    const user = await this.call<{ email?: string | null }>(
+      `/admin/users/${id}`,
+      { method: 'GET' },
+      this.secretKey,
+    );
+    return { email: user.email ?? null };
+  }
+
   async updatePassword(id: string, password: string) {
     await this.call(
       `/admin/users/${id}`,

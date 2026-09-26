@@ -10,6 +10,7 @@ import {
   type UpdateStaffCommand,
 } from '@rp/contracts';
 import { assertAcceptablePin, DomainError, type Permission } from '@rp/domain';
+import type { IdentityRegistry } from '../ports';
 import { authorize, type RequestContext } from '../principal';
 import { CommitLog, type Dependencies } from './shared';
 
@@ -59,6 +60,10 @@ export class GetConfiguration {
       products: (config.products as Record<string, unknown>[]).map((p) => ({
         ...p,
         imageUrl: typeof p.imagePath === 'string' && images ? images.publicUrl(p.imagePath) : null,
+        thumbUrl:
+          images && typeof (p.imageThumbPath ?? p.imagePath) === 'string'
+            ? images.publicUrl(String(p.imageThumbPath ?? p.imagePath))
+            : null,
       })),
     };
   }
@@ -281,8 +286,6 @@ export class PairDevice {
 
   async execute(cmd: PairDeviceCommand, correlationId: string): Promise<PairDeviceResult> {
     const identity = required(this.deps.identity, 'identity registry');
-    const auth = required(this.deps.auth, 'auth directory');
-    const secrets = required(this.deps.secrets, 'secret generator');
     const now = this.deps.clock.now();
     const code = cmd.code.toUpperCase().replace(/[^A-Z0-9]/g, '');
     const device = await identity.redeemPairingCode(this.deps.fingerprint.of({ pairing: code }), now);
@@ -294,52 +297,169 @@ export class PairDevice {
       );
     }
 
-    const email = `device-${device.deviceId}-${secrets.pairingCode().toLowerCase()}@${this.deps.deviceAccountDomain ?? 'devices.example.com'}`;
-    const password = secrets.password();
-    const { id: authUserId } = await auth.createUser({
-      email,
-      password,
-      metadata: { device_id: device.deviceId, restaurant_id: device.restaurantId, kind: device.kind },
-    });
-    try {
-      await identity.bindDeviceIdentity(device.deviceId, authUserId);
-      const session = await auth.signIn(email, password);
-      if (device.previousAuthUserId) await auth.deleteUser(device.previousAuthUserId).catch(() => undefined);
-      await this.deps.uow.run(device.restaurantId, async (tx) => {
-        await tx.devices.appendEvent(device.deviceId, 'paired', {
-          replacedPreviousIdentity: Boolean(device.previousAuthUserId),
-        });
-        await tx.audit.append({
-          branchId: device.branchId,
-          actorStaffId: null,
-          actorDeviceId: device.deviceId,
-          action: 'device.paired',
-          entityType: 'device',
-          entityId: device.deviceId,
-          after: { kind: device.kind, name: device.name },
-          correlationId,
-        });
+    return completePairing(this.deps, device, correlationId);
+  }
+}
+
+type RedeemedDevice = NonNullable<Awaited<ReturnType<IdentityRegistry['redeemPairingCode']>>>;
+
+/**
+ * The second half of every pairing (manager-issued code or device-shown code): a new login for
+ * the device, bound to its record; any previous login of that device is deleted (the old
+ * installation stops working). Audited as `device.paired`.
+ */
+async function completePairing(
+  deps: Dependencies,
+  device: RedeemedDevice,
+  correlationId: string,
+): Promise<PairDeviceResult> {
+  const identity = required(deps.identity, 'identity registry');
+  const auth = required(deps.auth, 'auth directory');
+  const secrets = required(deps.secrets, 'secret generator');
+  const email = `device-${device.deviceId}-${secrets.pairingCode().toLowerCase()}@${deps.deviceAccountDomain ?? 'devices.example.com'}`;
+  const password = secrets.password();
+  const { id: authUserId } = await auth.createUser({
+    email,
+    password,
+    metadata: { device_id: device.deviceId, restaurant_id: device.restaurantId, kind: device.kind },
+  });
+  try {
+    await identity.bindDeviceIdentity(device.deviceId, authUserId);
+    const session = await auth.signIn(email, password);
+    if (device.previousAuthUserId) await auth.deleteUser(device.previousAuthUserId).catch(() => undefined);
+    await deps.uow.run(device.restaurantId, async (tx) => {
+      await tx.devices.appendEvent(device.deviceId, 'paired', {
+        replacedPreviousIdentity: Boolean(device.previousAuthUserId),
       });
-      this.deps.logger.info('device.paired', {
+      await tx.audit.append({
+        branchId: device.branchId,
+        actorStaffId: null,
+        actorDeviceId: device.deviceId,
+        action: 'device.paired',
+        entityType: 'device',
+        entityId: device.deviceId,
+        after: { kind: device.kind, name: device.name },
         correlationId,
-        deviceId: device.deviceId,
-        restaurantId: device.restaurantId,
       });
-      return {
-        device: {
-          id: device.deviceId,
-          name: device.name,
-          kind: device.kind,
-          branchId: device.branchId,
-          stationId: device.stationId,
-          restaurantId: device.restaurantId,
-        },
-        session,
-      };
-    } catch (error) {
-      await auth.deleteUser(authUserId).catch(() => undefined);
-      throw error;
-    }
+    });
+    deps.logger.info('device.paired', {
+      correlationId,
+      deviceId: device.deviceId,
+      restaurantId: device.restaurantId,
+    });
+    return {
+      device: {
+        id: device.deviceId,
+        name: device.name,
+        kind: device.kind as PairDeviceResult['device']['kind'],
+        branchId: device.branchId,
+        stationId: device.stationId,
+        restaurantId: device.restaurantId,
+      },
+      session,
+    };
+  } catch (error) {
+    await auth.deleteUser(authUserId).catch(() => undefined);
+    throw error;
+  }
+}
+
+const REQUEST_TTL_MS = 10 * 60_000;
+const formatCode = (c: string) => `${c.slice(0, 4)}-${c.slice(4)}`;
+const normalizeCode = (c: string) => c.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+/**
+ * Device-initiated pairing, step 1 (public, on the device): a display code for the manager and a
+ * secret the device keeps in memory. Only hashes are stored.
+ */
+export class RequestDevicePairing {
+  constructor(private readonly deps: Dependencies) {}
+
+  async execute(): Promise<{ code: string; secret: string; expiresAt: string }> {
+    const identity = required(this.deps.identity, 'identity registry');
+    const secrets = required(this.deps.secrets, 'secret generator');
+    const now = this.deps.clock.now();
+    const code = secrets.pairingCode();
+    const secret = secrets.password();
+    const expiresAt = new Date(now.getTime() + REQUEST_TTL_MS);
+    await identity.createPairingRequest(
+      this.deps.fingerprint.of({ pairingRequest: code }),
+      this.deps.fingerprint.of({ pairingSecret: secret }),
+      expiresAt,
+      now,
+    );
+    return { code: formatCode(code), secret, expiresAt: expiresAt.toISOString() };
+  }
+}
+
+/** Step 2 (manager, in Devices): the code shown on the device is approved for one device record. */
+export class ApproveDevicePairing {
+  constructor(private readonly deps: Dependencies) {}
+
+  async execute(ctx: RequestContext, deviceId: string, code: string): Promise<{ ok: true }> {
+    const identity = required(this.deps.identity, 'identity registry');
+    const now = this.deps.clock.now();
+    const restaurantId = ctx.principal.restaurantId;
+    // 1. The device must be this restaurant's, active, pairable, and the caller allowed to manage it.
+    const device = await this.deps.uow.run(restaurantId, async (tx) => {
+      const d = await tx.admin.device(deviceId);
+      if (!d) throw new DomainError('NOT_FOUND', 'Device not found');
+      authorize(ctx.principal, 'device.manage', d.branchId);
+      if (!d.isActive) throw new DomainError('VALIDATION_FAILED', 'This device is deactivated');
+      if (!PAIRABLE.has(d.kind))
+        throw new DomainError('VALIDATION_FAILED', 'Printers are driven by a print agent and are not paired');
+      return d;
+    });
+    // 2. Approve (the database checks the device's restaurant again).
+    const ok = await identity.approvePairingRequest(
+      this.deps.fingerprint.of({ pairingRequest: normalizeCode(code) }),
+      restaurantId,
+      deviceId,
+      ctx.principal.staffId,
+      now,
+    );
+    if (!ok)
+      throw new DomainError(
+        'PAIRING_CODE_INVALID',
+        'That code is not valid or has expired. Check the code on the device screen',
+      );
+    // 3. Record it.
+    await this.deps.uow.run(restaurantId, (tx) =>
+      tx.audit.append({
+        branchId: device.branchId,
+        actorStaffId: ctx.principal.staffId,
+        actorDeviceId: ctx.deviceId,
+        action: 'device.pairing_approved',
+        entityType: 'device',
+        entityId: deviceId,
+        after: { kind: device.kind, name: device.name },
+        correlationId: ctx.correlationId,
+      }),
+    );
+    return { ok: true };
+  }
+}
+
+/** Step 3 (public, on the device): with its secret, the device learns whether it was approved. */
+export class CollectDevicePairing {
+  constructor(private readonly deps: Dependencies) {}
+
+  async execute(
+    secret: string,
+    correlationId: string,
+  ): Promise<{ status: 'waiting' } | ({ status: 'paired' } & PairDeviceResult)> {
+    const identity = required(this.deps.identity, 'identity registry');
+    const result = await identity.collectPairingRequest(
+      this.deps.fingerprint.of({ pairingSecret: secret }),
+      this.deps.clock.now(),
+    );
+    if (result.status === 'waiting') return { status: 'waiting' };
+    if (result.status !== 'approved' || !result.device)
+      throw new DomainError(
+        'PAIRING_CODE_INVALID',
+        'This code has expired. A new one is shown on the screen',
+      );
+    return { status: 'paired', ...(await completePairing(this.deps, result.device, correlationId)) };
   }
 }
 

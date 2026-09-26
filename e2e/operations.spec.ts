@@ -74,7 +74,7 @@ test.describe
       expect(order.tickets).toHaveLength(4);
 
       const owner = await signIn(browser, 'owner');
-      await owner.getByRole('link', { name: 'Supervisor' }).click();
+      await owner.getByRole('link', { name: 'Supervisor', exact: true }).click();
       const card = owner.getByRole('article', { name: `Order ${order.orderNumber}` });
       await expect(card).toContainText('0/4 READY');
       for (const station of ['Main Kitchen', 'Drinks', 'Pastry']) {

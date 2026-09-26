@@ -115,6 +115,7 @@ export function ProductEditor({
   // Photo.
   const [photoUrl, setPhotoUrl] = useState<string | null>((product?.imageUrl as string | null) ?? null);
   const [pendingPhoto, setPendingPhoto] = useState<Blob | null>(null);
+  const [pendingThumb, setPendingThumb] = useState<Blob | null>(null);
   const [photo, setPhoto] = useState<PhotoState>({ kind: 'idle' });
   useEffect(() => {
     if (!pendingPhoto) return;
@@ -136,13 +137,17 @@ export function ProductEditor({
     try {
       setPhoto({ kind: 'working', label: 'Preparing photo…' });
       const blob = await preparePhoto(file);
+      const thumb = await preparePhoto(file, 320);
       if (!productId) {
         setPendingPhoto(blob);
+        setPendingThumb(thumb);
         setPhoto({ kind: 'done', label: 'Photo ready. It is saved with the product.' });
         return;
       }
       setPhoto({ kind: 'working', label: 'Uploading…' });
       const { imageUrl } = await api.setProductImage(productId, blob);
+      // Small version for POS buttons; the photo still works without it.
+      await api.setProductImageThumb(productId, thumb).catch(() => undefined);
       setPhotoUrl(imageUrl);
       setPhoto({ kind: 'done', label: replacing ? 'Photo replaced' : 'Photo saved' });
     } catch (e) {
@@ -196,7 +201,9 @@ export function ProductEditor({
       setProductId(id);
       if (pendingPhoto) {
         await api.setProductImage(id, pendingPhoto);
+        if (pendingThumb) await api.setProductImageThumb(id, pendingThumb).catch(() => undefined);
         setPendingPhoto(null);
+        setPendingThumb(null);
       }
       if (canRecipe && recipeJson !== recipeInitial) {
         await api.saveRecipe(id, {

@@ -40,6 +40,7 @@ async function paired(browser: Browser, name: string, width = 1366, height = 900
   const { code } = await call<{ code: string }>(`/v1/admin/devices/${device.id}/pairing-code`, 'POST', {});
   const page = await ctx(browser, width, height);
   await page.goto('/pair');
+  await page.getByRole('button', { name: 'I have a code from a manager' }).click();
   await page.getByLabel('Pairing code').fill(code);
   await page.getByRole('button', { name: 'Pair device' }).click();
   await page.waitForTimeout(4000);
@@ -56,6 +57,7 @@ test('audit', async ({ browser }) => {
   await login.goto('/login');
   await snap(login, 'a01-login');
   await login.goto('/pair');
+  await login.getByRole('button', { name: 'I have a code from a manager' }).click();
   await snap(login, 'a02-pair');
 
   const pos = await paired(browser, 'POS-01', 1280, 800);

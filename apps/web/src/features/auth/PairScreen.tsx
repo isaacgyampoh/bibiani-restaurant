@@ -1,68 +1,145 @@
-import { type FormEvent, useState } from 'react';
+import type { PairDeviceResult } from '@rp/contracts';
+import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { navigate } from '../../infra/router';
-import { pairDevice } from '../../infra/session';
+import { collectPairing, pairDevice, requestPairing } from '../../infra/session';
 import { ErrorBox } from '../../ui/components';
 import { Icon } from '../../ui/icons';
-import { Brand, BrandPanel } from './LoginScreen';
+import { InstallAppButton } from '../../ui/install';
+import { BrandPanel } from './LoginScreen';
 
-/** Run on the device itself. A manager generates the one-time code in Admin, Devices. */
+const homeOf = (r: PairDeviceResult) =>
+  r.device.kind === 'kds' ? '/kds' : r.device.kind === 'customer_display' ? '/display' : '/login';
+
+/**
+ * "Pair this device". By default the device shows a short code; a manager enters it in Settings,
+ * Devices, and this screen continues by itself. A code from a manager can be typed instead.
+ */
 export function PairScreen({ onPaired }: { onPaired: () => void }) {
+  const [mode, setMode] = useState<'show' | 'enter'>('show');
+  const done = useCallback(
+    (r: PairDeviceResult) => {
+      onPaired();
+      navigate(homeOf(r), true);
+    },
+    [onPaired],
+  );
+  return (
+    <div className="auth">
+      <BrandPanel />
+      <div className="auth-card">
+        {mode === 'show' ? <ShowCode onPaired={done} /> : <EnterCode onPaired={done} />}
+        <InstallAppButton className="btn block" />
+        <div className="auth-foot">
+          <button type="button" className="link" onClick={() => setMode(mode === 'show' ? 'enter' : 'show')}>
+            {mode === 'show' ? 'I have a code from a manager' : 'Show a code on this device instead'}
+          </button>
+          <a href="/login" className="back-link">
+            <Icon name="arrow-left" size={16} /> Sign in
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ShowCode({ onPaired }: { onPaired: (r: PairDeviceResult) => void }) {
+  const [request, setRequest] = useState<{ code: string; expiresAt: string } | null>(null);
+  const secret = useRef<string | null>(null); // kept in memory only, never stored
+  const [error, setError] = useState<unknown>(null);
+  const fresh = useCallback(async () => {
+    setError(null);
+    try {
+      const r = await requestPairing();
+      secret.current = r.secret;
+      setRequest({ code: r.code, expiresAt: r.expiresAt });
+    } catch (e) {
+      setError(e);
+    }
+  }, []);
+  useEffect(() => {
+    void fresh();
+  }, [fresh]);
+  useEffect(() => {
+    if (!request) return;
+    let stopped = false;
+    const tick = async () => {
+      if (stopped || !secret.current) return;
+      try {
+        const result = await collectPairing(secret.current);
+        if (result) {
+          stopped = true;
+          onPaired(result);
+        }
+      } catch (e) {
+        // Expired (or already used): show a new code.
+        if ((e as { code?: string }).code === 'PAIRING_CODE_INVALID') void fresh();
+        else setError(e);
+      }
+    };
+    const t = setInterval(() => void tick(), 3000);
+    return () => {
+      stopped = true;
+      clearInterval(t);
+    };
+  }, [request, fresh, onPaired]);
+  return (
+    <>
+      <h1>Pair this device</h1>
+      <p className="lead">
+        On a manager's screen open <strong>Devices &amp; printing</strong>, choose this device and press{' '}
+        <strong>Enter code from device</strong>. Type this code:
+      </p>
+      <div className="pair-code" aria-live="polite">
+        {request ? request.code : '····-····'}
+      </div>
+      <p className="small muted center-text" role="status">
+        {request
+          ? `Waiting for approval · a new code appears after ${new Date(request.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+          : 'Getting a code…'}
+      </p>
+      <ErrorBox error={error} />
+    </>
+  );
+}
+
+function EnterCode({ onPaired }: { onPaired: (r: PairDeviceResult) => void }) {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
-
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      const result = await pairDevice(code);
-      onPaired();
-      navigate(
-        result.device.kind === 'kds'
-          ? '/kds'
-          : result.device.kind === 'customer_display'
-            ? '/display'
-            : '/login',
-        true,
-      );
+      onPaired(await pairDevice(code));
     } catch (err) {
       setError(err);
     } finally {
       setBusy(false);
     }
   }
-
   return (
-    <div className="auth">
-      <BrandPanel />
-      <div className="auth-card">
-        <Brand />
-        <h1>Set up this device</h1>
-        <p className="lead">
-          Enter the 8-character code from Devices &amp; printing. A code works once and expires after 10
-          minutes.
-        </p>
-        <form className="form" onSubmit={submit}>
-          <input
-            aria-label="Pairing code"
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            placeholder="e.g. K7M4Q2RT"
-            style={{ height: 64, fontSize: 28, letterSpacing: '0.2em', textAlign: 'center', fontWeight: 800 }}
-            maxLength={12}
-          />
-          <ErrorBox error={error} />
-          <button className="btn primary lg block" disabled={busy || code.length < 6} type="submit">
-            {busy ? 'Pairing…' : 'Pair device'}
-          </button>
-        </form>
-        <div className="auth-foot">
-          <a href="/login" className="back-link">
-            <Icon name="arrow-left" size={16} /> Back to sign in
-          </a>
-        </div>
-      </div>
-    </div>
+    <>
+      <h1>Enter a pairing code</h1>
+      <p className="lead">
+        The 8-character code a manager created in Devices &amp; printing. It works once and expires after 10
+        minutes.
+      </p>
+      <form className="form" onSubmit={submit}>
+        <input
+          className="code-input"
+          aria-label="Pairing code"
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          placeholder="e.g. K7M4Q2RT"
+          maxLength={12}
+          autoComplete="off"
+        />
+        <ErrorBox error={error} />
+        <button className="btn primary lg block" disabled={busy || code.length < 6} type="submit">
+          {busy ? 'Pairing…' : 'Pair device'}
+        </button>
+      </form>
+    </>
   );
 }

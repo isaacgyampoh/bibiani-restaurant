@@ -4,6 +4,7 @@ import { linkTo } from '../../infra/router';
 import { explainRoute, routingFrom } from '../../infra/routing';
 import { hasPermission } from '../../infra/session';
 import { ErrorBox, Field, FormSection, useToast } from '../../ui/components';
+import { InstallAppButton } from '../../ui/install';
 import { Empty, Shell, Skeleton } from '../../ui/Shell';
 import { DevicesTab, FloorTab, PrintQueueTab, StationsTab } from '../admin/AdminScreen';
 import { useConfiguration } from '../menu/MenuPage';
@@ -302,7 +303,12 @@ export function SettingsPage({ me }: { me: MeView }) {
                 <div className="row">
                   {link('/floor', 'Floor, areas & tables')}
                   {link('/devices', 'Tills, screens & printers')}
+                  <InstallAppButton />
                 </div>
+                <p className="small muted">
+                  On a till computer, install MY FOOD as an app (Chrome or Edge): it opens in its own window
+                  and updates itself. The browser version keeps working as a fallback.
+                </p>
               </>
             ) : group === 'inventory' ? (
               <>

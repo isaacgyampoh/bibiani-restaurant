@@ -44,6 +44,7 @@ async function paired(browser: Browser, name: string, width = 1366, height = 900
   const { code } = await call<{ code: string }>(`/v1/admin/devices/${device.id}/pairing-code`, 'POST', {});
   const p = await page(browser, width, height);
   await p.goto('/pair');
+  await p.getByRole('button', { name: 'I have a code from a manager' }).click();
   await p.getByLabel('Pairing code').fill(code);
   await p.getByRole('button', { name: 'Pair device' }).click();
   await p.waitForTimeout(4000);

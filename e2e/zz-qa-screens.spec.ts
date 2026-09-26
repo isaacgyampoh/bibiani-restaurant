@@ -151,6 +151,7 @@ test('screens', async ({ browser }) => {
     const { code } = await call<{ code: string }>(`/v1/admin/devices/${device.id}/pairing-code`, 'POST', {});
     const kds = await (await browser.newContext({ viewport: { width: 1366, height: 900 } })).newPage();
     await kds.goto('/pair');
+    await kds.getByRole('button', { name: 'I have a code from a manager' }).click();
     await kds.getByLabel('Pairing code').fill(code);
     await kds.getByRole('button', { name: 'Pair device' }).click();
     await kds.waitForTimeout(5000);

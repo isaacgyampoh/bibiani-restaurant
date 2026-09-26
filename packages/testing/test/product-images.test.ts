@@ -92,6 +92,31 @@ describe('Product photos', () => {
     expect(t.images.objects.size).toBe(0);
   });
 
+  it('a small version for POS buttons lives next to the photo and never outlives it', async () => {
+    const m = await owner();
+    await expect(t.app.setProductImageThumb.execute(m, f.products.coke, WEBP)).rejects.toMatchObject({
+      code: 'VALIDATION_FAILED',
+    });
+    const { imageUrl } = await t.app.setProductImage.execute(m, f.products.coke, WEBP);
+    const menuItem = async () =>
+      (await t.app.getMenu.execute(await t.as(f.authUsers.cashier, f.devices.pos), f.branchId)).products.find(
+        (p) => p.id === f.products.coke,
+      )!;
+    // No thumbnail yet: buttons fall back to the photo.
+    expect((await menuItem()).thumbUrl).toBe(imageUrl);
+    const { thumbUrl } = await t.app.setProductImageThumb.execute(m, f.products.coke, WEBP);
+    expect(thumbUrl).toBe(imageUrl.replace(/\.webp$/, '-t.webp'));
+    expect((await menuItem()).thumbUrl).toBe(thumbUrl);
+    expect(t.images.objects.size).toBe(2);
+    // A new photo removes the old photo and its thumbnail.
+    await t.app.setProductImage.execute(m, f.products.coke, JPEG);
+    expect(t.images.objects.size).toBe(1);
+    await t.app.setProductImageThumb.execute(m, f.products.coke, JPEG);
+    await t.app.removeProductImage.execute(m, f.products.coke);
+    expect(t.images.objects.size).toBe(0);
+    expect((await menuItem()).thumbUrl).toBeNull();
+  });
+
   it('the database only accepts photo paths in the expected shape (no traversal, no foreign URLs)', async () => {
     for (const bad of [
       '../x.png',

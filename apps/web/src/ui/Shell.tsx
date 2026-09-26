@@ -106,6 +106,7 @@ export const NAV: { title: string; items: NavItem[] }[] = [
   {
     title: 'Management',
     items: [
+      { path: '/setup', label: 'Set-up guide', icon: 'count', anyOf: ['config.manage'] },
       { path: '/promotions', label: 'Promotions', icon: 'promo', anyOf: ['promotions.manage'] },
       { path: '/staff', label: 'Staff', icon: 'staff', anyOf: ['staff.manage'] },
       { path: '/reports', label: 'Reports', icon: 'reports', anyOf: ['reports.view'] },

@@ -78,7 +78,8 @@ describe('Scenario B — Takeaway #5002', () => {
 
     const display = await t.as(f.authUsers.display);
     let board = await t.app.getCustomerBoard.execute(display, f.branchId);
-    expect(board.preparing).toContainEqual({ orderNumber: 5002, channel: 'takeaway' });
+    // Sent but not started yet: "Order received" on the customer display.
+    expect(board.received).toContainEqual({ orderNumber: 5002, channel: 'takeaway' });
 
     const manager = await t.as(f.authUsers.manager);
     for (const tk of view.tickets)

@@ -81,7 +81,7 @@ export function OrderScreen({
   }, [menu.categories]);
   // Photo buttons only once the restaurant has added photos, so a menu without any keeps compact buttons.
   const withPhotos = menu.products.some((p) => p.imageUrl);
-  const photoOf = useMemo(() => new Map(menu.products.map((p) => [p.id, p.imageUrl])), [menu.products]);
+  const photoOf = useMemo(() => new Map(menu.products.map((p) => [p.id, p.thumbUrl])), [menu.products]);
   const categoryName = useMemo(() => new Map(menu.categories.map((c) => [c.id, c.name])), [menu.categories]);
   const products = menu.products.filter((p) => {
     if (search) return p.name.toLowerCase().includes(search.toLowerCase());
@@ -243,8 +243,8 @@ export function OrderScreen({
                 onClick={() => (p.modifierGroups.length ? setModFor(p) : add(p))}
               >
                 {withPhotos ? (
-                  p.imageUrl ? (
-                    <img className="product-photo" src={p.imageUrl} alt="" loading="lazy" decoding="async" />
+                  p.thumbUrl ? (
+                    <img className="product-photo" src={p.thumbUrl} alt="" loading="lazy" decoding="async" />
                   ) : (
                     <span className="product-photo photo-placeholder" aria-hidden>
                       {p.name.slice(0, 1)}
@@ -407,7 +407,7 @@ export function OrderScreen({
           {cart.map((l) => (
             <div key={l.id} className="line new">
               <div className="name-row">
-                <Thumb url={l.product.imageUrl} name={l.product.name} />
+                <Thumb url={l.product.thumbUrl} name={l.product.name} />
                 <strong>{l.product.name}</strong>
                 <span>
                   {promoSaving(l) > 0 ? (

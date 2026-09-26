@@ -1,6 +1,6 @@
 # Deployment Architecture
 
-> **Status (consolidated 2026-09-25):** the system runs on **one Supabase project**, `lgoirbfyspuflqekrcgp` (eu-west-1), served at `https://bibiani-restaurant.vercel.app`. It holds the real Bibiani Restaurant and the separate demo restaurant (isolated by RLS). The earlier DEV (`nkijnjovztglmwxoemqg`) and staging (`impairlsvhkumjzhjhti`) projects are **retired**: nothing depends on them, and the owner may pause or delete them. **Do not create new Supabase projects.** Automated tests run on in-memory PGlite and need no project. See [PRODUCT-CONSOLIDATION-REPORT.md](PRODUCT-CONSOLIDATION-REPORT.md).
+> **Status (updated 2026-09-26):** production is **one Supabase project**, `lgoirbfyspuflqekrcgp` (eu-west-1), served at `https://bibiani-restaurant.vercel.app`. It holds the real restaurant and the separate demo restaurant (isolated by RLS). Staging (`impairlsvhkumjzhjhti`, Vercel `restaurant-management-staging`) is **kept for the release gate** (browser tests on test data only). The old DEV project (`nkijnjovztglmwxoemqg`) is unused and optional to retire. **Do not create new Supabase projects.** Current architecture and release procedure: [PRODUCTION-ARCHITECTURE.md](PRODUCTION-ARCHITECTURE.md); every resource: [INFRASTRUCTURE-INVENTORY.md](INFRASTRUCTURE-INVENTORY.md).
 
 ## 1. The shape (modular monolith, no microservices)
 

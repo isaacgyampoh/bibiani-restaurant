@@ -5,6 +5,7 @@ import { LoginScreen } from './features/auth/LoginScreen';
 import { PairScreen } from './features/auth/PairScreen';
 import { PinSetupScreen } from './features/auth/PinSetupScreen';
 import { SetPasswordScreen } from './features/auth/SetPasswordScreen';
+import { WelcomeScreen, WelcomeVerifyScreen } from './features/auth/WelcomeScreen';
 import { DashboardPage } from './features/dashboard/DashboardPage';
 import { CustomerDisplay } from './features/display/CustomerDisplay';
 import { ExpoScreen } from './features/expo/ExpoScreen';
@@ -16,6 +17,7 @@ import { OrdersPage } from './features/orders/OrdersPage';
 import { PosScreen } from './features/pos/PosScreen';
 import { PromotionsPage } from './features/promotions/PromotionsPage';
 import { ReportsPage } from './features/reports/ReportsPage';
+import { SetupGuidePage } from './features/setup/SetupGuidePage';
 import { DevicesPage, FloorPage, RoutingPage, SettingsPage } from './features/setup/SetupPages';
 import { StaffPage } from './features/staff/StaffPage';
 import { navigate, useLocation } from './infra/router';
@@ -63,7 +65,11 @@ export function App() {
     const { data } = supabase.auth.onAuthStateChange((event) => {
       // Opened from a password email: always ask for the new password, wherever the link landed.
       // (PIN recovery links land on /reset-pin and stay there.)
-      if (event === 'PASSWORD_RECOVERY' && window.location.pathname !== '/reset-pin')
+      if (
+        event === 'PASSWORD_RECOVERY' &&
+        window.location.pathname !== '/reset-pin' &&
+        !window.location.pathname.startsWith('/welcome')
+      )
         navigate('/set-password', true);
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') void loadMe();
     });
@@ -76,6 +82,8 @@ export function App() {
 
   if (path === '/pair') return <PairScreen onPaired={loadMe} />;
   if (path === '/set-password') return <SetPasswordScreen onDone={loadMe} />;
+  if (path === '/welcome') return <WelcomeScreen />;
+  if (path === '/welcome/verify') return <WelcomeVerifyScreen onDone={loadMe} />;
   if (!checked)
     return (
       <div className="splash" role="status" aria-live="polite">
@@ -124,6 +132,7 @@ export function App() {
   if (path.startsWith('/staff')) return <StaffPage me={me} />;
   if (path.startsWith('/promotions')) return <PromotionsPage me={me} />;
   if (path.startsWith('/activity')) return <ActivityPage me={me} />;
+  if (path === '/setup') return <SetupGuidePage me={me} />;
   if (path.startsWith('/devices') || path.startsWith('/admin')) return <DevicesPage me={me} />;
   if (path.startsWith('/reports')) return <ReportsPage me={me} />;
   if (path.startsWith('/settings')) return <SettingsPage me={me} />;

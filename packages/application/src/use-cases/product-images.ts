@@ -34,7 +34,10 @@ export class SetProductImage {
     if (!kind) throw new DomainError('VALIDATION_FAILED', 'Choose a JPEG, PNG or WebP photo');
 
     const restaurantId = ctx.principal.restaurantId;
-    const current = await this.deps.uow.run(restaurantId, (tx) => tx.admin.productImage(productId));
+    const [current, currentThumb] = await this.deps.uow.run(restaurantId, async (tx) => [
+      await tx.admin.productImage(productId),
+      await tx.admin.productImageThumb(productId),
+    ]);
     if (current === undefined) throw new DomainError('NOT_FOUND', 'Product not found');
 
     const path = `${restaurantId}/${productId}-${this.deps.ids.uuid()}.${kind.ext}`;
@@ -63,6 +66,7 @@ export class SetProductImage {
       throw e;
     }
     if (previous) await this.removeQuietly(ctx, previous);
+    if (currentThumb) await this.removeQuietly(ctx, currentThumb);
     return { imageUrl: images.publicUrl(path) };
   }
 
@@ -84,10 +88,12 @@ export class RemoveProductImage {
 
   async execute(ctx: RequestContext, productId: string): Promise<{ ok: true }> {
     authorizeRestaurantWide(ctx, 'menu.manage');
+    let previousThumb: string | null = null;
     const previous = await this.deps.uow.run(ctx.principal.restaurantId, async (tx) => {
       const before = await tx.admin.productImage(productId);
       if (before === undefined) throw new DomainError('NOT_FOUND', 'Product not found');
       if (!before) return null;
+      previousThumb = await tx.admin.productImageThumb(productId);
       await tx.admin.setProductImage(productId, null);
       await tx.audit.append({
         branchId: null,
@@ -102,6 +108,8 @@ export class RemoveProductImage {
       });
       return before;
     });
+    if (previousThumb && this.deps.images)
+      await this.deps.images.remove(previousThumb).catch(() => undefined);
     if (previous && this.deps.images)
       await this.deps.images.remove(previous).catch((error) =>
         this.deps.logger.warn('product_image.cleanup_failed', {
@@ -111,5 +119,48 @@ export class RemoveProductImage {
         }),
       );
     return { ok: true };
+  }
+}
+
+export const MAX_THUMB_BYTES = 512 * 1024;
+
+/**
+ * The small version of the current photo (POS buttons, lists). Stored next to the photo; replaced
+ * whenever the photo changes. Same checks as the photo: real image, menu permission.
+ */
+export class SetProductImageThumb {
+  constructor(private readonly deps: Dependencies) {}
+
+  async execute(ctx: RequestContext, productId: string, bytes: Uint8Array): Promise<{ thumbUrl: string }> {
+    authorizeRestaurantWide(ctx, 'menu.manage');
+    const images = this.deps.images;
+    if (!images) throw new DomainError('UNAVAILABLE', 'Photo upload is not set up on this server');
+    if (bytes.length < 100 || bytes.length > MAX_THUMB_BYTES)
+      throw new DomainError('VALIDATION_FAILED', 'The thumbnail must be smaller than 512 KB');
+    const kind = sniffImage(bytes);
+    if (!kind) throw new DomainError('VALIDATION_FAILED', 'Choose a JPEG, PNG or WebP photo');
+    const restaurantId = ctx.principal.restaurantId;
+    const [photo, oldThumb] = await this.deps.uow.run(restaurantId, async (tx) => [
+      await tx.admin.productImage(productId),
+      await tx.admin.productImageThumb(productId),
+    ]);
+    if (photo === undefined) throw new DomainError('NOT_FOUND', 'Product not found');
+    if (!photo) throw new DomainError('VALIDATION_FAILED', 'Add a photo first');
+    const path = `${photo.replace(/\.(webp|jpg|png)$/, '')}-t.${kind.ext}`;
+    if (oldThumb === path) await images.remove(path).catch(() => undefined);
+    await images.put(path, bytes, kind.type);
+    try {
+      await this.deps.uow.run(restaurantId, async (tx) => {
+        // Only if the photo is still the one this thumbnail belongs to.
+        if ((await tx.admin.productImage(productId)) !== photo)
+          throw new DomainError('VERSION_CONFLICT', 'The photo changed; try again');
+        await tx.admin.setProductImageThumb(productId, path);
+      });
+    } catch (e) {
+      await images.remove(path).catch(() => undefined);
+      throw e;
+    }
+    if (oldThumb && oldThumb !== path) await images.remove(oldThumb).catch(() => undefined);
+    return { thumbUrl: images.publicUrl(path) };
   }
 }

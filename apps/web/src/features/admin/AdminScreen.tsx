@@ -1,6 +1,6 @@
 import type { ConfigEntity, ConfigurationView, MeView, PairingCodeView } from '@rp/contracts';
 import { DEVICE_KINDS, PAYMENT_POLICIES } from '@rp/domain';
-import { type ReactNode, useCallback, useEffect, useState } from 'react';
+import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from 'react';
 import { linkTo } from '../../infra/router';
 import { api, signOut, topics } from '../../infra/session';
 import { useFeed } from '../../infra/use-feed';
@@ -199,6 +199,8 @@ export function DevicesTab({
     pollMs: 20_000,
   });
   const [pairing, setPairing] = useState<(PairingCodeView & { name: string }) | null>(null);
+  const [approving, setApproving] = useState<{ id: string; name: string } | null>(null);
+  const [renaming, setRenaming] = useState<Row | null>(null);
   const stations = config.stations.filter((s) => s.branchId === branchId) as Row[];
   const agents = config.devices.filter((d) => d.kind === 'print_agent') as Row[];
   const printers = config.devices.filter((d) => d.kind === 'printer') as Row[];
@@ -226,7 +228,7 @@ export function DevicesTab({
                   <strong>{d.name}</strong>
                   {!d.isActive ? <span className="muted"> (inactive)</span> : null}
                 </td>
-                <td>{d.kind.replace('_', ' ')}</td>
+                <td>{DEVICE_LABEL[d.kind] ?? d.kind.replace('_', ' ')}</td>
                 <td>
                   <Badge value={d.status === 'never_seen' ? 'pending' : d.status} />
                 </td>
@@ -253,25 +255,52 @@ export function DevicesTab({
                   ) : null}
                 </td>
                 <td className="row">
-                  {['pos', 'kds', 'customer_display', 'print_agent'].includes(d.kind) ? (
+                  {['pos', 'kds', 'customer_display', 'print_agent'].includes(d.kind) && d.isActive ? (
+                    <>
+                      <button
+                        type="button"
+                        className="btn sm"
+                        onClick={() => setApproving({ id: d.id, name: d.name })}
+                      >
+                        Enter code from device
+                      </button>
+                      <button
+                        type="button"
+                        className="btn sm"
+                        onClick={() =>
+                          void api
+                            .pairingCode(d.id)
+                            .then((p) => setPairing({ ...p, name: d.name }))
+                            .catch(onError)
+                        }
+                      >
+                        Create code
+                      </button>
+                    </>
+                  ) : null}
+                  {d.kind !== 'printer' ? (
                     <button
                       type="button"
-                      className="btn"
+                      className="btn sm"
                       onClick={() =>
-                        void api
-                          .pairingCode(d.id)
-                          .then((p) => setPairing({ ...p, name: d.name }))
-                          .catch(onError)
+                        setRenaming((config.devices as Row[]).find((x) => x.id === d.id) ?? null)
                       }
                     >
-                      Pairing code
+                      Rename
                     </button>
                   ) : null}
                   {d.paired ? (
                     <button
                       type="button"
-                      className="btn"
-                      onClick={() => void api.revokeDevice(d.id).then(feed.refresh).catch(onError)}
+                      className="btn sm danger"
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `Revoke ${d.name}? It stops working immediately and must be paired again.`,
+                          )
+                        )
+                          void api.revokeDevice(d.id).then(feed.refresh).catch(onError);
+                      }}
                     >
                       Revoke
                     </button>
@@ -319,18 +348,162 @@ export function DevicesTab({
           }
         />
       </Section>
+      {approving ? (
+        <ApprovePairingDialog
+          device={approving}
+          onClose={() => setApproving(null)}
+          onDone={() => {
+            setApproving(null);
+            feed.refresh();
+          }}
+        />
+      ) : null}
+      {renaming ? (
+        <RenameDeviceDialog
+          device={renaming}
+          save={save}
+          onClose={() => setRenaming(null)}
+          onDone={() => {
+            setRenaming(null);
+            feed.refresh();
+          }}
+        />
+      ) : null}
       {pairing ? (
         <Modal title={`Pair ${pairing.name}`} onClose={() => setPairing(null)}>
           <p>
-            On the device, open <strong>{location.origin}/pair</strong> and enter:
+            On the device, open <strong>{location.origin}/pair</strong>, choose{' '}
+            <strong>I have a code from a manager</strong> and enter:
           </p>
-          <div style={{ fontSize: 48, fontWeight: 900, letterSpacing: '0.2em', textAlign: 'center' }}>
-            {pairing.code}
-          </div>
+          <div className="pair-code">{pairing.code}</div>
           <p className="muted">Single use. Expires at {new Date(pairing.expiresAt).toLocaleTimeString()}.</p>
         </Modal>
       ) : null}
     </>
+  );
+}
+
+const DEVICE_LABEL: Record<string, string> = {
+  pos: 'POS till',
+  kds: 'Kitchen screen',
+  customer_display: 'Customer display',
+  print_agent: 'Print agent',
+  printer: 'Printer',
+};
+
+/** A manager types the code shown on the device's "Pair this device" screen. */
+function ApprovePairingDialog({
+  device,
+  onClose,
+  onDone,
+}: {
+  device: { id: string; name: string };
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await api.approvePairing(device.id, code);
+      onDone();
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Modal title={`Pair ${device.name}`} onClose={onClose}>
+      <form className="form" onSubmit={submit}>
+        <p className="muted">
+          On the device, open {location.origin}/pair. It shows a code like <strong>K7M4-Q2RT</strong>. Enter
+          it here: the device then becomes <strong>{device.name}</strong> and continues by itself. Any earlier
+          installation of this device stops working.
+        </p>
+        <input
+          className="code-input"
+          aria-label="Code shown on the device"
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          placeholder="XXXX-XXXX"
+          maxLength={12}
+          autoComplete="off"
+        />
+        <ErrorBox error={error} />
+        <div className="row end">
+          <button type="button" className="btn" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="btn primary"
+            disabled={busy || code.replace(/[^A-Z0-9]/g, '').length < 8}
+          >
+            {busy ? 'Pairing…' : 'Pair device'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function RenameDeviceDialog({
+  device,
+  save,
+  onClose,
+  onDone,
+}: {
+  device: Row;
+  save: (e: ConfigEntity, r: Row) => Promise<boolean>;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [name, setName] = useState(str(device.name));
+  return (
+    <Modal title={`Rename ${str(device.name)}`} onClose={onClose}>
+      <form
+        className="form"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          const ok = await save('device', {
+            id: device.id,
+            branchId: device.branchId,
+            kind: device.kind,
+            name: name.trim(),
+            stationId: device.stationId ?? null,
+            receiptPrinterId: device.receiptPrinterId ?? null,
+            isActive: device.isActive,
+          });
+          if (ok) onDone();
+        }}
+      >
+        <label>
+          Name
+          <input
+            required
+            maxLength={40}
+            pattern="[A-Za-z0-9 _\-]{2,40}"
+            title="2 to 40 letters, numbers, spaces, dashes or underscores"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <span className="hint">Letters, numbers, spaces and dashes, e.g. POS-02 Terrace</span>
+        </label>
+        <div className="row end">
+          <button type="button" className="btn" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className="btn primary" disabled={!name.trim()}>
+            Save
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -696,6 +869,7 @@ export function FloorTab({
                 <td>{str(a.channel)}</td>
                 <td>
                   <select
+                    aria-label={`Payment policy for ${str(a.name)}`}
                     value={str(a.paymentPolicy)}
                     onChange={(e) => void save('area', { ...a, paymentPolicy: e.target.value })}
                   >
@@ -709,6 +883,7 @@ export function FloorTab({
                 <td>
                   <input
                     type="checkbox"
+                    aria-label={`${str(a.name)}: pay before cooking`}
                     checked={Boolean(a.requirePaymentBeforeProduction)}
                     onChange={(e) =>
                       void save('area', { ...a, requirePaymentBeforeProduction: e.target.checked })

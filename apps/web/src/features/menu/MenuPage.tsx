@@ -131,7 +131,11 @@ export function MenuPage({ me }: { me: MeView }) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
-            <select value={category} onChange={(e) => setCategory(e.target.value)}>
+            <select
+              aria-label="Filter by category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            >
               <option value="">All categories</option>
               {cats.map((c) => (
                 <option key={str(c.id)} value={str(c.id)}>
@@ -186,7 +190,12 @@ export function MenuPage({ me }: { me: MeView }) {
                       <td>
                         <div className="row">
                           {p.imageUrl ? (
-                            <img className="thumb" src={str(p.imageUrl)} alt="" loading="lazy" />
+                            <img
+                              className="thumb"
+                              src={str(p.thumbUrl ?? p.imageUrl)}
+                              alt=""
+                              loading="lazy"
+                            />
                           ) : (
                             <span className="thumb thumb-empty" aria-hidden>
                               {str(p.name).slice(0, 1)}
@@ -491,6 +500,7 @@ function RecipeDialog({
             // biome-ignore lint/suspicious/noArrayIndexKey: editable rows
             <div key={n} className="form-row">
               <select
+                aria-label="Ingredient"
                 value={r.itemId}
                 onChange={(e) =>
                   setRows(rows.map((x, i) => (i === n ? { ...x, itemId: e.target.value } : x)))

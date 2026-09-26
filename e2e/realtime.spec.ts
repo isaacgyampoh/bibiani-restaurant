@@ -32,6 +32,7 @@ async function paired(browser: Browser, deviceName: string) {
   const { code } = await call<{ code: string }>(`/v1/admin/devices/${device.id}/pairing-code`, 'POST', {});
   const page = await (await browser.newContext()).newPage();
   await page.goto('/pair');
+  await page.getByRole('button', { name: 'I have a code from a manager' }).click();
   await page.getByLabel('Pairing code').fill(code);
   await page.getByRole('button', { name: 'Pair device' }).click();
   return page;
@@ -74,8 +75,11 @@ test('KDS and customer display receive a new order live, well before any safety 
   await expect(kds.getByRole('article', { name: `Order ${order.orderNumber}` })).toContainText('2 × Coke', {
     timeout: 5_000,
   });
-  await expect(display.getByRole('region', { name: 'Preparing' })).toContainText(String(order.orderNumber), {
-    timeout: 5_000,
-  });
+  await expect(display.getByRole('region', { name: 'Order received' })).toContainText(
+    String(order.orderNumber),
+    {
+      timeout: 5_000,
+    },
+  );
   console.log(`realtime: order visible on KDS and display ${Date.now() - started} ms after submit returned`);
 });

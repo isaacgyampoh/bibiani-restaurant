@@ -57,6 +57,7 @@ test('owner assigns a PIN; the cashier activates it on the till, locks, and sign
   const { code } = await ownerCall<{ code: string }>(`/v1/admin/devices/${pos.id}/pairing-code`, 'POST', {});
   const page = await (await browser.newContext()).newPage();
   await page.goto('/pair');
+  await page.getByRole('button', { name: 'I have a code from a manager' }).click();
   await page.getByLabel('Pairing code').fill(code);
   await page.getByRole('button', { name: 'Pair device' }).click();
   await expect(page.getByRole('heading', { name: 'Enter your staff PIN' })).toBeVisible();

@@ -358,7 +358,10 @@ export function createReadModels(sql: Sql): ReadModels {
         channel: r.channel as CustomerBoardView['ready'][number]['channel'],
       });
       return {
-        preparing: rows.filter((r) => r.status !== 'ready').map(toEntry),
+        received: rows.filter((r) => r.status === 'submitted').map(toEntry),
+        preparing: rows
+          .filter((r) => r.status === 'in_preparation' || r.status === 'partially_ready')
+          .map(toEntry),
         ready: rows.filter((r) => r.status === 'ready').map(toEntry),
         generatedAt: now.toISOString(),
       };
@@ -374,7 +377,7 @@ export function createReadModels(sql: Sql): ReadModels {
           `select id, name, parent_id, sort_order from categories where is_active order by sort_order, name`,
         ),
         sql.query(
-          `select p.id, p.category_id, p.name, p.description, p.image_path, coalesce(bp.price_override, p.base_price) as price,
+          `select p.id, p.category_id, p.name, p.description, p.image_path, p.image_thumb_path, coalesce(bp.price_override, p.base_price) as price,
                   (p.is_active and p.deleted_at is null and coalesce(bp.is_available, true)) as is_available,
                   (select json_build_object(
                      'out', coalesce(json_agg(i.name order by i.name) filter (where i.quantity <= 0), '[]'),
@@ -420,6 +423,7 @@ export function createReadModels(sql: Sql): ReadModels {
           ingredients: ingredientStock(p.ingredient_stock),
           price: num(p.price),
           imagePath: sn(p.image_path),
+          imageThumbPath: sn(p.image_thumb_path),
           promotion: null,
           isAvailable: Boolean(p.is_available),
           modifierGroups: groups

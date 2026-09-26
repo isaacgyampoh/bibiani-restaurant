@@ -2343,7 +2343,7 @@ input.needs {
   font-size: 12.5px;
   font-weight: 800;
   letter-spacing: 0.03em;
-  color: var(--prep);
+  color: var(--warn);
 }
 .expo-card li.late .st {
   color: var(--danger);
@@ -2473,53 +2473,46 @@ input.needs {
   color: var(--muted);
 }
 
-/* ---------------------------------------------------------------- customer display */
+/* ---------------------------------------------------------------- customer display
+   For customers, read from several metres: calm light surface, brand header, three states,
+   order numbers only. Sizes follow the screen (vw) so any TV works. */
 .board {
   min-height: 100vh;
-  background: #0b0d10;
-  color: #fff;
+  background: #f6f6f7;
+  color: var(--ink);
   display: flex;
   flex-direction: column;
 }
 .board header {
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 28px 48px;
-  border-bottom: 1px solid #1d2228;
+  gap: 20px;
+  padding: 22px 48px;
+  color: #fff;
 }
 .board header .logo-img {
-  width: 76px;
-  height: 76px;
+  width: clamp(56px, 5vw, 96px);
+  height: clamp(56px, 5vw, 96px);
   border-radius: 50%;
   background: #fff;
 }
 .board header .names {
   display: flex;
   flex-direction: column;
-  line-height: 1.1;
-}
-.board header .names .brand-kicker {
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: 0.2em;
-  color: #ff5a60;
+  line-height: 1.15;
 }
 .board header .names .brand-title {
-  font-size: 30px;
-  font-weight: 700;
+  font-size: clamp(24px, 2.2vw, 40px);
+  font-weight: 800;
 }
 .board header .clock {
   margin-left: auto;
-  font-size: 30px;
-  font-weight: 600;
-  color: #8b95a1;
+  font-size: clamp(24px, 2vw, 36px);
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 .board .fullscreen {
-  background: transparent;
-  color: #5b6570;
-  border: 1px solid #262c33;
+  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: var(--r-sm);
   padding: 6px 10px;
   font-size: 13px;
@@ -2528,45 +2521,55 @@ input.needs {
 .board .cols {
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr 1.25fr;
+  grid-template-columns: 0.8fr 1fr 1.5fr;
+  gap: 24px;
+  padding: 28px 32px;
 }
 .board .col {
-  padding: 36px 48px;
-}
-.board .col.ready {
-  background: #0f1a14;
-  border-left: 1px solid #1d2a22;
+  padding: 28px 32px;
+  border-radius: 18px;
 }
 .board .col h2 {
-  font-size: 30px;
+  font-size: clamp(20px, 1.7vw, 32px);
   font-weight: 800;
-  letter-spacing: 0.08em;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
+  letter-spacing: 0.01em;
+}
+.board .col.received h2 {
+  color: var(--muted);
 }
 .board .col.preparing h2 {
-  color: #9aa3ad;
+  color: var(--ink-2);
+}
+.board .col.ready {
+  background: #fff;
+  border: 1px solid var(--card-line);
 }
 .board .col.ready h2 {
-  color: #5ee29a;
+  color: var(--ok);
 }
 .board .nums {
   display: flex;
   flex-wrap: wrap;
-  gap: 18px 44px;
+  gap: 12px 40px;
+  align-content: flex-start;
 }
 .board .n {
-  font-size: 84px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
+.board .col.received .n {
+  font-size: clamp(36px, 3.4vw, 64px);
+  color: var(--muted);
+}
 .board .col.preparing .n {
-  color: #d6dbe0;
-  font-size: 72px;
+  font-size: clamp(44px, 4.4vw, 84px);
+  color: var(--ink);
 }
 .board .col.ready .n {
-  color: #fff;
-  font-size: 104px;
+  font-size: clamp(64px, 7vw, 132px);
+  color: var(--ok);
   animation: arrive 0.6s ease-out;
 }
 @keyframes arrive {
@@ -2576,15 +2579,19 @@ input.needs {
   }
 }
 .board .none {
-  font-size: 22px;
-  color: #4b545e;
+  font-size: clamp(18px, 1.4vw, 26px);
+  color: var(--muted);
 }
 .board footer {
-  padding: 18px 48px;
-  border-top: 1px solid #1d2228;
-  color: #5b6570;
-  font-size: 18px;
+  padding: 18px 48px 26px;
+  color: var(--muted);
+  font-size: clamp(16px, 1.3vw, 22px);
   text-align: center;
+}
+@media (max-width: 900px) {
+  .board .cols {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ---------------------------------------------------------------- responsive */
@@ -3657,4 +3664,105 @@ a.small:hover {
   background: transparent;
   color: #fff;
   border-color: rgba(255, 255, 255, 0.6);
+}
+
+/* ---------------------------------------------------------------- setup guide */
+.setup-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--fill);
+  margin-top: 12px;
+  overflow: hidden;
+}
+.setup-bar-fill {
+  height: 100%;
+  background: var(--brand);
+  border-radius: 999px;
+}
+ol.setup-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+ol.setup-steps li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--line);
+}
+ol.setup-steps li:first-child {
+  border-top: 0;
+}
+.step-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border: 2px solid var(--line-strong);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--muted);
+}
+ol.setup-steps li.done .step-mark {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #fff;
+}
+
+/* ---------------------------------------------------------------- device pairing */
+.pair-code {
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-align: center;
+  padding: 18px 0;
+  border: 2px dashed var(--line-strong);
+  border-radius: var(--card-radius);
+  font-variant-numeric: tabular-nums;
+}
+.center-text {
+  text-align: center;
+}
+input.code-input {
+  height: 64px;
+  font-size: 28px;
+  letter-spacing: 0.2em;
+  text-align: center;
+  font-weight: 800;
+}
+
+/* supervisor: recently handed over */
+.expo .handed {
+  margin: 8px 12px 16px;
+  padding: 14px 16px;
+  border-radius: var(--card-radius);
+  background: var(--night-2);
+  color: var(--night-ink);
+}
+.expo .handed h2 {
+  font-size: 15px;
+  color: var(--night-muted);
+  margin-bottom: 8px;
+}
+.expo .handed ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+}
+.expo .handed .t {
+  color: var(--night-muted);
+}
+
+/* Zoom stays available (accessibility); touch screens just skip the double-tap zoom delay. */
+.pos-app,
+.kds,
+.expo,
+.board {
+  touch-action: manipulation;
 }

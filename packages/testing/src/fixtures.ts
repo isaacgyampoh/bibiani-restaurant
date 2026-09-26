@@ -454,6 +454,12 @@ export class LocalAuthDirectory implements AuthDirectory {
   async updatePassword(id: string, password: string) {
     for (const u of this.users.values()) if (u.id === id) u.password = password;
   }
+  async getUser(id: string) {
+    const [r] = await this.db.query<{ email: string | null }>('select email from auth.users where id = $1', [
+      id,
+    ]);
+    return { email: r?.email ?? null };
+  }
   readonly sessions: string[] = [];
   readonly recoveryEmails: { email: string; redirectTo: string }[] = [];
   async createSession(userId: string) {

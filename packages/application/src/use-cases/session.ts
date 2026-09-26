@@ -49,10 +49,11 @@ export class GetMenu {
       const images = this.deps.images;
       const withPhotos: MenuView = {
         ...menu,
-        products: menu.products.map(({ imagePath, ...p }) => ({
-          ...p,
-          imageUrl: imagePath && images ? images.publicUrl(imagePath) : null,
-        })),
+        products: menu.products.map(({ imagePath, imageThumbPath, ...p }) => {
+          const imageUrl = imagePath && images ? images.publicUrl(imagePath) : null;
+          const thumbUrl = imageThumbPath && images ? images.publicUrl(imageThumbPath) : imageUrl;
+          return { ...p, imageUrl, thumbUrl };
+        }),
       };
       return withLivePromotions(withPhotos, promotions, now, branch?.timezone ?? 'UTC', branchId);
     });

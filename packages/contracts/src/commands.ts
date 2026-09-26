@@ -200,3 +200,15 @@ export const ManualDiscountCommand = z.object({
   reason: text(200).min(3),
 });
 export type ManualDiscountCommand = z.infer<typeof ManualDiscountCommand>;
+
+// Owner onboarding (public start; accept with the emailed-link session).
+export const OnboardingStartCommand = z.object({ email: z.string().trim().max(200) });
+export type OnboardingStartCommand = z.infer<typeof OnboardingStartCommand>;
+export const OnboardingAcceptCommand = z.object({ fullName: text(80).min(2) });
+export type OnboardingAcceptCommand = z.infer<typeof OnboardingAcceptCommand>;
+
+// Device-initiated pairing.
+export const CollectPairingCommand = z.object({ secret: z.string().min(20).max(100) });
+export type CollectPairingCommand = z.infer<typeof CollectPairingCommand>;
+export const ApprovePairingCommand = z.object({ code: z.string().trim().min(8).max(12) });
+export type ApprovePairingCommand = z.infer<typeof ApprovePairingCommand>;

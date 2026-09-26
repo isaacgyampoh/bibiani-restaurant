@@ -47,6 +47,7 @@ async function paired(browser: Browser, deviceName: string): Promise<{ page: Pag
   const { json } = await api<{ code: string }>(`/v1/admin/devices/${device.id}/pairing-code`, 'POST', {});
   const page = await (await browser.newContext()).newPage();
   await page.goto('/pair');
+  await page.getByRole('button', { name: 'I have a code from a manager' }).click();
   await page.getByLabel('Pairing code').fill(json.code);
   await page.getByRole('button', { name: 'Pair device' }).click();
   return { page, deviceId: device.id };
@@ -163,7 +164,7 @@ test.describe
         '3 × Coke',
         { timeout: 45_000 },
       );
-      await expect(display.page.getByRole('region', { name: 'Preparing' })).toContainText(
+      await expect(display.page.getByRole('region', { name: 'Order received' })).toContainText(
         String(order.orderNumber),
         { timeout: 45_000 },
       );

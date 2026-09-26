@@ -89,6 +89,31 @@ export const api = new ApiClient({
   getDeviceId: () => posDevice()?.id ?? null,
 });
 
+/** Owner onboarding, step 1 (public): emails a verification link if this address was invited. */
+export async function startOwnerOnboarding(email: string): Promise<void> {
+  const res = await fetch(`${API_URL}/v1/onboarding/start`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok)
+    throw new Error((await res.json().catch(() => null))?.error?.message ?? 'Something went wrong');
+}
+
+/** Owner onboarding, step 2: with the session from the email link, become the restaurant's Owner. */
+export async function acceptOwnerInvitation(fullName: string): Promise<{ restaurantName: string }> {
+  const session = await currentSession();
+  if (!session) throw new Error('Open the link from your email to continue');
+  const res = await fetch(`${API_URL}/v1/onboarding/accept`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${session.access_token}` },
+    body: JSON.stringify({ fullName }),
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(body?.error?.message ?? 'Something went wrong');
+  return body;
+}
+
 /** Exchanges a one-time pairing code for this device's own login (no shared passwords). */
 export async function pairDevice(code: string): Promise<PairDeviceResult> {
   const res = await fetch(`${API_URL}/v1/devices/pair`, {
@@ -98,7 +123,34 @@ export async function pairDevice(code: string): Promise<PairDeviceResult> {
   });
   const body = await res.json();
   if (!res.ok) throw new Error(body?.error?.message ?? 'Pairing failed');
-  const result = body as PairDeviceResult;
+  return adoptPairing(body as PairDeviceResult);
+}
+
+/** Device-initiated pairing: a code to show on this screen, and a secret kept only in memory. */
+export async function requestPairing(): Promise<{ code: string; secret: string; expiresAt: string }> {
+  const res = await fetch(`${API_URL}/v1/devices/pairing-requests`, { method: 'POST' });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body?.error?.message ?? 'Could not get a pairing code');
+  return body;
+}
+
+/** Asks whether a manager has approved this device's code; pairs the device when they have. */
+export async function collectPairing(secret: string): Promise<PairDeviceResult | null> {
+  const res = await fetch(`${API_URL}/v1/devices/pairing-requests/collect`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ secret }),
+  });
+  const body = await res.json();
+  if (!res.ok) {
+    const error = new Error(body?.error?.message ?? 'Pairing failed') as Error & { code?: string };
+    error.code = body?.error?.code;
+    throw error;
+  }
+  return body.status === 'paired' ? adoptPairing(body as PairDeviceResult) : null;
+}
+
+async function adoptPairing(result: PairDeviceResult): Promise<PairDeviceResult> {
   if (result.device.kind === 'pos') {
     // A till keeps its own device login (kept apart from staff sessions) so staff can unlock it with
     // their PIN; staff then act as themselves on this terminal.

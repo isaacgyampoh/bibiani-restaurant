@@ -2,17 +2,21 @@ import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { Application, Logger, RequestContext } from '@rp/application';
 import {
   type ActivityCategory,
+  ApprovePairingCommand,
   AssignPinCommand,
   CancelOrderCommand,
   ChangePinCommand,
   ClaimPrintJobsCommand,
   CONFIG_ENTITIES,
+  CollectPairingCommand,
   type ConfigEntity,
   CreateStaffCommand,
   FulfilOrderCommand,
   HeartbeatCommand,
   ManualDiscountCommand,
   MergeOrderCommand,
+  OnboardingAcceptCommand,
+  OnboardingStartCommand,
   OrderPriorityCommand,
   PairDeviceCommand,
   PinRecoveryCommand,
@@ -204,6 +208,50 @@ export function createHttpApp(deps: HttpDependencies) {
       );
     }
     return c.json(await deps.app.pairDevice.execute(await body(c, PairDeviceCommand), c.var.correlationId));
+  });
+
+  // Device-initiated pairing (the device shows a code). Both device-side calls are public.
+  const pairingRequestLimiter = new RateLimiter(5, 60_000);
+  const pairingCollectLimiter = new RateLimiter(40, 60_000);
+  const clientOf = (c: Context<Env>) =>
+    c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? c.req.header('x-real-ip') ?? 'local';
+  http.post('/v1/devices/pairing-requests', async (c) => {
+    if (!pairingRequestLimiter.allow(clientOf(c)))
+      throw new DomainError('RATE_LIMITED', 'Too many attempts. Wait a minute and try again.');
+    return c.json(await deps.app.requestDevicePairing.execute());
+  });
+  http.post('/v1/devices/pairing-requests/collect', async (c) => {
+    if (!pairingCollectLimiter.allow(clientOf(c)))
+      throw new DomainError('RATE_LIMITED', 'Too many attempts. Wait a minute and try again.');
+    const { secret } = await body(c, CollectPairingCommand);
+    return c.json(await deps.app.collectDevicePairing.execute(secret, c.var.correlationId));
+  });
+
+  // Owner onboarding. Start is public (rate limited; same answer for every email). Accept needs the
+  // session from the emailed link but no restaurant membership yet, so it verifies the token itself.
+  const onboardingLimiter = new RateLimiter(5, 60_000);
+  http.post('/v1/onboarding/start', async (c) => {
+    const client =
+      c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? c.req.header('x-real-ip') ?? 'local';
+    if (!onboardingLimiter.allow(client))
+      throw new DomainError('RATE_LIMITED', 'Too many attempts. Wait a minute and try again.');
+    const { email } = await body(c, OnboardingStartCommand);
+    return c.json(await deps.app.startOwnerOnboarding.execute({ email, correlationId: c.var.correlationId }));
+  });
+  http.post('/v1/onboarding/accept', async (c) => {
+    const header = c.req.header('authorization') ?? '';
+    const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+    if (!token) throw new DomainError('FORBIDDEN', 'Open the link from your email to finish setting up');
+    const verified = await deps.verifier.verify(token);
+    const { fullName } = await body(c, OnboardingAcceptCommand);
+    return c.json(
+      await deps.app.acceptOwnerInvitation.execute({
+        authUserId: verified.authUserId,
+        authMethods: verified.authMethods,
+        fullName,
+        correlationId: c.var.correlationId,
+      }),
+    );
   });
 
   // Name the operation before authentication, so even an auth-stage failure gets an operation-specific message.
@@ -517,8 +565,24 @@ export function createHttpApp(deps: HttpDependencies) {
     const bytes = new Uint8Array(await c.req.arrayBuffer());
     return c.json(await deps.app.setProductImage.execute(c.var.ctx, id(c, 'productId'), bytes));
   });
+  v1.post('/products/:productId/image/thumb', async (c) => {
+    if (Number(c.req.header('content-length') ?? 0) > 512 * 1024)
+      throw new DomainError('VALIDATION_FAILED', 'The thumbnail must be smaller than 512 KB');
+    const bytes = new Uint8Array(await c.req.arrayBuffer());
+    return c.json(await deps.app.setProductImageThumb.execute(c.var.ctx, id(c, 'productId'), bytes));
+  });
   v1.delete('/products/:productId/image', async (c) =>
     c.json(await deps.app.removeProductImage.execute(c.var.ctx, id(c, 'productId'))),
+  );
+
+  v1.post('/admin/devices/:deviceId/approve-pairing', async (c) =>
+    c.json(
+      await deps.app.approveDevicePairing.execute(
+        c.var.ctx,
+        id(c, 'deviceId'),
+        (await body(c, ApprovePairingCommand)).code,
+      ),
+    ),
   );
 
   // Pricing: automatic promotions and manager discounts
