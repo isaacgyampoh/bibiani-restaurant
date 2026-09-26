@@ -1,7 +1,7 @@
 # MY FOOD — Chefelisha Restaurant: final product QA
 
 Date: 2026-09-26 · Production: **https://bibiani-restaurant.vercel.app** (unchanged)
-Release: `production-6fea1a9` · Database: the one production Supabase project, schema `20260926000300`
+Release: `production-51fa726` (reviewed as `6fea1a9`; the later release only changes the reduced-motion styles) · Database: the one production Supabase project, schema `20260926000300`
 Related: [MY-FOOD-ADVANCED-PRODUCT-REVIEW.md](MY-FOOD-ADVANCED-PRODUCT-REVIEW.md) (pricing, promotions, photos) · [MY-FOOD-PRODUCT-FINAL-QA.md](MY-FOOD-PRODUCT-FINAL-QA.md) (previous pass)
 
 Each item is marked:
