@@ -45,6 +45,23 @@ Each device has:
 
 **On tills and kitchen screens served by the hub.** While the internet is down they show *"Offline · everything keeps working and is saved on the hub · N changes to send"*. The customer display never shows it.
 
+## Printers are not paired
+
+Printers have no login. They are added in Devices & printing with their network address and the program that drives them:
+- in a cloud branch, the print agent;
+- in a hub branch, the hub's own print agent, which uses the branch's *Print agent* device record.
+
+To take a printer out of use, turn it off; to remove it, deactivate it.
+
+## What is verified
+
+- **In software (automated and browser tests):**
+  - status and "last seen" from heartbeats;
+  - the hub's report of its devices;
+  - the summary line;
+  - device revocation.
+- **On the real restaurant network:** not yet. See [HARDWARE-ACCEPTANCE.md](HARDWARE-ACCEPTANCE.md) §2 and §5.
+
 ## Pairing and revocation
 
 See [DEVICE-PAIRING.md](DEVICE-PAIRING.md). Every pairing:

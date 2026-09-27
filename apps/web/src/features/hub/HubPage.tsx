@@ -86,7 +86,12 @@ export function HubPage() {
       <header className="hub-head">
         <img src="/logo-192.png" alt="" />
         <div>
-          <h1>MY FOOD Hub</h1>
+          <h1>
+            MY FOOD Hub
+            {status?.release.endsWith('-test') ? (
+              <span className="badge failed">TEST, not for the restaurant</span>
+            ) : null}
+          </h1>
           <span className="muted">
             Chefelisha Restaurant · keeps the restaurant running, also without internet
           </span>

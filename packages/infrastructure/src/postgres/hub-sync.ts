@@ -212,7 +212,9 @@ export function createHubSyncRepository(sql: Sql): HubSyncRepository {
       return (
         await sql.query<{ r: Row }>(
           `select to_jsonb(c) as r from order_number_counters c
-            where c.branch_id = $1 and c.business_day >= current_date - 1`,
+            where c.branch_id = $1
+            order by c.business_day desc
+            limit 3`,
           [branchId],
         )
       ).map((x) => x.r);

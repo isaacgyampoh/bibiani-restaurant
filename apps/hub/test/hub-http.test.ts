@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { ApiClient } from '@rp/client-core';
@@ -16,6 +16,11 @@ describe('MY FOOD Hub over HTTP', () => {
   let hub: Awaited<ReturnType<typeof createHub>>;
   let stop: () => void;
   let dataDir: string;
+  // Distinctive values, so a leak anywhere is unmistakable.
+  const JWT_SECRET = `jwt-${randomUUID()}-${randomUUID()}`;
+  const PIN_PEPPER = `pepper-${randomUUID()}-${randomUUID()}`;
+  const logLines: string[] = [];
+  const issuedTokens: string[] = [];
   let online = true;
   let hubUser: string;
   const hubFetch = ((input: Parameters<typeof fetch>[0], init?: RequestInit) =>
@@ -62,14 +67,18 @@ describe('MY FOOD Hub over HTTP', () => {
       webDist: web,
       cloudApiUrl: 'http://api.test',
       supabaseUrl: 'https://test-project.supabase.co',
-      secrets: { jwtSecret: 'x'.repeat(48), pinPepper: 'hub-pepper-'.repeat(4) },
+      secrets: { jwtSecret: JWT_SECRET, pinPepper: PIN_PEPPER },
       cloudToken: () => cloud.token(hubUser),
       cloudFetch: (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
         if (!online) throw new TypeError('fetch failed (no internet)');
         return cloud.fetch(input, init);
       }) as typeof fetch,
       isConsoleRequest: (c) => c.req.header('x-test-console') === '1',
-      logger: { info: () => {}, warn: () => {}, error: () => {} },
+      logger: {
+        info: (e: string, x?: object) => logLines.push(JSON.stringify({ e, x })),
+        warn: (e: string, x?: object) => logLines.push(JSON.stringify({ e, x })),
+        error: (e: string, x?: object) => logLines.push(JSON.stringify({ e, x })),
+      },
       release: 'hub-test',
       port: 0,
     });
@@ -228,5 +237,35 @@ describe('MY FOOD Hub over HTTP', () => {
       headers: { authorization: `Bearer ${staffToken}` },
     });
     expect(res.status).toBe(403);
+  });
+
+  it('never writes PINs, hub secrets or session tokens to its logs or to disk', async () => {
+    // Collect some session material to look for.
+    const till = local(async () => tillToken);
+    const session = await till.pinSignIn('4827');
+    issuedTokens.push(session.session.accessToken, session.session.refreshToken, tillToken, staffToken);
+    await hub.engine.syncOnce();
+
+    expect(logLines.length).toBeGreaterThan(0);
+    const logs = logLines.join('\n');
+    for (const secret of [JWT_SECRET, PIN_PEPPER, ...issuedTokens]) expect(logs).not.toContain(secret);
+    for (const pin of ['4827', '9153']) expect(logs).not.toMatch(new RegExp(`\\b${pin}\\b`));
+
+    // Every file the hub keeps (database, image cache, print journal): no secret or token in the clear.
+    const files: string[] = [];
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name);
+        if (statSync(path).isDirectory()) walk(path);
+        else files.push(path);
+      }
+    };
+    walk(join(dataDir, 'hub'));
+    expect(files.length).toBeGreaterThan(0);
+    for (const file of files) {
+      const content = readFileSync(file).toString('latin1');
+      for (const secret of [JWT_SECRET, PIN_PEPPER, ...issuedTokens])
+        expect(content.includes(secret), `${secret.slice(0, 12)}… found in ${file}`).toBe(false);
+    }
   });
 });

@@ -20,3 +20,4 @@ perf-results/
 .demo-credentials.json
 apps/desktop/app/
 apps/desktop/release/
+apps/desktop/electron-builder.generated.json

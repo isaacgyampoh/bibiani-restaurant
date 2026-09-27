@@ -6,7 +6,7 @@ How the in-store hub and the MY FOOD cloud stay consistent. Context: [OFFLINE-AR
 
 | Flow | What | How it is applied |
 |---|---|---|
-| Cloud → hub (**snapshot**) | Branch configuration: restaurant, branch, roles, staff (no PIN digests, no emails), menu, taxes, modifiers, floor, stations, devices, printers, routing, inventory items, recipes, promotions. Also today's and yesterday's order-number counters | Rows are upserted in foreign-key order. Rows the cloud no longer has are deleted; a row still referenced locally is switched off instead. Columns the hub owns are never in a snapshot (see below) |
+| Cloud → hub (**snapshot**) | Branch configuration: restaurant, branch, roles, staff (no PIN digests, no emails), menu, taxes, modifiers, floor, stations, devices, printers, routing, inventory items, recipes, promotions. Also the branch's latest order-number counters (3 most recent business days) | Rows are upserted in foreign-key order. Rows the cloud no longer has are deleted; a row still referenced locally is switched off instead. Columns the hub owns are never in a snapshot (see below) |
 | Cloud → hub (**movements**) | Stock movements of the branch (last pull minus 10 minutes of overlap) | Inserted once by id; the quantity change is applied the first time a movement is seen |
 | Hub → cloud (**batches**) | Orders, rounds, items, modifiers, tax lines, discounts, kitchen tickets, payments, table status, stock movements, order/ticket events, audit events | One transaction per batch, record by record. See "Ingest" |
 

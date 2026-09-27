@@ -6,8 +6,9 @@
   "author": "MY FOOD",
   "scripts": {
     "build:hub": "node build.mjs",
-    "start": "node build.mjs && electron app",
-    "dist:win": "node build.mjs && electron-builder --win nsis --x64",
+    "dist:win": "node build.mjs --channel production && electron-builder --config electron-builder.generated.json --win nsis --x64 --publish never",
+    "dist:win:test": "node build.mjs --channel test --env .env.staging --cloud https://restaurant-management-staging.vercel.app && electron-builder --config electron-builder.generated.json --win nsis --x64 --publish never",
+    "start": "node build.mjs --channel test --env .env.staging --cloud https://restaurant-management-staging.vercel.app && electron app",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {

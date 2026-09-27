@@ -100,11 +100,13 @@ Statuses:
 | Offline PIN sign-in (hub-own digests, lockouts, revocation on sync) | [built] | `hub-pins.test.ts`, [OFFLINE-AUTHENTICATION.md](OFFLINE-AUTHENTICATION.md) |
 | Hub logins for local devices; the same web build served on the LAN | [built] | `apps/hub/test/hub-http.test.ts` |
 | Device pairing at the hub window with a manager PIN | [built] | `hub-http.test.ts`, `e2e-hub/hub.spec.ts` |
-| Print agent inside the hub (network ESC/POS printers) | [built] | tested with the document model; **no physical printer tested** |
+| Print agent inside the hub (network ESC/POS printers), failure, retry, backup | [built] | `apps/hub/test/hub-printing.test.ts` over real TCP with simulated printers; **no physical printer tested** |
 | Offline line on tills; hub window (connection, sync, addresses, devices) | [built] | `e2e-hub/hub.spec.ts` (real browser) |
 | Hub health in the back office (sync state, devices seen by the hub) | [built] | Devices & printing |
 | Windows desktop app (Electron): tray, start with Windows, secrets in the Windows key store, updates | [built] | `apps/desktop`; installer built; **not yet run on a Windows PC** |
-| Windows installer from CI | [built] | `.github/workflows/desktop-windows.yml` (run by hand) |
+| Windows installer from CI, production channel with guards against staging values | [built] | `.github/workflows/desktop-windows.yml`; **not yet run** (needs the repository variables) |
+| No PINs, secrets or tokens in hub logs or files | [built] | automated check in `apps/hub/test/hub-http.test.ts` |
+| Real hardware: Windows PC, printers, local network, physical outage | **not yet verified** | [HARDWARE-ACCEPTANCE.md](HARDWARE-ACCEPTANCE.md) |
 | USB printers, cash drawer | [planned] | needs the restaurant's hardware |
 | Manual "send to another printer" for a failed ticket | [planned] | failed tickets retry and fall back to the backup printer automatically today |
 | Code-signed installer | [planned] | needs a code-signing certificate (Windows shows a SmartScreen warning until then) |

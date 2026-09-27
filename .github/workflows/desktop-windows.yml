@@ -1,12 +1,14 @@
 name: MY FOOD Hub (Windows installer)
 
-# Builds the MY FOOD Hub installer on a real Windows machine. Run by hand (Actions tab); the
-# installer is attached to the run as an artifact. Only public values are used (see build.mjs).
+# Builds the PRODUCTION MY FOOD Hub installer on a real Windows machine. Run by hand (Actions tab).
+# Only public values are used: repository variables PROD_SUPABASE_URL and PROD_SUPABASE_ANON_KEY.
+# The build refuses anything that is not the production Supabase project and a cloud address that
+# reports itself as production; the result is checked again below before it is uploaded.
 on:
   workflow_dispatch:
     inputs:
       cloud_url:
-        description: MY FOOD cloud address the hub connects to
+        description: MY FOOD cloud address the hub connects to (production)
         default: https://bibiani-restaurant.vercel.app
         required: true
 
@@ -25,18 +27,40 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Public build values
+
+      - name: Public production values
         shell: bash
+        env:
+          SUPABASE_URL: ${{ vars.PROD_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.PROD_SUPABASE_ANON_KEY }}
         run: |
-          printf 'VITE_SUPABASE_URL=%s\nVITE_SUPABASE_ANON_KEY=%s\n' "${{ vars.PROD_SUPABASE_URL }}" "${{ vars.PROD_SUPABASE_ANON_KEY }}" > .env.hub
-      - name: Build app
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::Add repository variables PROD_SUPABASE_URL and PROD_SUPABASE_ANON_KEY (Settings > Secrets and variables > Actions > Variables)"
+            exit 1
+          fi
+          printf 'VITE_SUPABASE_URL=%s\nVITE_SUPABASE_ANON_KEY=%s\n' "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > .env.hub
+
+      - name: Build app (production channel)
         working-directory: apps/desktop
-        run: node build.mjs .env.hub "${{ inputs.cloud_url }}"
+        run: node build.mjs --channel production --env .env.hub --cloud "${{ inputs.cloud_url }}"
+
+      - name: Check the build is production (and not staging)
+        shell: bash
+        working-directory: apps/desktop
+        run: |
+          grep -q '"channel":"production"' app/build-info.json
+          grep -q 'lgoirbfyspuflqekrcgp.supabase.co' app/main.cjs
+          if grep -rq 'impairlsvhkumjzhjhti\|restaurant-management-staging' app/main.cjs app/web; then
+            echo "::error::Staging values found in a production build"; exit 1
+          fi
+          cat app/build-info.json
+
       - name: Package installer
         working-directory: apps/desktop
-        run: pnpm exec electron-builder --win nsis --x64 --publish never
+        run: pnpm exec electron-builder --config electron-builder.generated.json --win nsis --x64 --publish never
+
       - uses: actions/upload-artifact@v4
         with:
-          name: myfood-hub-windows
-          path: apps/desktop/release/*.exe
+          name: MY-FOOD-Hub-production-${{ github.sha }}
+          path: apps/desktop/release/MY-FOOD-Hub-Setup-*-production.exe
           if-no-files-found: error

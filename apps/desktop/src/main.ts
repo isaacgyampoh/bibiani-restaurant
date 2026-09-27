@@ -13,8 +13,13 @@ const PORT = Number(process.env.MYFOOD_HUB_PORT ?? 8080);
 const CLOUD_URL = process.env.MYFOOD_CLOUD_URL ?? 'https://bibiani-restaurant.vercel.app';
 const SUPABASE_URL = process.env.MYFOOD_SUPABASE_URL ?? '';
 const SUPABASE_ANON_KEY = process.env.MYFOOD_SUPABASE_ANON_KEY ?? '';
+/** 'production', or 'test' for a hub built against staging (named "MY FOOD Hub (TEST)"). */
+const CHANNEL = process.env.MYFOOD_CHANNEL ?? 'test';
+const TITLE = CHANNEL === 'production' ? 'MY FOOD Hub' : 'MY FOOD Hub (TEST)';
 
-if (!app.requestSingleInstanceLock()) app.quit();
+// Only one hub per PC: a second launch just brings the running hub's window forward.
+const primaryInstance = app.requestSingleInstanceLock();
+if (!primaryInstance) app.exit(0);
 
 const resources = app.isPackaged ? join(__dirname) : join(__dirname, '..', 'app');
 const dataDir = join(app.getPath('userData'), 'hub');
@@ -25,7 +30,13 @@ function keyStoreSecrets(): SecretStore {
   return {
     load: () => {
       if (!existsSync(file)) return null;
-      return JSON.parse(safeStorage.decryptString(readFileSync(file))) as HubSecrets;
+      try {
+        return JSON.parse(safeStorage.decryptString(readFileSync(file))) as HubSecrets;
+      } catch {
+        throw new Error(
+          'The hub cannot read its protected keys. This happens when MY FOOD Hub runs under a different Windows account than the one that set it up. Sign in to Windows with that account, or contact MY FOOD support.',
+        );
+      }
     },
     save: (secrets) => {
       if (!safeStorage.isEncryptionAvailable())
@@ -68,7 +79,7 @@ function showWindow() {
   window = new BrowserWindow({
     width: 1100,
     height: 820,
-    title: 'MY FOOD Hub',
+    title: TITLE,
     icon: join(resources, 'icon.png'),
     autoHideMenuBar: true,
     webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false },
@@ -92,7 +103,9 @@ function showWindow() {
 
 app.on('second-instance', showWindow);
 
-app.whenReady().then(async () => {
+if (primaryInstance) void app.whenReady().then(start);
+
+async function start() {
   app.setLoginItemSettings({ openAtLogin: true });
   let stop: () => void = () => {};
   try {
@@ -106,7 +119,7 @@ app.whenReady().then(async () => {
       supabaseAnonKey: SUPABASE_ANON_KEY,
       secrets: keyStoreSecrets(),
       logger: { info: log('info'), warn: log('warn'), error: log('error') },
-      release: `hub-${app.getVersion()}`,
+      release: `hub-${app.getVersion()}${CHANNEL === 'production' ? '' : '-test'}`,
     });
     stop = hub.stop;
     hubUrl = hub.url;
@@ -121,10 +134,10 @@ app.whenReady().then(async () => {
   }
 
   tray = new Tray(nativeImage.createFromPath(join(resources, 'icon.png')).resize({ width: 16, height: 16 }));
-  tray.setToolTip('MY FOOD Hub');
+  tray.setToolTip(TITLE);
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: 'Open MY FOOD Hub', click: showWindow },
+      { label: `Open ${TITLE}`, click: showWindow },
       { label: 'Open a till on this computer', click: () => void shell.openExternal(hubUrl) },
       { type: 'separator' },
       {
@@ -140,7 +153,7 @@ app.whenReady().then(async () => {
   tray.on('double-click', showWindow);
   showWindow();
 
-  if (app.isPackaged) {
+  if (app.isPackaged && CHANNEL === 'production') {
     autoUpdater.logger = {
       info: log('info'),
       warn: log('warn'),
@@ -151,7 +164,7 @@ app.whenReady().then(async () => {
       .checkForUpdatesAndNotify()
       .catch((e) => log('warn')('hub.update_check_failed', { error: String(e) }));
   }
-});
+}
 
 // The hub keeps running with no window open.
 app.on('window-all-closed', () => {});

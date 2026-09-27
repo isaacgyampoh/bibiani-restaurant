@@ -650,7 +650,7 @@ export interface HubSyncRepository {
   /** Configuration rows for the hub's branch, keyed by table, in foreign-key order. */
   snapshot(branchId: string): Promise<Record<string, Record<string, unknown>[]>>;
   movementsSince(branchId: string, since: string | null): Promise<Record<string, unknown>[]>;
-  /** Today's and yesterday's order-number counters, so a newly attached hub continues the numbering. */
+  /** The branch's latest order-number counters (3 most recent business days), so a hub continues the numbering. */
   orderCounters(branchId: string): Promise<Record<string, unknown>[]>;
   /** Orders of the branch that are not finished (completed, cancelled or voided). */
   openOrders(branchId: string, hubDeviceId: string): Promise<number>;

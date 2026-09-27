@@ -16,12 +16,18 @@ Classification:
 | Web + API deployment | Vercel | `restaurant-management-prod` (`prj_2v8lZfXUPR9RpvIk3dj0ccrULg27`) | Production | **YES**: serves https://bibiani-restaurant.vercel.app | **KEEP – PRODUCTION** |
 | Database, Auth, Storage, Realtime | Supabase | `lgoirbfyspuflqekrcgp` "restaurant-management-prod", eu-west-1 | Production | **YES** | **KEEP – PRODUCTION** |
 | Source code, CI, monitor | GitHub | `isaacgyampoh/bibiani-restaurant` (public), branch `main` | All | **YES** (source of every release; monitor checks production every 5 min) | **KEEP – PRODUCTION** |
-| Staging deployment | Vercel | `restaurant-management-staging` (`prj_L0nJfaCJVHE0VMpqt2SwQ8p6UiPV`) | Staging | No | **KEEP – DEVELOPMENT** (release gate: browser tests run here). Disconnect Git (see below) |
+| Staging deployment | Vercel | `restaurant-management-staging` (`prj_L0nJfaCJVHE0VMpqt2SwQ8p6UiPV`) | Staging | No | **KEEP – DEVELOPMENT** (release gate: browser tests run here). Git disconnected 2026-09-27 |
 | Staging database | Supabase | `impairlsvhkumjzhjhti` "restaurant-management-staging", eu-west-1 | Staging | No | **KEEP – DEVELOPMENT** (release gate) |
 | Old DEV database | Supabase | `nkijnjovztglmwxoemqg` "bibiani-restauran", eu-west-1 | Local development | No | **ARCHIVED / OPTIONAL** (see below) |
-| Stray web project | Vercel | `web` (`prj_Ql7IJqd9hVPbJLLV7kh3x0n1tZOH`), root `apps/web` | None | No | **SAFE TO DELETE** (see evidence) |
+| Stray web project | Vercel | `web` (`prj_Ql7IJqd9hVPbJLLV7kh3x0n1tZOH`), root `apps/web` | None | No | **DELETED 2026-09-27** (was SAFE TO DELETE; see evidence) |
 | 17 other Vercel projects (e.g. bedtime-beddings-home, tagitela, susu, carl, desktop, erbliving-shop…) | Vercel | various | Other products | No | **UNKNOWN – DO NOT DELETE** (not part of MY FOOD) |
 | 8 other Supabase projects (Gyampo, carl-staging, WHOLESALE-DISTRIBUTION-MANAGEMENT-SYS, Mimi, susu, room38303@gmail.com, AM-EXPRESS-TRADING, Carl) | Supabase | various | Other products | No | **UNKNOWN – DO NOT DELETE** (not part of MY FOOD) |
+
+## Changes on 2026-09-27
+
+- **Vercel `web` deleted**, as instructed after re-verifying it was unused. It had no custom domain and no references anywhere. It served a copy of the pages built without any Supabase address, so it had no data connection. It was rebuilt on every Git push.
+- **Git disconnected from `restaurant-management-staging`.** Every push had been starting a failing Git build there. Staging itself is kept: the release gate deploys it with `pnpm staging:deploy`.
+- Production (`restaurant-management-prod`) was not touched. It was already not Git-connected.
 
 ## In-store hub and desktop app (2026-09-26)
 
@@ -83,8 +89,8 @@ The MY FOOD Hub adds **no cloud resource**:
 
 ## Actions for the owner (blocked in this session; each is reversible or evidence-backed)
 
-1. **Delete the Vercel project `web`:** Vercel dashboard, project `web`, Settings, Delete Project.
-2. **Disconnect Git from `restaurant-management-staging`:** Settings, Git, Disconnect.
+1. ~~Delete the Vercel project `web`~~: **done 2026-09-27.**
+2. ~~Disconnect Git from `restaurant-management-staging`~~: **done 2026-09-27.**
    - Every push currently starts a Git build of staging that fails ("Error" deployments).
    - Staging is always deployed by `pnpm staging:deploy` instead.
    - Disconnecting stops the failed builds and removes the risk of a Git build replacing staging with a misconfigured one.

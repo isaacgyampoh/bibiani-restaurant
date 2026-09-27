@@ -10,7 +10,8 @@
     "dev": "tsx --env-file=.env src/main.ts",
     "start": "node dist/main.js",
     "build": "esbuild src/main.ts --bundle --platform=node --target=node22 --format=esm --outfile=dist/main.js --sourcemap --banner:js=\"import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);\"",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "printer-check": "tsx src/tools/printer-check.ts"
   },
   "dependencies": {
     "@rp/client-core": "workspace:*",

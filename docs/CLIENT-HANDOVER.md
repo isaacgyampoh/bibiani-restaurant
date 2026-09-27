@@ -101,10 +101,23 @@ MY FOOD can keep your restaurant running without internet, using one **MY FOOD H
 - **Internet back:** everything recorded meanwhile is sent to MY FOOD automatically, exactly once. Your reports, stock and back office then include it. The hub window shows **All sent**.
 - **MoMo and card:** record them only after the payment is confirmed on the phone or card terminal, as always. MY FOOD never marks a payment as received on its own.
 - **PIN sign-in without internet** works for staff who have signed in on the hub at least once while the internet was on. Changing a PIN needs the internet.
-- **Keep the hub computer on.** If it is switched off, the tills cannot work locally. If only the hub is broken but the internet works, a manager can press **Stop running branch** in Devices & printing, and the tills then use the normal MY FOOD address.
+- **Keep the hub computer on**, plugged into power (a small UPS is recommended) and into the router with a cable. If it is switched off or broken, the tills cannot work locally: there is only one hub.
 - **Menu, prices, staff and settings are still changed in the back office.** The hub picks up changes within about 15 seconds while online.
 
-Setting up the hub: see [DESKTOP-POS.md](DESKTOP-POS.md), "Setting up the hub PC". Your MY FOOD contact can do this with you.
+### If the hub computer stops working
+
+1. First try: switch the hub computer on, or restart it. MY FOOD Hub starts by itself and the tills continue.
+2. If that does not work **and the internet works**:
+   - a manager opens the MY FOOD back office on a phone or laptop, then **Devices & printing** → next to the hub, **Stop running branch**;
+   - on each till, open the normal MY FOOD address (**https://bibiani-restaurant.vercel.app**, or your own domain) and sign in. You are now working over the internet, without the hub.
+3. When the hub works again:
+   - finish or cancel the orders taken on the web POS;
+   - then press **Run branch from hub** and open the hub's address on the tills again.
+
+   Order numbers continue without repeating.
+4. If neither the hub nor the internet works, the tills cannot take orders in MY FOOD. Write orders on paper and enter them later. Call your MY FOOD contact.
+
+Setting up the hub: see [DESKTOP-POS.md](DESKTOP-POS.md), "Setting up the hub PC". Your MY FOOD contact does this with you, and tests everything on site with your equipment ([HARDWARE-ACCEPTANCE.md](HARDWARE-ACCEPTANCE.md)).
 
 ## 10. Printers
 
@@ -117,18 +130,52 @@ Setting up the hub: see [DESKTOP-POS.md](DESKTOP-POS.md), "Setting up the hub PC
   - a ticket marked *possible duplicate* may have printed already: check before making the food twice.
 - **Turn off** a printer you are repairing, so tickets are not sent to it.
 
+### Printer not printing: what to check
+
+1. Paper, lid closed, printer power light on.
+2. Network cable plugged in at both ends. The printer's IP address has not changed: print its self-test page (usually hold the FEED button while switching on) and compare the IP with Devices & printing.
+3. **Devices & printing → Test print.**
+4. **Print queue:** press Retry on waiting tickets.
+5. Still nothing: call your MY FOOD contact with the printer name and the time.
+
+Printers must be **network (Ethernet) receipt printers**. USB-only printers and automatic cash-drawer opening are not supported yet.
+
 ## 11. Checking your devices
 
 **Devices & printing** shows every till, kitchen screen, printer and the hub: online or offline, when it was last seen, and for printers any error and unprinted tickets. In a restaurant run by the hub, the top line tells you in plain words whether the hub is online and whether everything has been sent.
 
-## 12. Backups and safety
+## 12. Your own web address (domain)
+
+When you buy a domain (e.g. `myfood-chefelisha.com`), MY FOOD stays the same system; only the address changes. **No new app or server is created.** Your domain's DNS is managed in **Cloudflare**.
+
+1. Tell your MY FOOD contact the domain.
+2. They add it to the existing MY FOOD project on Vercel (Settings → Domains). Vercel shows the exact DNS records.
+3. In **Cloudflare → your domain → DNS → Records**, add exactly what Vercel shows. Usually:
+   - `A` record, name `@`, value `76.76.21.21`;
+   - `CNAME` record, name `www`, value `cname.vercel-dns.com`;
+   - **Proxy status: DNS only (grey cloud)** for both. This lets Vercel issue the secure certificate.
+4. Within minutes to a few hours, the domain opens MY FOOD with a padlock (https).
+5. Your MY FOOD contact then:
+   - updates the email sender and email links to the new domain;
+   - updates the sign-in settings;
+   - builds a new hub installer for the new address.
+
+   **https://bibiani-restaurant.vercel.app keeps working** the whole time.
+
+Technical details: [PRODUCTION-ARCHITECTURE.md](PRODUCTION-ARCHITECTURE.md), "Domain and email".
+
+## 13. Emails from MY FOOD
+
+Owner verification, password reset and PIN reset emails need an email sender on your own domain. They are set up **after** the domain is bought (step 5 above). Until then, these emails reach only addresses registered with the MY FOOD developer's account, so ask your MY FOOD contact to reset a password or PIN for you.
+
+## 14. Backups and safety
 
 - Your data is kept in a secure database in Europe (Ireland), with **daily backups**.
 - Every important change is recorded in Activity and cannot be deleted.
 - Passwords and PINs are never stored in readable form. Nobody can look up your PIN or password.
 - If something goes wrong on a screen, MY FOOD shows **Something went wrong** with a **Reload** button. Saved orders and payments are safe.
 
-## 13. Contact
+## 15. Contact
 
 For help, changes or new devices, contact your MY FOOD developer: **Isaac Gyampoh**, through the contact details agreed at handover. When you report a problem, include:
 - what you were doing;
