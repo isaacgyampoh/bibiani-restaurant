@@ -177,6 +177,10 @@ Printers must be **network (Ethernet) receipt printers**. USB-only printers and 
 
 ## 12. Your own web address (domain)
 
+**Connected on 2026-09-27: https://www.chefelisha.cc** (chefelisha.cc forwards there automatically). The DNS is in Cloudflare, it points at the existing MY FOOD app on Vercel, and it has a secure (https) certificate. **https://bibiani-restaurant.vercel.app keeps working** as a fallback.
+
+The steps below describe how it was done (for reference, or a future domain).
+
 When you buy a domain (e.g. `myfood-chefelisha.com`), MY FOOD stays the same system; only the address changes. **No new app or server is created.** Your domain's DNS is managed in **Cloudflare**.
 
 1. Tell your MY FOOD contact the domain.

@@ -7,11 +7,12 @@ import { expect, type Page, test } from '@playwright/test';
  * ready and that it refuses requests without a login. It never opens /pair (that would create a
  * pairing request) and never submits a form.
  *
- *   E2E_BASE_URL=https://bibiani-restaurant.vercel.app QA_OUT=/tmp/prodqa npx playwright test e2e/zz-qa-prod-readonly.spec.ts
+ *   E2E_BASE_URL=https://www.chefelisha.cc QA_OUT=/tmp/prodqa npx playwright test e2e/zz-qa-prod-readonly.spec.ts
+ *   (also works against the fallback https://bibiani-restaurant.vercel.app)
  */
 const OUT = process.env.QA_OUT;
 test.skip(
-  !OUT || !process.env.E2E_BASE_URL?.includes('bibiani-restaurant'),
+  !OUT || !/bibiani-restaurant\.vercel\.app|chefelisha\.cc/.test(process.env.E2E_BASE_URL ?? ''),
   'manual production smoke test only',
 );
 

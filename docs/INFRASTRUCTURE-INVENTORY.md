@@ -23,6 +23,15 @@ Classification:
 | 17 other Vercel projects (e.g. bedtime-beddings-home, tagitela, susu, carl, desktop, erbliving-shop…) | Vercel | various | Other products | No | **UNKNOWN – DO NOT DELETE** (not part of MY FOOD) |
 | 8 other Supabase projects (Gyampo, carl-staging, WHOLESALE-DISTRIBUTION-MANAGEMENT-SYS, Mimi, susu, room38303@gmail.com, AM-EXPRESS-TRADING, Carl) | Supabase | various | Other products | No | **UNKNOWN – DO NOT DELETE** (not part of MY FOOD) |
 
+## Domain: chefelisha.cc (connected 2026-09-27)
+
+- **Where it lives:** registered and DNS-managed in **Cloudflare** (nameservers ram/robin.ns.cloudflare.com), with the records set to **DNS only** (not proxied).
+- **Vercel:** attached to the **existing** project `restaurant-management-prod` as `chefelisha.cc` and `www.chefelisha.cc`. Vercel reports both correctly configured, and the apex redirects (308) to `www`.
+  - Vercel's records: the apex is an `A` record to `216.198.79.1` and `64.29.17.1` (or the project CNAME `3432b34e38d82eb0.vercel-dns-017.com` flattened at the apex); `www` is a `CNAME` to `3432b34e38d82eb0.vercel-dns-017.com`.
+- **HTTPS:** Let's Encrypt certificate issued by Vercel.
+- **Checked on the new domain:** `/health/ready` reports `production-9cc0e56`, and the app uses Supabase `lgoirbfyspuflqekrcgp`. **https://bibiani-restaurant.vercel.app still works.**
+- No new Vercel project, deployment or Supabase project was created for the domain.
+
 ## Supabase projects: the one production project (2026-09-27)
 
 Checked against:

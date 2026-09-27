@@ -5,7 +5,7 @@ The single source of truth for the system the restaurant runs on. No secrets are
 ```
 CLIENT (back office in a browser; in the restaurant: tills, kitchen screens, customer display)
   ↓                       ↘ in a hub branch they use the MY FOOD Hub PC on the LAN, which syncs below
-DNS             Cloudflare (the client's own domain, when purchased)
+DNS             Cloudflare: chefelisha.cc (connected 2026-09-27; apex → www.chefelisha.cc)
   ↓
 DOMAIN          https://bibiani-restaurant.vercel.app   (+ the client's own domain)
   ↓
