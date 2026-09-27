@@ -23,6 +23,10 @@ export type VoidItemsCommand = z.infer<typeof VoidItemsCommand>;
 export const PrintReceiptCommand = z.object({ requestId: uuid, printerId: uuid.nullish() });
 export type PrintReceiptCommand = z.infer<typeof PrintReceiptCommand>;
 
+/** Request the customer's bill: printed on `printerId` or this till's receipt printer, if any. */
+export const RequestBillCommand = z.object({ requestId: uuid, printerId: uuid.nullish() });
+export type RequestBillCommand = z.infer<typeof RequestBillCommand>;
+
 export const TestPrintCommand = z.object({ requestId: uuid });
 export type TestPrintCommand = z.infer<typeof TestPrintCommand>;
 

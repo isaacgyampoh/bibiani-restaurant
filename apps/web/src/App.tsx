@@ -1,6 +1,7 @@
 import type { MeView } from '@rp/contracts';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityPage } from './features/activity/ActivityPage';
+import { DeviceSetupScreen } from './features/auth/DeviceSetupScreen';
 import { LoginScreen } from './features/auth/LoginScreen';
 import { PairScreen } from './features/auth/PairScreen';
 import { PinSetupScreen } from './features/auth/PinSetupScreen';
@@ -79,6 +80,7 @@ function AppRoutes() {
       if (
         event === 'PASSWORD_RECOVERY' &&
         window.location.pathname !== '/reset-pin' &&
+        window.location.pathname !== '/device-setup' &&
         !window.location.pathname.startsWith('/welcome')
       )
         navigate('/set-password', true);
@@ -93,6 +95,7 @@ function AppRoutes() {
 
   if (path === '/hub' && onHub) return <HubPage />;
   if (path === '/pair') return <PairScreen onPaired={loadMe} />;
+  if (path === '/device-setup') return <DeviceSetupScreen onDone={loadMe} />;
   if (path === '/set-password') return <SetPasswordScreen onDone={loadMe} />;
   if (path === '/welcome') return <WelcomeScreen />;
   if (path === '/welcome/verify') return <WelcomeVerifyScreen onDone={loadMe} />;

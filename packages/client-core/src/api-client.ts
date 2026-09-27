@@ -26,6 +26,7 @@ import type {
   OperationsView,
   OrderSummaryView,
   OrderView,
+  PairDeviceResult,
   PairingCodeView,
   PrintJobResultCommand,
   PrintQueueView,
@@ -36,6 +37,7 @@ import type {
   RecordCountLineCommand,
   RecordPaymentCommand,
   RecordStockMovementCommand,
+  RequestBillCommand,
   SalesReportView,
   SaveInventoryItemCommand,
   SavePromotionCommand,
@@ -251,6 +253,13 @@ export class ApiClient {
     this.request<OrderView>('POST', `/v1/orders/${orderId}/void-items`, cmd);
   markReady = (orderId: string) => this.request<OrderView>('POST', `/v1/orders/${orderId}/ready`, {});
   receipt = (orderId: string) => this.request<ReceiptView>('GET', `/v1/orders/${orderId}/receipt`);
+  bill = (orderId: string) => this.request<ReceiptView>('GET', `/v1/orders/${orderId}/bill`);
+  requestBill = (orderId: string, cmd: RequestBillCommand) =>
+    this.request<{ printJobId: string | null; copy: boolean; prints: number }>(
+      'POST',
+      `/v1/orders/${orderId}/bill`,
+      cmd,
+    );
   printReceipt = (orderId: string, cmd: PrintReceiptCommand) =>
     this.request<{ printJobId: string; isReprint: boolean }>(
       'POST',
@@ -276,6 +285,7 @@ export class ApiClient {
     );
   hubPinChange = (cmd: HubPinChangeCommand) =>
     this.request<{ pinSetAt: string; pinVersion: number }>('POST', '/v1/hub/pin-change', cmd);
+  registerPersonalDevice = () => this.request<PairDeviceResult>('POST', '/v1/me/personal-device', {});
   setBranchHub = (branchId: string, hubDeviceId: string | null) =>
     this.request<{ hubDeviceId: string | null }>('POST', `/v1/admin/branches/${branchId}/hub`, {
       hubDeviceId,

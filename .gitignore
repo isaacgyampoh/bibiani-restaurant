@@ -21,3 +21,4 @@ perf-results/
 apps/desktop/app/
 apps/desktop/release/
 apps/desktop/electron-builder.generated.json
+.production-archives/

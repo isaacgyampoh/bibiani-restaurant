@@ -8,15 +8,22 @@ Welcome to MY FOOD. This guide explains, in plain words, how to start and run yo
 
 It works in any modern browser (Chrome or Edge recommended). When your own web address is ready, MY FOOD will also open there. The address above keeps working.
 
-## 1. Create your owner account
+## 1. Create your owner account (you sign in with a PIN)
 
-1. Your MY FOOD contact invites your email address.
-2. Open **…/welcome**, type that email and press **Send verification link**.
-3. Open the email "MY FOOD — confirm it's you" and press **Continue to MY FOOD**. The link works once, for one hour.
-4. Enter your full name and choose your own password (at least 10 characters). Nobody else knows it, not even us.
-5. You arrive at **Set up your restaurant**, a checklist of 13 steps. Do them in any order, skip what you don't need, and come back any time from **Set-up guide** in the menu.
+1. Your MY FOOD contact invites your email address and gives you a **one-time link**, by email or privately in person.
+2. Open the link. You see **Welcome to MY FOOD** with your email marked as verified.
+3. Enter your full name and **choose your PIN** (4 to 6 digits, typed twice). Choose one nobody can guess; 1234 or 1111 are refused.
+4. Press **Create owner account**. This phone or laptop is now **your device**, and you arrive at **Set up your restaurant**: a 13-step checklist you can do in any order, and finish later from **Set-up guide** in the menu.
 
-**Forgot your password?** Press **Forgot password?** on the sign-in screen.
+**Every day:** open MY FOOD on your device and enter your PIN.
+
+**On a new phone or laptop, or if you forgot your PIN:**
+1. On the sign-in screen, type your email and press **Email me a sign-in link**.
+2. Open the link on that device and press **Use this device with my PIN**, or **Forgot your PIN? Choose a new one**.
+
+Your old PIN is never shown or sent to anyone; the new one replaces it at once. Your email is your way back in, so keep it safe.
+
+**On your own device** your PIN lets you do everything, including staff, devices and settings. **On a shared restaurant till**, your PIN runs the till but does not open staff, devices or settings. This protects you if someone watches you type your PIN at the counter.
 
 ## 2. Add your staff
 
@@ -29,7 +36,8 @@ Tell the person their starting PIN in person. At their first sign-in on a till, 
 - Each PIN belongs to one person. The system refuses a PIN already in use, without saying whose it is.
 - After several wrong PINs, the till locks for a short time.
 - **Forgot PIN?** on the till sends a link to the person's email.
-- Staff with a PIN can use the tills. Only owners and managers, signed in with email and password, can change staff, devices or settings.
+- Staff sign in with their PIN on the restaurant's tills. Staff, devices and settings can only be changed by owners and managers, with their PIN on their own registered phone or laptop.
+- A manager registers their own phone or laptop the same way you do: "Email me a sign-in link" on the sign-in screen.
 
 ## 3. Connect your devices
 
@@ -50,6 +58,27 @@ Open **Devices & printing** on your computer.
 3. Press **Send to kitchen**. The kitchen sees each item with quantity, price, promotion and total. Printed kitchen tickets show prices too, if you turn this on for the station.
 4. **Take payment** (cash, mobile money, card). Cash shows the change to give.
 5. **Print receipt** (or **View receipt** to show it on screen). Reprints are marked REPRINT.
+
+### "Please bring me my bill"
+
+1. The waiter opens the table's order and presses **Print bill**. The bill shows:
+   - the restaurant, the table, the order number, and the date and time;
+   - every item with quantity, price, extras, promotions and discounts;
+   - taxes, and the **AMOUNT DUE**;
+   - at the top, **BILL** and **NOT PAID**.
+
+   It is not a receipt, and nothing is paid yet. If this till has no printer, the bill is shown on the screen to print from there.
+2. The customer pays with cash or mobile money and hands the bill back.
+3. At the till, the cashier opens the **Bills** tab and finds the bill by **order number, table or amount**, then presses **Take payment**:
+   - **Cash:** enter the cash received; MY FOOD shows the change.
+   - **MoMo:** record it **only after** the payment shows as received on the MoMo phone, and type its transaction ID.
+4. The order becomes **Paid**. Print the receipt if the customer wants one.
+
+Good to know:
+- **Reprint bill** prints a copy marked **BILL / COPY**. It never creates another order, payment or stock change.
+- A paid order cannot be paid again or billed again. Corrections go through a manager (void or refund).
+- Every payment records who took it, on which till, the method, the amount, the change and the time.
+- Bills also work when the internet is down (with the MY FOOD Hub): cash is recorded on the hub and sent to MY FOOD later.
 
 ## 5. Receipts
 
@@ -117,6 +146,8 @@ MY FOOD can keep your restaurant running without internet, using one **MY FOOD H
    Order numbers continue without repeating.
 4. If neither the hub nor the internet works, the tills cannot take orders in MY FOOD. Write orders on paper and enter them later. Call your MY FOOD contact.
 
+**Get the Windows app:** in **Devices & printing** → **MY FOOD Hub for Windows** → **Download for Windows**. Download the file ending in **-production.exe**; Windows may warn that the publisher is unknown (the app is not code-signed yet): choose More info → Run anyway. Once installed, MY FOOD Hub opens directly on the point of sale (press F2 for the hub's status and devices) and starts with Windows.
+
 Setting up the hub: see [DESKTOP-POS.md](DESKTOP-POS.md), "Setting up the hub PC". Your MY FOOD contact does this with you, and tests everything on site with your equipment ([HARDWARE-ACCEPTANCE.md](HARDWARE-ACCEPTANCE.md)).
 
 ## 10. Printers
@@ -166,7 +197,7 @@ Technical details: [PRODUCTION-ARCHITECTURE.md](PRODUCTION-ARCHITECTURE.md), "Do
 
 ## 13. Emails from MY FOOD
 
-Owner verification, password reset and PIN reset emails need an email sender on your own domain. They are set up **after** the domain is bought (step 5 above). Until then, these emails reach only addresses registered with the MY FOOD developer's account, so ask your MY FOOD contact to reset a password or PIN for you.
+Owner verification, password reset and PIN reset emails need an email sender on your own domain. They are set up **after** the domain is bought (step 5 above). Until then, these emails reach only addresses registered with the MY FOOD developer's account. So your MY FOOD contact gives you your one-time sign-up link privately, and resets a forgotten PIN for you (Staff → the person → new starting PIN).
 
 ## 14. Backups and safety
 

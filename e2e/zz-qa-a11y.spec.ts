@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
 import { type Page, test } from '@playwright/test';
+import { usePasswordSignIn } from './support';
 
 // Manual-QA helper (not part of CI): automated WCAG 2.1 A/AA checks (axe-core) on every screen type.
 // Writes a JSON report; automated checks find a subset of issues, not all of them.
@@ -28,9 +29,10 @@ test('axe: sign-in, back office, POS', async ({ browser }) => {
     await scan(page, path);
   }
   await page.goto('/login');
+  await usePasswordSignIn(page);
   await page.getByLabel('Email').fill(env.accounts.owner!.email);
   await page.getByLabel('Password').fill(env.accounts.owner!.password);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.waitForURL((u) => !u.pathname.startsWith('/login'));
   for (const path of [
     '/dashboard',

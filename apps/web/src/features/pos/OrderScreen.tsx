@@ -54,9 +54,9 @@ export function OrderScreen({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [modFor, setModFor] = useState<Product | null>(null);
-  const [dialog, setDialog] = useState<'pay' | 'correct' | 'receipt' | 'move' | 'merge' | 'discount' | null>(
-    null,
-  );
+  const [dialog, setDialog] = useState<
+    'pay' | 'correct' | 'receipt' | 'bill' | 'move' | 'merge' | 'discount' | null
+  >(null);
   const [printed, setPrinted] = useState<string | null>(null);
 
   const feed = useFeed<OrderView | null>(known ? `order:${orderId}` : null, () => api.getOrder(orderId), {
@@ -164,6 +164,22 @@ export function OrderScreen({
           : `Order #${result.orderNumber} saved`,
       );
     }
+  }
+
+  /** The customer asked for the bill: print it (or show it when this till has no printer). */
+  async function printBill() {
+    setPrinted(null);
+    await run('bill', async () => {
+      const r = await api.requestBill(orderId, { requestId: uuid() });
+      if (r.printJobId)
+        setPrinted(r.copy ? 'Bill copy sent to the printer (BILL / COPY)' : 'Bill sent to the printer');
+      else {
+        setDialog('bill');
+        setPrinted('No printer on this till: showing the bill to print from this screen');
+      }
+      feed.refresh();
+      return r;
+    });
   }
 
   async function printReceipt() {
@@ -310,6 +326,16 @@ export function OrderScreen({
             <div className="row">
               <Badge value={order.status} />
               <Badge value={order.paymentStatus} />
+              {(order.bill.status === 'printed' || order.bill.status === 'requested') &&
+              order.balanceDue > 0 ? (
+                <Badge
+                  value="bill"
+                  tone="warn"
+                  label={
+                    order.bill.status === 'printed' ? 'Bill printed · awaiting payment' : 'Bill requested'
+                  }
+                />
+              ) : null}
             </div>
           ) : null}
           {order && !closed ? (
@@ -602,6 +628,15 @@ export function OrderScreen({
                 Mark ready
               </button>
             ) : null}
+            {order &&
+            !closed &&
+            order.balanceDue > 0 &&
+            order.firstSubmittedAt &&
+            hasPermission(me, 'receipt.print') ? (
+              <button type="button" className="btn lg" disabled={!!busy} onClick={() => void printBill()}>
+                {order.bill.prints > 0 ? 'Reprint bill' : 'Print bill'}
+              </button>
+            ) : null}
             {order && hasPermission(me, 'receipt.print') ? (
               <button type="button" className="btn lg" disabled={!!busy} onClick={() => void printReceipt()}>
                 {order.receiptsPrinted > 0 ? 'Reprint receipt' : 'Print receipt'}
@@ -659,6 +694,9 @@ export function OrderScreen({
         />
       ) : null}
       {dialog === 'receipt' ? <ReceiptModal orderId={orderId} onClose={() => setDialog(null)} /> : null}
+      {dialog === 'bill' ? (
+        <ReceiptModal kind="bill" orderId={orderId} onClose={() => setDialog(null)} />
+      ) : null}
       {dialog === 'move' && order ? (
         <MoveDialog
           menu={menu}

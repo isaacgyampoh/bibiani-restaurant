@@ -285,6 +285,30 @@ export function createAdminRepository(sql: Sql): AdminRepository {
       );
     },
 
+    async firstBranchId() {
+      const [r] = await sql.query(
+        'select id from branches where is_active order by created_at, name limit 1',
+      );
+      return r ? (r.id as string) : null;
+    },
+
+    async createPersonalDevice(d) {
+      // "Kwame device 1", "Kwame device 2", ...: unique per branch, easy to recognise and revoke.
+      const first =
+        (d.displayName.split(' ')[0] ?? 'Staff').replace(/[^A-Za-z0-9 _-]/g, '').slice(0, 20) || 'Staff';
+      for (let n = 1; n < 100; n++) {
+        const name = `${first} device ${n}`;
+        const inserted = await sql.query(
+          `insert into devices (id, restaurant_id, branch_id, kind, name, personal_staff_id)
+           values ($1, app.current_restaurant_id(), $2, 'pos', $3, $4)
+           on conflict (branch_id, name) do nothing returning name`,
+          [d.id, d.branchId, name, d.staffId],
+        );
+        if (inserted.length > 0) return name;
+      }
+      throw new Error('Too many personal devices for this person');
+    },
+
     async systemRoleId(name) {
       const [r] = await sql.query('select id from roles where name = $1 and is_system limit 1', [name]);
       return r ? (r.id as string) : null;

@@ -404,6 +404,8 @@ export interface OrderRepository {
   insertItems(orderId: string, items: readonly OrderItem[]): Promise<void>;
   updateItems(updates: readonly ItemStatusUpdate[], at: Date): Promise<void>;
   updateHeader(orderId: string, patch: OrderHeaderPatch, expectedVersion: number): Promise<number>;
+  /** Marks the bill as issued (first time) and counts a printed copy when `printed`. Returns copies printed. */
+  issueBill(orderId: string, printed: boolean, at: Date): Promise<number>;
   activeOrderIdForTable(tableId: string): Promise<string | null>;
   findSubmission(submissionId: string): Promise<SubmissionRecord | null>;
   /** Inserts the submission with the next sequence number for the order; returns that number. */
@@ -692,6 +694,8 @@ export interface AuthSession {
   accessToken: string;
   refreshToken: string;
   expiresAt: number;
+  /** The sign-in session's id (the token's `session_id`), when the identity provider has one. */
+  sessionId?: string;
 }
 
 export interface AuthDirectory {
@@ -791,6 +795,8 @@ export interface PinRepository {
     succeeded: boolean;
     at: Date;
   }): Promise<void>;
+  /** Records on which device a PIN sign-in session was opened (see migration pin_first_and_bills). */
+  bindSession(sessionId: string, staffId: string, deviceId: string, at: Date): Promise<void>;
   /** Failed attempt times since `since`, newest first. */
   failures(scope: { deviceId: string } | 'restaurant', since: Date): Promise<Date[]>;
 }
@@ -818,6 +824,15 @@ export interface AdminRepository {
   /** This restaurant's staff record for a login, if any. */
   staffIdForUser(userId: string): Promise<string | null>;
   acceptOwnerInvitation(invitationId: string, staffId: string, at: Date): Promise<boolean>;
+  /** The restaurant's first active branch (where a personal device is registered). */
+  firstBranchId(): Promise<string | null>;
+  /** Creates a personal device (kind pos) of a staff member; returns its name. */
+  createPersonalDevice(d: {
+    id: string;
+    branchId: string;
+    staffId: string;
+    displayName: string;
+  }): Promise<string>;
   staff(
     staffId: string,
   ): Promise<{ id: string; userId: string | null; displayName: string; isActive: boolean } | null>;

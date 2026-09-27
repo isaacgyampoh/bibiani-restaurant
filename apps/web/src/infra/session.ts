@@ -110,17 +110,42 @@ export async function startOwnerOnboarding(email: string): Promise<void> {
 }
 
 /** Owner onboarding, step 2: with the session from the email link, become the restaurant's Owner. */
-export async function acceptOwnerInvitation(fullName: string): Promise<{ restaurantName: string }> {
+export async function acceptOwnerInvitation(
+  fullName: string,
+  pin: string,
+): Promise<{ restaurantName: string }> {
   const session = await currentSession();
   if (!session) throw new Error('Open the link from your email to continue');
   const res = await fetch(`${API_URL}/v1/onboarding/accept`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${session.access_token}` },
-    body: JSON.stringify({ fullName }),
+    body: JSON.stringify({ fullName, pin }),
   });
   const body = await res.json().catch(() => null);
   if (!res.ok) throw new Error(body?.error?.message ?? 'Something went wrong');
-  return body;
+  // This browser is now the owner's registered device: keep its login, then sign in with the PIN.
+  await adoptPairing(body.device as PairDeviceResult);
+  await signInWithPin(pin);
+  return { restaurantName: body.restaurantName };
+}
+
+/** "Email me a sign-in link" (owners and managers). Same answer for every address. */
+export async function sendSignInLink(email: string): Promise<void> {
+  const res = await fetch(`${API_URL}/v1/auth/email-link`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok)
+    throw new Error((await res.json().catch(() => null))?.error?.message ?? 'Something went wrong');
+}
+
+/**
+ * With the session from an emailed sign-in link: registers this browser as the person's own device
+ * for PIN sign-in, then ends the email session. The PIN pad is next.
+ */
+export async function registerThisDevice(): Promise<PairDeviceResult> {
+  return adoptPairing(await api.registerPersonalDevice());
 }
 
 /** Exchanges a one-time pairing code for this device's own login (no shared passwords). */

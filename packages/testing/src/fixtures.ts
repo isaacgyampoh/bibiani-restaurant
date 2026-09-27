@@ -468,6 +468,7 @@ export class LocalAuthDirectory implements AuthDirectory {
   async createSession(userId: string) {
     this.sessions.push(userId);
     return {
+      sessionId: randomUUID(),
       accessToken: `local.${userId}`,
       refreshToken: randomUUID(),
       expiresAt: Math.floor(Date.now() / 1000) + 3600,

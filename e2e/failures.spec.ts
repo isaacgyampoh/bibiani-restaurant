@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { type Browser, expect, type Page, test } from '@playwright/test';
+import { usePasswordSignIn } from './support';
 
 /**
  * Failure behaviour in a real browser against the deployed environment.
@@ -36,9 +37,10 @@ async function api<T>(
 async function signIn(browser: Browser, account: string): Promise<Page> {
   const page = await (await browser.newContext()).newPage();
   await page.goto('/login');
+  await usePasswordSignIn(page);
   await page.getByLabel('Email').fill(dev.accounts[account]!.email);
   await page.getByLabel('Password').fill(dev.accounts[account]!.password);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   return page;
 }
 async function paired(browser: Browser, deviceName: string): Promise<{ page: Page; deviceId: string }> {

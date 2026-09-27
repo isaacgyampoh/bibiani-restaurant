@@ -10,6 +10,13 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { ApiClient } from '@rp/client-core';
 
+// The production system holds only the real restaurant: demo data may never be created there.
+if (
+  /lgoirbfyspuflqekrcgp/.test(process.env.SUPABASE_URL ?? '') ||
+  /bibiani-restaurant\.vercel\.app/.test(process.env.API_URL ?? '')
+)
+  throw new Error('Refusing to seed demo data into PRODUCTION. Use staging (pnpm demo:seed).');
+
 const creds = JSON.parse(readFileSync('.demo-credentials.json', 'utf8')) as {
   email: string;
   password: string;

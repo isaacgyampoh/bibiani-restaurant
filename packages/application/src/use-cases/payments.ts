@@ -81,6 +81,7 @@ export class RecordPayment {
           amount: record.amount,
           tendered: record.tenderedAmount,
           change: record.changeAmount,
+          reference: record.reference,
         },
         correlationId: ctx.correlationId,
       });

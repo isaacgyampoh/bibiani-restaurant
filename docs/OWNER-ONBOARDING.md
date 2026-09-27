@@ -1,93 +1,91 @@
-# MY FOOD — owner onboarding
+# MY FOOD — owner onboarding (PIN first)
 
-How the client's real owner gets their own MY FOOD account, without anyone sharing a password.
+How the restaurant's owner gets their own MY FOOD account. Nobody shares a password or PIN, and there is no universal default PIN.
 
-## Security model
+## Principles
 
-- **No public sign-up.** Supabase sign-up is disabled, so accounts are created only by the MY FOOD server.
-- **Invitation first.** The operator (the MY FOOD developer) invites one email address for one restaurant. The invitation expires (14 days by default), works once, and can be revoked.
-- **Email proof.** The owner receives a single-use link (valid one hour). Opening it is the proof that they control the address.
-- **Own password.** The owner chooses their own password (at least 10 characters, breached passwords refused). Nobody else ever sees or sets it.
-- **Owner role.** Only when the verified email matches an open invitation does the server create the staff record, with the **Owner** role across all branches. It then marks the invitation used and records `owner.onboarded` in the audit history.
-- **Nothing to learn by probing.** The welcome screen answers the same for every email, including when email sending fails, so nobody can find out which emails are invited.
-- **Kept out of logs and audit.** Passwords and tokens never go into audit records, logs or URLs. The invitation stores only the email and dates.
-- **Owners vs staff:**
-  - **Owners and managers** use email and password: full management, including staff, devices and settings.
-  - **Staff** use a PIN on a paired till: operations only. A PIN session can never manage staff, devices or settings.
+- **Daily sign-in is a PIN.** Everyone, the owner included, signs in with their own PIN on a **registered device**:
+  - a restaurant till or screen (paired by a manager), or
+  - their own phone or laptop (registered through an emailed link).
+- **Email is the security channel**, not the daily login: verification, recovery ("forgot PIN"), and registering a new device of your own.
+- **PINs:** 4 to 6 digits, unique among the restaurant's staff, never stored raw. They are never shown, sent, logged, audited or put in URLs or browser storage.
+  - A PIN already in use is refused with "This PIN is already in use. Please choose another PIN.", without saying whose it is.
+  - Weak PINs (1234, 1111) are refused.
+  - Wrong PINs lock sign-in on that device (5 tries) and for the restaurant (30 tries) for 10 minutes. Every attempt is recorded.
+- **Owner's own device vs shared till.**
+  - On the owner's (or a manager's) **own** registered device, their PIN gives their full role: staff, devices and settings included.
+  - On a **shared restaurant till**, a PIN runs the till but cannot manage staff, devices or settings.
+  - Each PIN sign-in is bound on the server to the device it happened on; the browser cannot claim another device.
+  - Deactivating or removing a device stops its PIN sessions at once.
 
 ## Steps
 
 ### 0. Operator: invite the owner (once)
 
 ```bash
-PLATFORM_DATABASE_URL=<production admin database URL> \
-  pnpm platform:invite-owner --restaurant-id 4f82b0a9-e079-448c-8eb0-e93f2bc713f9 \
-  --email owner@client-domain.com --note "Handover"
+pnpm platform:invite-owner:prod --restaurant-id 4f82b0a9-e079-448c-8eb0-e93f2bc713f9 --email owner@their-domain.com --note "Handover"
 ```
 
 `4f82b0a9-…` is the real Chefelisha Restaurant.
 
-- `--list` shows invitations, with emails masked.
+- `--list` shows invitations (emails masked).
 - `--revoke <email>` cancels an open invitation.
-- A new invitation for the same email replaces the old one.
+- **While production email sending is not set up yet**, add `--link`. The command then also prints the single-use verification link the email would contain (valid 1 hour). Give it to the owner **privately** (in person or a direct message); whoever opens it can finish the owner sign-up.
 
-**Before inviting:** production email must be able to reach the owner. Connect custom SMTP (see [PRODUCTION-ARCHITECTURE.md](PRODUCTION-ARCHITECTURE.md), Domain and email). Until then, Supabase's built-in sender delivers only to members of the Supabase organization, at most 2 emails an hour.
+### 1. Owner opens the link
 
-### 1. Owner opens MY FOOD
+Either the emailed link (from `…/welcome`, "Send verification link"), or the link from step 0. The link lands on **Welcome to MY FOOD**, showing "Email verified: …".
 
-`https://bibiani-restaurant.vercel.app/welcome` (or the custom domain). Branded screen: **Set up your restaurant**.
+### 2. Owner enters their name and creates their PIN
 
-### 2. Owner enters their email
+The owner types a PIN twice and presses **Create owner account**. The server then:
+- checks the email-link session;
+- matches the invitation;
+- creates the Owner with that PIN, after the uniqueness check;
+- registers **this browser as the owner's device** ("<First name> device 1");
+- signs them in with the PIN.
 
-**Send verification link.** The screen says "If this email was invited, a link is on its way".
+All of this is audited; the PIN never appears in the audit.
 
-### 3. Verification email
+### 3. Set-up guide
 
-It arrives from the configured sender. Branded template: `supabase/templates/recovery.html`, subject "MY FOOD — confirm it's you".
+The owner lands on **Set up your restaurant**, a 13-step checklist. Any step can be skipped and finished later.
 
-### 4. Owner opens the link
+### Every day after that
 
-The link lands on `/welcome/verify`: "Email verified: …". An expired or used link shows **Send a new link**.
+Open MY FOOD on that device and enter the PIN.
 
-### 5. Owner enters their name and chooses a password
+### Another phone or laptop, or a forgotten PIN
 
-**Create owner account.** The server verifies the email-link session, matches the invitation and creates the Owner, all audited.
+1. On the sign-in screen: **Owner or manager: your email** → **Email me a sign-in link**. The answer is the same for any address, so nobody can probe who is registered.
+2. Open the link on the device → **Set up this device**. Then either:
+   - **Use this device with my PIN**, or
+   - **Forgot your PIN? Choose a new one**: the new PIN replaces the old one at once. The old PIN is never shown or sent.
+3. From then on, sign in with the PIN on that device.
 
-### 6. First-time setup guide
+**Staff** (cashiers, waiters, kitchen) sign in with their PIN on the restaurant's paired tills. A manager gives them a starting PIN in **Staff**; they must replace it with their own at first sign-in. "Forgot PIN?" on a till sends them an email link to choose a new one.
 
-The owner lands on **Set up your restaurant** (`/setup`, also in the menu as **Set-up guide**). It has 13 steps, each ticked automatically from the real configuration, and any step can be skipped:
+## Email sending (needed before real emails reach the owner)
 
-1. Restaurant details
-2. Logo and branding (MY FOOD branding is already applied)
-3. Contact information
-4. Currency (GHS)
-5. Tax and service charge (optional; ask the accountant)
-6. Dining areas and tables
-7. Kitchen stations (including whether screens and printed tickets show prices)
-8. Staff (each with their own PIN)
-9. Menu (categories, dishes, prices, options, photos)
-10. Recipes and stock (optional)
-11. Receipt settings (optional)
-12. Customer display (optional)
-13. POS devices (and, for working without internet, the MY FOOD Hub: see [DESKTOP-POS.md](DESKTOP-POS.md))
-
-## After the handover
-
-- The earlier operator login on the real restaurant (created at go-live for the developer) can then be deactivated by the new owner in **Staff**, or kept for support if the owner agrees.
-- Staff: **Staff → Add staff member** (name, email, role, starting PIN). The person replaces the starting PIN with their own at first sign-in. Duplicate PINs are refused without revealing whose they are.
-- **Recovery:**
-  - owners and managers: **Forgot password?** on the sign-in screen;
-  - staff: **Forgot PIN?** on the till. It sends a link to their registered email; the new PIN replaces the old one and the change is audited.
+- **Today:** production uses Supabase's built-in email sender, which only delivers to members of the developer's Supabase organization (2 an hour). Until a real email provider is connected on the restaurant's domain, use `--link` (step 0) for onboarding.
+- **Connect a real provider:** Supabase → Authentication → Emails → SMTP, with a sender on the restaurant's domain. Apply the MY FOOD email template `supabase/templates/recovery.html`.
 
 ## Verified
 
-- **Automated tests** (`packages/testing/test/owner-onboarding.test.ts`):
-  - same answer for invited and uninvited emails;
-  - link only for invited emails;
-  - accept refused without an email-link session;
-  - Owner with full management;
-  - invitation used once;
-  - expired invitations ignored;
-  - nothing sensitive in audit.
-- **Browser test on staging** (`e2e/onboarding-pairing.spec.ts`): invitation → `/welcome` → link → name and password → setup guide → the Staff page lists the new Owner. The email step itself is replaced by the identical admin-generated link.
-- **Not verified:** real email delivery. It needs custom SMTP on the client's domain.
+- **Automated** (`packages/testing/test/owner-onboarding.test.ts`, 6 tests):
+  - same answer for every email;
+  - a PIN session is not accepted as email proof;
+  - the owner's PIN signs in on the new device;
+  - PIN uniqueness, with a message that never names the holder;
+  - weak PINs refused;
+  - the sign-in link email;
+  - registering another device needs an email-link session and device-management rights;
+  - nothing sensitive in the audit.
+- **Server rule** (`apps/api/test/pin-sessions.test.ts`, 6 tests):
+  - full role on your own device;
+  - restricted on a shared till;
+  - the device header cannot override the binding;
+  - email-link sessions recognised;
+  - a deactivated device stops working.
+- **Browser, on staging** (`e2e/onboarding-pairing.spec.ts`): invitation → link → name and PIN → set-up guide → Staff page opens, by PIN on the owner's own device.
+- **Not verified:** real email delivery, which needs the email provider.

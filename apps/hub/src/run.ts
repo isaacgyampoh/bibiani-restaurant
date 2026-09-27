@@ -57,7 +57,9 @@ export function lanAddresses(port: number): string[] {
  * Starts the MY FOOD Hub: local database, API, web app for the restaurant network, print agent and
  * sync. On first start it also pairs itself with the cloud (the code shows in the hub window).
  */
-export async function runHub(o: RunHubOptions): Promise<{ stop: () => void; url: string }> {
+export async function runHub(
+  o: RunHubOptions,
+): Promise<{ stop: () => void; url: string; needsCloudPairing: () => boolean }> {
   let secrets = o.secrets.load();
   if (!secrets) {
     secrets = {
@@ -112,6 +114,7 @@ export async function runHub(o: RunHubOptions): Promise<{ stop: () => void; url:
   const stopHub = await hub.start();
   return {
     url: `http://127.0.0.1:${o.port}`,
+    needsCloudPairing: () => pairing !== null,
     stop: () => {
       stopHub();
       server.close();

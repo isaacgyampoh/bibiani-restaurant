@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { type Browser, expect, type Page, test } from '@playwright/test';
+import { usePasswordSignIn } from './support';
 
 /**
  * Pricing in the browser: the owner creates a promotion with a live preview, the POS shows it,
@@ -36,9 +37,10 @@ async function call<T>(
 async function signIn(browser: Browser, account: string): Promise<Page> {
   const page = await (await browser.newContext()).newPage();
   await page.goto('/login');
+  await usePasswordSignIn(page);
   await page.getByLabel('Email').fill(env.accounts[account]!.email);
   await page.getByLabel('Password').fill(env.accounts[account]!.password);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.waitForURL((u) => !u.pathname.startsWith('/login'));
   return page;
 }

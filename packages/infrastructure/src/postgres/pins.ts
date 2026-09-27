@@ -36,6 +36,15 @@ export function createPinRepository(sql: Sql): PinRepository {
         [staffId, lookup, mustChange, now.toISOString()],
       );
     },
+    async bindSession(sessionId, staffId, deviceId, at) {
+      await sql.query(
+        `insert into pin_sessions (session_id, restaurant_id, staff_id, device_id, created_at)
+         values ($1, app.current_restaurant_id(), $2, $3, $4) on conflict (session_id) do nothing`,
+        [sessionId, staffId, deviceId, at.toISOString()],
+      );
+      // Bindings are kept for as long as the device exists: a refreshed session keeps its id, and an
+      // unbound "otp" session would count as an email-link session (see apps/api signInMethod).
+    },
     async activate(staffId, now) {
       await sql.query(`update staff set activated_at = coalesce(activated_at, $2) where id = $1`, [
         staffId,

@@ -1,3 +1,4 @@
+import type { BillStateView } from '@rp/contracts';
 import { DomainError } from '@rp/domain';
 
 /** Arrays/objects travel as one JSON parameter so every driver sends them identically. */
@@ -110,4 +111,23 @@ export function translatePgError(error: unknown): unknown {
       }
       return new InfrastructureError('Unexpected database error', false, { cause: error });
   }
+}
+
+/** The bill state of an order row (orders.bill_issued_at, bill_prints, status, payment_status). */
+export function billState(o: Record<string, unknown>): BillStateView {
+  const prints = Number(o.bill_prints ?? 0);
+  const issuedAt = o.bill_issued_at ? new Date(o.bill_issued_at as string).toISOString() : null;
+  const status: BillStateView['status'] =
+    o.status === 'cancelled'
+      ? 'cancelled'
+      : o.status === 'voided'
+        ? 'voided'
+        : o.payment_status === 'paid'
+          ? 'paid'
+          : prints > 0
+            ? 'printed'
+            : issuedAt
+              ? 'requested'
+              : 'open';
+  return { status, issuedAt, prints };
 }

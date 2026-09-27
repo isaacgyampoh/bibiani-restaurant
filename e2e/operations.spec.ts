@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { type Browser, expect, type Page, test } from '@playwright/test';
+import { usePasswordSignIn } from './support';
 
 /**
  * Restaurant operations in the browser: the supervisor sees one order's stations become ready,
@@ -30,9 +31,10 @@ async function call<T>(path: string, method = 'GET', body?: unknown, account = '
 async function signIn(browser: Browser, account: string): Promise<Page> {
   const page = await (await browser.newContext()).newPage();
   await page.goto('/login');
+  await usePasswordSignIn(page);
   await page.getByLabel('Email').fill(env.accounts[account]!.email);
   await page.getByLabel('Password').fill(env.accounts[account]!.password);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   return page;
 }
 
@@ -94,9 +96,10 @@ test.describe
 
       const display = await (await browser.newContext()).newPage();
       await display.goto(owner.url().replace(/\/expo.*/, '/login'));
+      await usePasswordSignIn(display);
       await display.getByLabel('Email').fill(env.accounts.owner!.email);
       await display.getByLabel('Password').fill(env.accounts.owner!.password);
-      await display.getByRole('button', { name: 'Sign in' }).click();
+      await display.getByRole('button', { name: 'Sign in', exact: true }).click();
       await expect(display.getByRole('heading', { name: /^Welcome back/ })).toBeVisible();
       await display.goto(display.url().replace(/\/dashboard.*/, '/display'));
       await expect(display.getByRole('region', { name: 'Ready' })).toContainText(String(order.orderNumber));

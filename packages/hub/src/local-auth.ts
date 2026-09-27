@@ -119,10 +119,11 @@ export class HubAuthDirectory implements AuthDirectory {
 
   private async issue(userId: string, method: string): Promise<AuthSession> {
     const now = Math.floor(Date.now() / 1000);
+    const sessionId = randomUUID();
     const accessToken = await new SignJWT({
       role: 'authenticated',
       amr: [{ method, timestamp: now }],
-      session_id: randomUUID(),
+      session_id: sessionId,
     })
       .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
       .setSubject(userId)
@@ -141,7 +142,7 @@ export class HubAuthDirectory implements AuthDirectory {
     await this.db.query(
       `delete from hub.refresh_tokens where (used_at is not null and used_at < now() - interval '1 day') or expires_at < now()`,
     );
-    return { accessToken, refreshToken, expiresAt: now + ACCESS_SECONDS };
+    return { accessToken, refreshToken, expiresAt: now + ACCESS_SECONDS, sessionId };
   }
 
   verifier(): AccessTokenVerifier {
@@ -153,7 +154,11 @@ export class HubAuthDirectory implements AuthDirectory {
             issuer: 'myfood-hub',
           });
           const amr = (payload.amr as { method?: string }[] | undefined) ?? [];
-          return { authUserId: String(payload.sub), authMethods: amr.map((m) => String(m.method)) };
+          return {
+            authUserId: String(payload.sub),
+            authMethods: amr.map((m) => String(m.method)),
+            sessionId: typeof payload.session_id === 'string' ? payload.session_id : null,
+          };
         } catch {
           throw new DomainError('UNAUTHENTICATED', 'Your session has expired. Sign in again.');
         }

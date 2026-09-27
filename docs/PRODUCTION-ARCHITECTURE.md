@@ -16,7 +16,7 @@ ENV VARIABLES   set on the Vercel project (names below)
   ↓
 SUPABASE        project lgoirbfyspuflqekrcgp  (eu-west-1): Postgres 17, Auth, Storage, Realtime
   ↓
-DATA            restaurant "Chefelisha Restaurant" (real) · demo · smoke test (isolated by RLS)
+DATA            restaurant "Chefelisha Restaurant" (the only restaurant; demo and test data removed 2026-09-27)
 ```
 
 ## Components
@@ -68,7 +68,7 @@ Never deploy first and fix afterwards. In order:
 8. **Post-deploy verification:**
    - `curl https://bibiani-restaurant.vercel.app/health/ready` shows `ready`, the new release and the expected schema;
    - run `scripts/env/verify-environment.ts` against production (14/14);
-   - read-only browser sweep (`e2e/zz-qa-prod-readonly.spec.ts`, demo restaurant): no console errors, no policy violations;
+   - production smoke test (`e2e/zz-qa-prod-readonly.spec.ts`: no account, public screens only, no demo restaurant shown): no console errors, no policy violations;
    - CI green on the pushed commit.
 
 ## Rollback

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
+import { usePasswordSignIn } from './support';
 
 /**
  * Owner / staff onboarding without anyone else knowing the password: the person opens a
@@ -70,9 +71,10 @@ test('a recovery link lets the person set their own password, then sign in with 
     // The chosen password works.
     const login = await (await browser.newContext()).newPage();
     await login.goto('/login');
+    await usePasswordSignIn(login);
     await login.getByLabel('Email').fill(email);
     await login.getByLabel('Password').fill(chosen);
-    await login.getByRole('button', { name: 'Sign in' }).click();
+    await login.getByRole('button', { name: 'Sign in', exact: true }).click();
     await expect(login.getByRole('button', { name: 'Sign out' })).toBeVisible();
   } finally {
     await ownerApi(`/v1/admin/staff/${created.staffId}`, 'POST', { isActive: false });

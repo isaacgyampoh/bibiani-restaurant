@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { type Browser, test } from '@playwright/test';
+import { usePasswordSignIn } from './support';
 
 // Manual-QA helper (not part of CI): screenshots of every screen for visual review.
 const OUT = process.env.QA_OUT!;
@@ -26,9 +27,10 @@ async function call<T>(path: string, method = 'GET', body?: unknown, account = '
 async function signIn(browser: Browser, account: string, width = 1366) {
   const page = await (await browser.newContext({ viewport: { width, height: 900 } })).newPage();
   await page.goto('/login');
+  await usePasswordSignIn(page);
   await page.getByLabel('Email').fill(env.accounts[account]!.email);
   await page.getByLabel('Password').fill(env.accounts[account]!.password);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.waitForURL((u) => !u.pathname.startsWith('/login'));
   return page;
 }

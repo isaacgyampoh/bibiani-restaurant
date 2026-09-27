@@ -1,12 +1,7 @@
 import type { Session } from '@supabase/supabase-js';
 import { type FormEvent, useEffect, useState } from 'react';
 import { navigate } from '../../infra/router';
-import {
-  acceptOwnerInvitation,
-  currentSession,
-  setNewPassword,
-  startOwnerOnboarding,
-} from '../../infra/session';
+import { acceptOwnerInvitation, currentSession, startOwnerOnboarding } from '../../infra/session';
 import { ErrorBox, Field } from '../../ui/components';
 import { BrandPanel } from './LoginScreen';
 
@@ -89,7 +84,7 @@ export function WelcomeScreen() {
 export function WelcomeVerifyScreen({ onDone }: { onDone: () => void }) {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [fullName, setFullName] = useState('');
-  const [password, setPassword] = useState('');
+  const [pin, setPin] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -100,16 +95,15 @@ export function WelcomeVerifyScreen({ onDone }: { onDone: () => void }) {
   }, []);
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (password !== confirm) {
-      setError(new Error('The two passwords do not match'));
+    if (pin !== confirm) {
+      setError(new Error('The two PINs do not match'));
       return;
     }
     setBusy(true);
     setError(null);
     try {
-      // Become Owner while the email-link session is fresh, then set the password.
-      await acceptOwnerInvitation(fullName);
-      await setNewPassword(password);
+      // Become Owner with your own PIN; this device is registered and signed in with the PIN.
+      await acceptOwnerInvitation(fullName, pin);
       navigate('/setup', true);
       onDone();
     } catch (err) {
@@ -148,7 +142,8 @@ export function WelcomeVerifyScreen({ onDone }: { onDone: () => void }) {
       <div className="auth-card">
         <h1>Welcome to MY FOOD</h1>
         <p className="lead">
-          Email verified: <strong>{session.user.email}</strong>. Finish your owner account.
+          Email verified: <strong>{session.user.email}</strong>. Finish your owner account: every day you will
+          sign in with your PIN. Your email stays your way back in if you forget it.
         </p>
         <form className="form" onSubmit={submit}>
           <Field label="Your full name" required>
@@ -162,27 +157,31 @@ export function WelcomeVerifyScreen({ onDone }: { onDone: () => void }) {
             />
           </Field>
           <Field
-            label="Choose a password"
+            label="Choose your PIN"
             required
-            hint="At least 10 characters. Passwords known from data breaches are refused."
+            hint="4 to 6 digits. Not 1234 or 1111. Nobody else can see it."
           >
             <input
               type="password"
+              inputMode="numeric"
               autoComplete="new-password"
-              minLength={10}
+              pattern="[0-9]{4,6}"
+              maxLength={6}
               required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
             />
           </Field>
-          <Field label="Repeat the password" required>
+          <Field label="Repeat the PIN" required>
             <input
               type="password"
+              inputMode="numeric"
               autoComplete="new-password"
-              minLength={10}
+              pattern="[0-9]{4,6}"
+              maxLength={6}
               required
               value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
+              onChange={(e) => setConfirm(e.target.value.replace(/\D/g, '').slice(0, 6))}
             />
           </Field>
           <ErrorBox error={error} />

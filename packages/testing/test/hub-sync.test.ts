@@ -313,6 +313,38 @@ describe('in-store hub: offline operation and sync', () => {
     ).toBeLessThanOrEqual(1);
   });
 
+  it('offline bill: printed and settled in cash on the hub, synced once with its bill state', async () => {
+    online = false;
+    const waiter = await hub.as(f.authUsers.waiter, f.devices.pos);
+    const order = await hub.app.submitOrder.execute(waiter, {
+      orderId: uuid(),
+      branchId: f.branchId,
+      areaId: f.areas.hall,
+      tableId: f.tables['2'],
+      items: [line(f.products.coke, 2)],
+      send: { submissionId: uuid() },
+    });
+    const bill = await hub.app.requestBill.execute(waiter, order.id, { requestId: uuid() });
+    expect(bill.printJobId).not.toBeNull();
+    const cashier = await hub.as(f.authUsers.cashier, f.devices.pos);
+    const paid = await hub.app.recordPayment.execute(cashier, order.id, {
+      paymentId: uuid(),
+      method: 'cash',
+      tendered: order.grandTotal,
+    });
+    expect(paid.bill.status).toBe('paid');
+    online = true;
+    await engine.syncOnce();
+    const [cloudOrder] = await cloudDb.query<{ bill_prints: number; payment_status: string }>(
+      'select bill_prints, payment_status from orders where id = $1',
+      [order.id],
+    );
+    expect(cloudOrder).toMatchObject({ bill_prints: 1, payment_status: 'paid' });
+    // The bill printout itself stays on the hub (print jobs are local); the payment arrived once.
+    expect(await count(cloudDb, 'print_jobs where order_id = $1', [order.id])).toBe(0);
+    expect(await count(cloudDb, 'payments where order_id = $1', [order.id])).toBe(1);
+  });
+
   it('a staff member deactivated in the back office can no longer act on the hub after the next sync', async () => {
     const [cashierStaff] = await cloudDb.query<{ id: string }>('select id from staff where user_id = $1', [
       f.authUsers.cashier,

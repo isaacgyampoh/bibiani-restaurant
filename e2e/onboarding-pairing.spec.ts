@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import postgres from 'postgres';
+import { usePasswordSignIn } from './support';
 
 /**
  * Owner onboarding and device-initiated pairing, in the browser, on staging.
@@ -50,18 +51,31 @@ test('a new owner is invited, verifies their email, sets a password and lands on
   await page.goto(link);
   await expect(page.getByRole('heading', { name: 'Welcome to MY FOOD' })).toBeVisible({ timeout: 20_000 });
   await page.getByLabel('Your full name').fill('Akosua Mensah');
-  const password = `${randomBytes(12).toString('base64url')}Aa1!`;
-  await page.getByLabel('Choose a password').fill(password);
-  await page.getByLabel('Repeat the password').fill(password);
+  // PIN first: the owner chooses their PIN; this browser becomes their registered device.
+  const pin = ownerPin();
+  await page.getByLabel('Choose your PIN').fill(pin);
+  await page.getByLabel('Repeat the PIN').fill(pin);
   await page.getByRole('button', { name: 'Create owner account' }).click();
   await expect(page.getByRole('heading', { name: 'Set up your restaurant' })).toBeVisible({
     timeout: 20_000,
   });
   await expect(page.getByText(/of 13 done/)).toBeVisible();
-  // Owner access: the Staff page (password-only management) opens and lists the new owner.
+  // Owner access by PIN on their OWN device: the Staff page (management) opens and lists the owner.
   await page.goto('/staff');
   await expect(page.getByRole('row', { name: /Akosua Mensah/ })).toContainText('Owner');
 });
+
+/** A PIN that is not a repeated digit or a simple sequence. */
+function ownerPin(): string {
+  for (;;) {
+    const pin = String(100000 + (randomBytes(4).readUInt32BE() % 900000));
+    const d = [...pin].map(Number);
+    if (/^(\d)\1+$/.test(pin)) continue;
+    const step = d[1]! - d[0]!;
+    if (Math.abs(step) === 1 && d.every((x, i) => i === 0 || x - d[i - 1]! === step)) continue;
+    return pin;
+  }
+}
 
 test('a device shows a code; the owner enters it in Devices; the device becomes the customer display', async ({
   browser,
@@ -74,9 +88,10 @@ test('a device shows a code; the owner enters it in Devices; the device becomes 
 
   const owner = await (await browser.newContext()).newPage();
   await owner.goto('/login');
+  await usePasswordSignIn(owner);
   await owner.getByLabel('Email').fill(env.accounts.owner!.email);
   await owner.getByLabel('Password').fill(env.accounts.owner!.password);
-  await owner.getByRole('button', { name: 'Sign in' }).click();
+  await owner.getByRole('button', { name: 'Sign in', exact: true }).click();
   await owner.waitForURL((u) => !u.pathname.startsWith('/login'));
   await owner.goto('/devices');
   await owner

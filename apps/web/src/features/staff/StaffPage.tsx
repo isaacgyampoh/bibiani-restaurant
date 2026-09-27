@@ -150,8 +150,9 @@ export function StaffPage({ me }: { me: MeView }) {
             </table>
           </div>
           <div className="card-body small muted">
-            Staff, devices and settings management always need an email and password sign-in, even for owners:
-            a PIN only unlocks the tills.
+            Everyone signs in with their PIN. Owners and managers manage staff, devices and settings with
+            their PIN on their own registered phone or laptop (set up through a link emailed to them); on a
+            shared restaurant till a PIN only runs the till.
           </div>
         </section>
       ) : (
@@ -456,10 +457,10 @@ function StaffDrawer({
           </FormSection>
         ) : null}
         <FormSection
-          title="Back-office password"
+          title="Password (optional)"
           description={
             needsPassword
-              ? 'Managers and owners sign in to the back office with email and password.'
+              ? 'Not needed for daily use: managers sign in with their PIN on their own registered device. A password is only a backup way in.'
               : 'Optional. Staff who only use the tills do not need one.'
           }
         >

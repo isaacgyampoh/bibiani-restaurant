@@ -95,11 +95,23 @@ export interface OrderView {
   mergedIntoOrderId: string | null;
   /** Receipts queued so far; the next print is a REPRINT when this is above zero. */
   receiptsPrinted: number;
+  bill: BillStateView;
   /** Active manager discount on this order, if any. */
   discount: ManualDiscountView | null;
   items: OrderItemView[];
   tickets: TicketView[];
   payments: PaymentView[];
+}
+
+/**
+ * The customer's bill for an order: open (no bill yet), requested (issued, not printed), printed
+ * (awaiting payment), paid, cancelled or voided. A bill never changes payments or stock.
+ */
+export interface BillStateView {
+  status: 'open' | 'requested' | 'printed' | 'paid' | 'cancelled' | 'voided';
+  issuedAt: string | null;
+  /** Copies printed so far; every copy after the first says "BILL / COPY". */
+  prints: number;
 }
 
 export interface OrderSummaryView {
@@ -118,6 +130,7 @@ export interface OrderSummaryView {
   balanceDue: number;
   version: number;
   createdAt: string;
+  bill: BillStateView;
 }
 
 export interface StationTicketView {

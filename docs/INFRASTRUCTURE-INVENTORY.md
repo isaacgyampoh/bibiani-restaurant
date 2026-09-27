@@ -23,6 +23,54 @@ Classification:
 | 17 other Vercel projects (e.g. bedtime-beddings-home, tagitela, susu, carl, desktop, erbliving-shop…) | Vercel | various | Other products | No | **UNKNOWN – DO NOT DELETE** (not part of MY FOOD) |
 | 8 other Supabase projects (Gyampo, carl-staging, WHOLESALE-DISTRIBUTION-MANAGEMENT-SYS, Mimi, susu, room38303@gmail.com, AM-EXPRESS-TRADING, Carl) | Supabase | various | Other products | No | **UNKNOWN – DO NOT DELETE** (not part of MY FOOD) |
 
+## Supabase projects: the one production project (2026-09-27)
+
+Checked against:
+- the live production site (its web bundle and security policy);
+- the production Vercel project's environment;
+- `/health/ready` (database and schema);
+- every reference in the repository (code, env files, CI, desktop config, tests, scripts).
+
+| Supabase project | Purpose | Used by | Production? | Staging? | Demo/test? | Safe to remove? |
+|---|---|---|---|---|---|---|
+| `lgoirbfyspuflqekrcgp` | **The production database, auth and storage** | Production Vercel app (`restaurant-management-prod`, https://bibiani-restaurant.vercel.app); desktop installer (`apps/desktop/production.public.json`); `.env.production` | **YES: the only production project** | No | No (demo and test restaurants removed 2026-09-27) | **No** |
+| `impairlsvhkumjzhjhti` | Staging: the release gate's browser tests on throw-away test restaurants | `restaurant-management-staging`; `.env.staging`; `pnpm staging:*` | No | Yes | Test data only | No (the release gate needs it) |
+| `nkijnjovztglmwxoemqg` | Old development database | `.env` (local development only); `TEST_TARGET=hosted` tests | No | No | Development | Optional: nothing in production depends on it |
+| 8 other projects | Other products of the account | Not MY FOOD | No | No | No | **Unknown, do not delete** (not part of MY FOOD) |
+
+No new Supabase or Vercel project was created. Production is not moving anywhere: it already runs on `lgoirbfyspuflqekrcgp`.
+
+## Production data cleanup (2026-09-27)
+
+Before the restaurant starts, production held three restaurants: the real **Chefelisha Restaurant**, and two left over from development. The two leftovers were removed with `scripts/platform/remove-restaurant.ts`. That script:
+- runs a dry run first;
+- needs the exact restaurant name to confirm;
+- always refuses the real restaurant;
+- archives every row before deleting;
+- deletes in one all-or-nothing transaction, with verification;
+- is idempotent (running it again does nothing).
+
+It was proven on a staging test restaurant first.
+
+| Removed | Rows | Logins | Photos |
+|---|---|---|---|
+| "Chefelisha Restaurant — Demo" (`65b87b01…`) | 13 orders, 8 payments, 30 order items, 31 stock movements, 18 stock items, 17 products, 8 devices, 8 staff, 173 audit events, and more (40 tables) | 9 removed | 0 |
+| "Platform smoke test (not a real restaurant)" (`ecbd74c7…`) | 7 orders, 3 payments, 13 devices, 7 (already inactive) staff, 97 audit events, and more | 0 (none left) | 0 |
+
+**Preserved (verified after the cleanup):**
+- 52 tables with row level security on all of them, and 52 policies;
+- functions, triggers, the scheduled device sweep, the permission catalogue, the 29 migrations, the photo bucket, and the auth configuration;
+- the real restaurant, **unchanged**: 1 branch, 2 areas, 10 tables, 2 stations, 5 devices (not paired yet), 7 roles, its Owner login, and its 25 audit events.
+
+The production environment verifier passed 14/14 afterwards.
+
+**Archives** of every removed row are in `.production-archives/` on the operator's machine (not committed; the repository is public). Supabase's daily backups also cover the day before.
+
+**Demo data cannot return to production:**
+- `pnpm demo:seed` now targets staging;
+- the demo scripts refuse the production project and address;
+- the production smoke test (`e2e/zz-qa-prod-readonly.spec.ts`) uses no account and checks that no demo or test restaurant is shown.
+
 ## Changes on 2026-09-27
 
 - **Vercel `web` deleted**, as instructed after re-verifying it was unused. It had no custom domain and no references anywhere. It served a copy of the pages built without any Supabase address, so it had no data connection. It was rebuilt on every Git push.

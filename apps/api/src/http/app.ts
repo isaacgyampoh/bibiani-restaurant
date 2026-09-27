@@ -11,6 +11,7 @@ import {
   CollectPairingCommand,
   type ConfigEntity,
   CreateStaffCommand,
+  EmailLinkCommand,
   FulfilOrderCommand,
   HeartbeatCommand,
   HubBatchCommand,
@@ -30,6 +31,7 @@ import {
   RecordPaymentCommand,
   RecordStockMovementCommand,
   RefundPaymentCommand,
+  RequestBillCommand,
   SaveInventoryItemCommand,
   SavePromotionCommand,
   SaveRecipeCommand,
@@ -70,7 +72,7 @@ type Env = {
 export interface HttpDependencies {
   app: Application;
   verifier: AccessTokenVerifier;
-  resolver: Pick<PgPrincipalResolver, 'resolve' | 'validateOperatingDevice'>;
+  resolver: Pick<PgPrincipalResolver, 'resolve' | 'validateOperatingDevice' | 'pinSession'>;
   logger: Logger;
   readiness?: () => Promise<ReadinessReport>;
   release?: string;
@@ -91,6 +93,22 @@ export interface HttpDependencies {
       cmd: { currentPin?: string | null; newPin: string },
     ): Promise<{ ok: true }>;
   };
+}
+
+/**
+ * password: email + password. pin: a PIN sign-in on a registered device (bound server side).
+ * email_link: a session opened from an emailed link (recovery / magic link / invite): "otp" sessions
+ * that are NOT a bound PIN session. Without a session id an "otp" session is treated as a PIN.
+ */
+async function signInMethod(
+  verified: { authMethods: string[]; sessionId?: string | null },
+  bound: unknown,
+): Promise<'password' | 'pin' | 'email_link'> {
+  const m = verified.authMethods;
+  if (m.includes('recovery') || m.includes('invite')) return 'email_link';
+  if (m.includes('otp') || m.includes('magiclink'))
+    return bound || !verified.sessionId ? 'pin' : 'email_link';
+  return 'password';
 }
 
 const digest = (value: string) => createHash('sha256').update(value).digest();
@@ -259,15 +277,30 @@ export function createHttpApp(deps: HttpDependencies) {
     const token = header.startsWith('Bearer ') ? header.slice(7) : '';
     if (!token) throw new DomainError('FORBIDDEN', 'Open the link from your email to finish setting up');
     const verified = await deps.verifier.verify(token);
-    const { fullName } = await body(c, OnboardingAcceptCommand);
+    const { fullName, pin } = await body(c, OnboardingAcceptCommand);
+    const method = await signInMethod(
+      verified,
+      verified.sessionId ? await deps.resolver.pinSession(verified.sessionId) : null,
+    );
     return c.json(
       await deps.app.acceptOwnerInvitation.execute({
         authUserId: verified.authUserId,
-        authMethods: verified.authMethods,
+        // Only a session opened from an email link proves the address.
+        authMethods: method === 'email_link' ? ['recovery'] : [method],
         fullName,
+        pin,
         correlationId: c.var.correlationId,
       }),
     );
+  });
+  // "Email me a sign-in link" (public, rate limited, same answer for every address).
+  http.post('/v1/auth/email-link', async (c) => {
+    const client =
+      c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? c.req.header('x-real-ip') ?? 'local';
+    if (!onboardingLimiter.allow(client))
+      throw new DomainError('RATE_LIMITED', 'Too many attempts. Wait a minute and try again.');
+    const { email } = await body(c, EmailLinkCommand);
+    return c.json(await deps.app.sendSignInLink.execute({ email, correlationId: c.var.correlationId }));
   });
 
   // Name the operation before authentication, so even an auth-stage failure gets an operation-specific message.
@@ -328,17 +361,40 @@ export function createHttpApp(deps: HttpDependencies) {
       deps.logger.warn('auth.denied', { correlationId: c.var.correlationId, reason: resolved.reason });
       throw new DomainError('FORBIDDEN', 'This account has no access here', { reason: resolved.reason });
     }
-    const methods = verified.authMethods;
-    const authMethod =
-      methods.includes('recovery') || methods.includes('invite')
-        ? ('email_link' as const)
-        : methods.includes('otp') || methods.includes('magiclink')
-          ? ('pin' as const)
-          : ('password' as const);
-    // A PIN unlocks the till, not the back office: staff, device and settings management need a
-    // password sign-in, whatever the staff member's role.
+    // How this session was opened. Supabase marks email-link sessions (recovery / magic link) AND
+    // our PIN sessions (server-issued magic-link sessions) both as "otp": the server-side binding
+    // recorded at every PIN sign-in is what tells them apart.
+    const bound = verified.sessionId ? await deps.resolver.pinSession(verified.sessionId) : null;
+    const authMethod = await signInMethod(verified, bound);
+    if (bound && !bound.deviceUsable)
+      throw new DomainError('FORBIDDEN', 'This device was removed. Sign in again on a paired device.', {
+        reason: 'device_removed',
+      });
+    let deviceId: string | null = resolved.principal.kind === 'device' ? resolved.principal.deviceId : null;
+    const operating = c.req.header('x-device-id');
+    if (resolved.principal.kind === 'staff' && operating) {
+      if (
+        !UUID.test(operating) ||
+        !(await deps.resolver.validateOperatingDevice(resolved.principal.restaurantId, operating))
+      ) {
+        throw new DomainError('FORBIDDEN', 'Unknown device', { deviceId: operating });
+      }
+      deviceId = operating;
+    }
+    // A PIN session runs on the device it was signed in on (server-side binding, not the header).
+    // On a SHARED till it unlocks operations, not administration: staff, device and settings
+    // management need a password sign-in, or the person's OWN registered (personal) device.
+    let ownDevice = false;
+    if (authMethod === 'pin' && resolved.principal.kind === 'staff') {
+      if (bound && bound.staffId === resolved.principal.staffId) {
+        if (deviceId && deviceId !== bound.deviceId)
+          throw new DomainError('FORBIDDEN', 'This sign-in belongs to another device');
+        deviceId = bound.deviceId;
+        ownDevice = bound.personalStaffId === resolved.principal.staffId;
+      }
+    }
     const principal =
-      authMethod === 'pin' && resolved.principal.kind === 'staff'
+      authMethod === 'pin' && resolved.principal.kind === 'staff' && !ownDevice
         ? {
             ...resolved.principal,
             grants: resolved.principal.grants.map((g) => ({
@@ -347,17 +403,6 @@ export function createHttpApp(deps: HttpDependencies) {
             })),
           }
         : resolved.principal;
-    let deviceId: string | null = principal.kind === 'device' ? principal.deviceId : null;
-    const operating = c.req.header('x-device-id');
-    if (principal.kind === 'staff' && operating) {
-      if (
-        !UUID.test(operating) ||
-        !(await deps.resolver.validateOperatingDevice(principal.restaurantId, operating))
-      ) {
-        throw new DomainError('FORBIDDEN', 'Unknown device', { deviceId: operating });
-      }
-      deviceId = operating;
-    }
     c.set('ctx', { principal, correlationId: c.var.correlationId, deviceId, authMethod });
     c.set('displayName', resolved.displayName);
     await next();
@@ -536,6 +581,14 @@ export function createHttpApp(deps: HttpDependencies) {
   v1.get('/orders/:orderId/receipt', async (c) =>
     c.json(await deps.app.getReceipt.execute(c.var.ctx, id(c, 'orderId'))),
   );
+  v1.get('/orders/:orderId/bill', async (c) =>
+    c.json(await deps.app.getBill.execute(c.var.ctx, id(c, 'orderId'))),
+  );
+  v1.post('/orders/:orderId/bill', async (c) =>
+    c.json(
+      await deps.app.requestBill.execute(c.var.ctx, id(c, 'orderId'), await body(c, RequestBillCommand)),
+    ),
+  );
   v1.post('/orders/:orderId/receipt/print', async (c) => {
     op(c, 'print_receipt');
     return c.json(
@@ -676,6 +729,9 @@ export function createHttpApp(deps: HttpDependencies) {
   });
   v1.post('/auth/pin-recovery', async (c) =>
     c.json(await deps.app.requestPinRecovery.execute(c.var.ctx, (await body(c, PinRecoveryCommand)).email)),
+  );
+  v1.post('/me/personal-device', async (c) =>
+    c.json(await deps.app.registerPersonalDevice.execute(c.var.ctx)),
   );
   v1.post('/me/pin', async (c) =>
     c.json(

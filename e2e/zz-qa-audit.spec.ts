@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { type Browser, type Page, test } from '@playwright/test';
+import { usePasswordSignIn } from './support';
 
 // Manual-QA helper (not part of CI): captures every screen, including device screens, for a visual audit.
 const OUT = process.env.QA_OUT!;
@@ -28,9 +29,10 @@ const ctx = async (browser: Browser, width = 1366, height = 900) =>
 async function signIn(browser: Browser, account: string, width = 1366, height = 900) {
   const page = await ctx(browser, width, height);
   await page.goto('/login');
+  await usePasswordSignIn(page);
   await page.getByLabel('Email').fill(env.accounts[account]!.email);
   await page.getByLabel('Password').fill(env.accounts[account]!.password);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.waitForURL((u) => !u.pathname.startsWith('/login'));
   return page;
 }

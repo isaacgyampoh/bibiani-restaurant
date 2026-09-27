@@ -1,6 +1,6 @@
 {
   "name": "@rp/desktop",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "MY FOOD Hub for Windows: runs the restaurant locally, also without internet",
   "author": "MY FOOD",

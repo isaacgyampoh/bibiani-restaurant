@@ -7,6 +7,7 @@ import {
   DeleteConfig,
   GetConfiguration,
   PairDevice,
+  RegisterPersonalDevice,
   RequestDevicePairing,
   RevokeDevice,
   SaveConfig,
@@ -29,9 +30,16 @@ import {
   SubmitStockCount,
 } from './use-cases/inventory';
 import { FulfilOrder, MarkOrderReady, TransitionTicket } from './use-cases/kitchen';
-import { AcceptOwnerInvitation, StartOwnerOnboarding } from './use-cases/onboarding';
+import { AcceptOwnerInvitation, SendSignInLink, StartOwnerOnboarding } from './use-cases/onboarding';
 import { GetDashboard, GetExpoBoard, GetSalesReport } from './use-cases/operations';
-import { CancelOrder, GetReceipt, PrintReceipt, VoidItems } from './use-cases/order-corrections';
+import {
+  CancelOrder,
+  GetBill,
+  GetReceipt,
+  PrintReceipt,
+  RequestBill,
+  VoidItems,
+} from './use-cases/order-corrections';
 import { SendOrderToKitchen, SubmitOrder } from './use-cases/orders';
 import { RecordPayment, RefundPayment, VoidPayment } from './use-cases/payments';
 import {
@@ -129,6 +137,8 @@ export function createApplication(deps: Dependencies) {
     voidItems: new VoidItems(deps),
     getReceipt: new GetReceipt(deps),
     printReceipt: new PrintReceipt(deps),
+    getBill: new GetBill(deps),
+    requestBill: new RequestBill(deps),
     getMe: new GetMe(deps),
     getMenu: new GetMenu(deps),
     getFloor: new GetFloor(deps),
@@ -148,6 +158,8 @@ export function createApplication(deps: Dependencies) {
     listActivity: new ListActivity(deps),
     startOwnerOnboarding: new StartOwnerOnboarding(deps),
     acceptOwnerInvitation: new AcceptOwnerInvitation(deps),
+    sendSignInLink: new SendSignInLink(deps),
+    registerPersonalDevice: new RegisterPersonalDevice(deps),
     setProductImage: new SetProductImage(deps),
     setProductImageThumb: new SetProductImageThumb(deps),
     removeProductImage: new RemoveProductImage(deps),

@@ -4,6 +4,8 @@ export interface VerifiedToken {
   authUserId: string;
   /** How the session was established (Supabase `amr`): password, otp (PIN session), recovery (email link). */
   authMethods: string[];
+  /** The sign-in session (Supabase `session_id`); binds a PIN session to its device. */
+  sessionId?: string | null;
 }
 
 export interface AccessTokenVerifier {
@@ -43,6 +45,7 @@ export class JwksTokenVerifier implements AccessTokenVerifier {
       return {
         authUserId: payload.sub,
         authMethods: amr.map((a) => String(a?.method ?? '')).filter(Boolean),
+        sessionId: typeof payload.session_id === 'string' ? payload.session_id : null,
       };
     } catch (error) {
       if (error instanceof InvalidTokenError) throw error;

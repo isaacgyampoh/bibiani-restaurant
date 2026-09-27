@@ -19,7 +19,7 @@ function hasher(deps: Dependencies): PinHasher {
   return deps.pinHasher;
 }
 
-async function assertPinFree(tx: Repositories, lookup: string, staffId: string): Promise<void> {
+export async function assertPinFree(tx: Repositories, lookup: string, staffId: string): Promise<void> {
   const owner = await tx.pins.staffByLookup(lookup);
   // Never say whose PIN it is.
   if (owner && owner.staffId !== staffId)
@@ -102,7 +102,7 @@ async function checkPin(
     deps.logger.warn('security.pin_locked', { deviceId, scope: outcome.scope });
     throw new DomainError(
       'RATE_LIMITED',
-      `Too many wrong PINs. PIN sign-in is locked for ${minutes} minute${minutes === 1 ? '' : 's'}. A manager can sign in with email and password.`,
+      `Too many wrong PINs. PIN sign-in is locked for ${minutes} minute${minutes === 1 ? '' : 's'}. A manager can reset your PIN, or wait and try again.`,
     );
   }
   if (outcome.kind === 'failed') {
@@ -121,6 +121,11 @@ export class PinSignIn {
       throw new DomainError('FORBIDDEN', 'PIN sign-in works only on a registered till');
     const staff = await checkPin(this.deps, ctx, p.deviceId, pin);
     const session = await this.deps.auth!.createSession(staff.userId!);
+    const deviceId = p.deviceId;
+    if (session.sessionId)
+      await this.deps.uow.run(p.restaurantId, (tx) =>
+        tx.pins.bindSession(session.sessionId!, staff.staffId, deviceId, this.deps.clock.now()),
+      );
     return { session, displayName: staff.displayName, mustChangePin: staff.mustChange };
   }
 }

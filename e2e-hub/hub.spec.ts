@@ -56,7 +56,7 @@ test('a restaurant evening on the hub, including an internet outage', async ({ b
   await expect(pos.getByRole('heading', { name: 'Enter your staff PIN' })).toBeVisible();
   await expect(pos.getByText('Manager sign-in (email)')).toHaveCount(0);
   await tap(pos, '4827');
-  await pos.getByRole('button', { name: 'Sign in' }).click();
+  await pos.getByRole('button', { name: 'Sign in', exact: true }).click();
 
   const sell = async (product: string) => {
     await pos.getByRole('tab', { name: 'Takeaway' }).click();
@@ -94,7 +94,7 @@ test('a restaurant evening on the hub, including an internet outage', async ({ b
     .first()
     .click();
   await tap(pos, '4827');
-  await pos.getByRole('button', { name: 'Sign in' }).click();
+  await pos.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(pos.getByRole('tab', { name: 'Takeaway' })).toBeVisible();
 
   // 9 PM: internet back. Everything reaches the cloud once.

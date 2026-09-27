@@ -1,19 +1,20 @@
 name: MY FOOD Hub (Windows installer)
 
-# Builds the PRODUCTION MY FOOD Hub installer on a real Windows machine. Run by hand (Actions tab).
-# Only public values are used: repository variables PROD_SUPABASE_URL and PROD_SUPABASE_ANON_KEY.
-# The build refuses anything that is not the production Supabase project and a cloud address that
-# reports itself as production; the result is checked again below before it is uploaded.
+# Builds the PRODUCTION MY FOOD Hub installer on a real Windows machine.
+#  - Run by hand (Actions tab): the installer is attached to the run as an artifact.
+#  - Push a tag v<version> (matching apps/desktop/package.json): the installer is published as a
+#    GitHub Release, which is where restaurants download it and where installed hubs get updates.
+# Only public values are used: apps/desktop/production.public.json (repository variables
+# PROD_SUPABASE_URL / PROD_SUPABASE_ANON_KEY override it when set). The build refuses anything that
+# is not the production Supabase project, a non-anon key, or a cloud address that is not production,
+# and the result is checked again for staging values before anything is uploaded.
 on:
   workflow_dispatch:
-    inputs:
-      cloud_url:
-        description: MY FOOD cloud address the hub connects to (production)
-        default: https://bibiani-restaurant.vercel.app
-        required: true
+  push:
+    tags: ['v*']
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -28,21 +29,27 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      - name: Public production values
+      - name: Version matches the tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          version=$(node -p "require('./apps/desktop/package.json').version")
+          test "v$version" = "${GITHUB_REF_NAME}" || { echo "::error::Tag ${GITHUB_REF_NAME} does not match version $version"; exit 1; }
+
+      - name: Public production values (repository variables override the committed file)
         shell: bash
         env:
           SUPABASE_URL: ${{ vars.PROD_SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ vars.PROD_SUPABASE_ANON_KEY }}
         run: |
-          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
-            echo "::error::Add repository variables PROD_SUPABASE_URL and PROD_SUPABASE_ANON_KEY (Settings > Secrets and variables > Actions > Variables)"
-            exit 1
+          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_ANON_KEY" ]; then
+            printf 'VITE_SUPABASE_URL=%s\nVITE_SUPABASE_ANON_KEY=%s\n' "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > .env.hub
+            echo "ENV_ARG=--env .env.hub" >> "$GITHUB_ENV"
           fi
-          printf 'VITE_SUPABASE_URL=%s\nVITE_SUPABASE_ANON_KEY=%s\n' "$SUPABASE_URL" "$SUPABASE_ANON_KEY" > .env.hub
 
       - name: Build app (production channel)
         working-directory: apps/desktop
-        run: node build.mjs --channel production --env .env.hub --cloud "${{ inputs.cloud_url }}"
+        run: node build.mjs --channel production ${{ env.ENV_ARG }}
 
       - name: Check the build is production (and not staging)
         shell: bash
@@ -56,8 +63,16 @@ jobs:
           cat app/build-info.json
 
       - name: Package installer
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         working-directory: apps/desktop
         run: pnpm exec electron-builder --config electron-builder.generated.json --win nsis --x64 --publish never
+
+      - name: Package and publish the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        working-directory: apps/desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pnpm exec electron-builder --config electron-builder.generated.json --win nsis --x64 --publish always
 
       - uses: actions/upload-artifact@v4
         with:

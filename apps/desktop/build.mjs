@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Builds the MY FOOD Hub desktop app into ./app and writes the installer settings for its channel.
- *   node build.mjs --channel production [--env .env.production] [--cloud https://bibiani-restaurant.vercel.app]
+ *   node build.mjs --channel production          (public values from production.public.json)
  *   node build.mjs --channel test --env .env.staging --cloud https://restaurant-management-staging.vercel.app
  *
  * production: must use the production Supabase project, and the cloud address must report itself as
@@ -30,18 +30,38 @@ const arg = (name, fallback) => {
 const channel = arg('channel', null);
 if (channel !== 'production' && channel !== 'test')
   throw new Error('Choose the channel explicitly: --channel production, or --channel test');
-const envFile = resolve(root, arg('env', '.env.production'));
-const cloudUrl = arg('cloud', 'https://bibiani-restaurant.vercel.app').replace(/\/$/, '');
-const env = existsSync(envFile)
-  ? Object.fromEntries(
-      readFileSync(envFile, 'utf8')
-        .split('\n')
-        .filter((l) => /^VITE_[A-Z_]+=/.test(l))
-        .map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1).trim()]),
-    )
-  : {};
+// Public values: from --env (e.g. .env.staging for a test build), or for production the committed
+// public config (apps/desktop/production.public.json), which repository variables may override.
+const publicConfig = JSON.parse(readFileSync(join(here, 'production.public.json'), 'utf8'));
+const envArg = arg('env', null);
+const envFile = envArg ? resolve(root, envArg) : null;
+const cloudUrl = arg('cloud', publicConfig.cloudUrl).replace(/\/$/, '');
+const env =
+  envFile && existsSync(envFile)
+    ? Object.fromEntries(
+        readFileSync(envFile, 'utf8')
+          .split('\n')
+          .filter((l) => /^VITE_[A-Z_]+=/.test(l))
+          .map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1).trim()]),
+      )
+    : envFile
+      ? {}
+      : { VITE_SUPABASE_URL: publicConfig.supabaseUrl, VITE_SUPABASE_ANON_KEY: publicConfig.supabaseAnonKey };
 if (!env.VITE_SUPABASE_URL || !env.VITE_SUPABASE_ANON_KEY)
-  throw new Error(`${envFile} needs VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY`);
+  throw new Error(`${envFile ?? 'production.public.json'} needs the Supabase URL and anon key`);
+
+// Never a secret key: only the public anon key may be built into an installer.
+const keyRole = (() => {
+  const key = env.VITE_SUPABASE_ANON_KEY;
+  if (key.startsWith('sb_publishable_')) return 'anon';
+  try {
+    return JSON.parse(Buffer.from(key.split('.')[1] ?? '', 'base64url').toString('utf8')).role;
+  } catch {
+    return 'unknown';
+  }
+})();
+if (keyRole !== 'anon')
+  throw new Error(`Refusing to build: the Supabase key is not the public anon key (${keyRole})`);
 
 const supabaseHost = new URL(env.VITE_SUPABASE_URL).host;
 if (channel === 'production') {

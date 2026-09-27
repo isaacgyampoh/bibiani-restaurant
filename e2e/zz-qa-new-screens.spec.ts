@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { test } from '@playwright/test';
+import { usePasswordSignIn } from './support';
 
 // Manual-QA helper (not part of CI): screenshots of the handover screens.
 const OUT = process.env.QA_OUT!;
@@ -17,9 +18,10 @@ test('handover screens', async ({ browser }) => {
   await p.screenshot({ path: `${OUT}/n2-pair.png` });
   const o = await (await browser.newContext({ viewport: { width: 1366, height: 900 } })).newPage();
   await o.goto('/login');
+  await usePasswordSignIn(o);
   await o.getByLabel('Email').fill(env.accounts.owner!.email);
   await o.getByLabel('Password').fill(env.accounts.owner!.password);
-  await o.getByRole('button', { name: 'Sign in' }).click();
+  await o.getByRole('button', { name: 'Sign in', exact: true }).click();
   await o.waitForURL((u) => !u.pathname.startsWith('/login'));
   await o.goto('/setup');
   await o.waitForTimeout(2500);

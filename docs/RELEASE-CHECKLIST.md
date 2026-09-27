@@ -30,11 +30,12 @@ Check without deploying: `pnpm release:check`.
 9. Post-deploy:
    - `/health/ready` shows the new release and schema;
    - the environment verifier passes;
-   - the read-only production sweep (`e2e/zz-qa-prod-readonly.spec.ts`) passes.
+   - the production smoke test passes: `E2E_BASE_URL=https://bibiani-restaurant.vercel.app QA_OUT=/tmp/prodqa npx playwright test e2e/zz-qa-prod-readonly.spec.ts` (no account, changes nothing).
 
 ## Windows hub installer
 
-- **Production:** built only by GitHub Actions → **MY FOOD Hub (Windows installer)**. That uses the production channel, which refuses non-production values, and checks the result for staging values.
+- **Production:** built only by GitHub Actions → **MY FOOD Hub (Windows installer)**. That uses the production channel, which refuses non-production values and non-anon keys, and checks the result for staging values.
+  - A `v<version>` tag publishes a GitHub Release; tag only a commit whose CI passed, with `apps/desktop/package.json` at that version.
 - **Test installers:** built with `pnpm --filter @rp/desktop dist:win:test`. They are named **MY FOOD Hub (TEST)**, use their own data folder, and are never given to the restaurant.
 
 ## Record of past incident

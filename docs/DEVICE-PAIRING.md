@@ -26,6 +26,14 @@ Tills (POS), kitchen screens, the customer display and the print agent each get 
 
 The hub itself pairs with the cloud the same way: the hub window shows a code; in the back office, press **Enter code from device** on the *MY FOOD Hub* device.
 
+### D. An owner's or manager's own phone or laptop (personal device)
+
+1. On the sign-in screen, enter your email → **Email me a sign-in link**.
+2. Open the link on the device → **Use this device with my PIN** (or choose a new PIN).
+3. The device appears in Devices & printing as "<First name> device <n>"; revoke it there if it is lost.
+
+On your own personal device your PIN carries your full role. On shared tills, management needs your own device.
+
 ## Security
 
 - **Code format:** codes use an unambiguous 30-symbol alphabet, 8 characters (about 6.6 × 10¹¹ possibilities). They work once and expire after 10 minutes.

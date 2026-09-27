@@ -308,7 +308,7 @@ type RedeemedDevice = NonNullable<Awaited<ReturnType<IdentityRegistry['redeemPai
  * the device, bound to its record; any previous login of that device is deleted (the old
  * installation stops working). Audited as `device.paired`.
  */
-async function completePairing(
+export async function completePairing(
   deps: Dependencies,
   device: RedeemedDevice,
   correlationId: string,
@@ -494,4 +494,81 @@ export class RevokeDevice {
 function required<T>(value: T | undefined, name: string): T {
   if (!value) throw new Error(`Application was started without a ${name}`);
   return value;
+}
+
+/**
+ * Registers the calling person's own phone/laptop as a personal device for PIN sign-in (after they
+ * proved their email). Returns the device login, exactly like pairing. On this device their PIN
+ * carries their full role; on shared tills management stays restricted.
+ */
+export async function registerPersonalDevice(
+  deps: Dependencies,
+  input: { restaurantId: string; staffId: string; displayName: string; correlationId: string },
+): Promise<PairDeviceResult> {
+  const id = deps.ids.uuid();
+  const device = await deps.uow.run(input.restaurantId, async (tx) => {
+    const branchId = await tx.admin.firstBranchId();
+    if (!branchId) throw new DomainError('UNAVAILABLE', 'This restaurant has no branch yet');
+    const name = await tx.admin.createPersonalDevice({
+      id,
+      branchId,
+      staffId: input.staffId,
+      displayName: input.displayName,
+    });
+    await tx.audit.append({
+      branchId,
+      actorStaffId: input.staffId,
+      actorDeviceId: null,
+      action: 'device.personal_registered',
+      entityType: 'device',
+      entityId: id,
+      after: { name },
+      correlationId: input.correlationId,
+    });
+    return { branchId, name };
+  });
+  return completePairing(
+    deps,
+    {
+      deviceId: id,
+      restaurantId: input.restaurantId,
+      branchId: device.branchId,
+      kind: 'pos',
+      name: device.name,
+      stationId: null,
+      previousAuthUserId: null,
+    },
+    input.correlationId,
+  );
+}
+
+/**
+ * "Use this device with my PIN": an owner or manager, signed in through an email link, registers
+ * the browser they are on. Staff without device management use the restaurant's paired tills.
+ */
+export class RegisterPersonalDevice {
+  constructor(private readonly deps: Dependencies) {}
+
+  async execute(ctx: RequestContext): Promise<PairDeviceResult> {
+    const p = ctx.principal;
+    if (p.kind !== 'staff' || !p.staffId) throw new DomainError('FORBIDDEN', 'Sign in as a staff member');
+    if (ctx.authMethod !== 'email_link')
+      throw new DomainError('FORBIDDEN', 'Open the sign-in link from your email on this device first');
+    if (!p.grants.some((g) => g.permissions.has('device.manage')))
+      throw new DomainError(
+        'FORBIDDEN',
+        'Only owners and managers can register their own device. Use a restaurant till.',
+      );
+    const displayName = await this.deps.uow.run(p.restaurantId, async (tx) => {
+      const me = await tx.pins.staffById(p.staffId!);
+      if (!me?.isActive) throw new DomainError('FORBIDDEN', 'This staff member is not active');
+      return me.displayName;
+    });
+    return registerPersonalDevice(this.deps, {
+      restaurantId: p.restaurantId,
+      staffId: p.staffId,
+      displayName,
+      correlationId: ctx.correlationId,
+    });
+  }
 }

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import postgres from 'postgres';
+import { usePasswordSignIn } from './support';
 
 /**
  * Milestone scenarios A and B through the real UI: POS (staff login), four
@@ -39,9 +40,10 @@ async function ownerApi<T>(path: string, method = 'GET', body?: unknown): Promis
 async function signedInPage(browser: Browser, account: string): Promise<Page> {
   const page = await (await browser.newContext()).newPage();
   await page.goto('/login');
+  await usePasswordSignIn(page);
   await page.getByLabel('Email').fill(dev.accounts[account]!.email);
   await page.getByLabel('Password').fill(dev.accounts[account]!.password);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   return page;
 }
 
@@ -66,11 +68,11 @@ async function pairedPage(browser: Browser, deviceName: string): Promise<Page> {
 async function tillPage(browser: Browser, account: string): Promise<Page> {
   const page = await pairedPage(browser, 'POS-01');
   // A paired till opens on the staff PIN pad; these accounts sign in with email instead.
-  await page.getByRole('button', { name: 'Manager sign-in (email)' }).click();
+  await page.getByRole('button', { name: 'Sign in with email and password' }).click();
   await expect(page.getByText('This till: POS-01')).toBeVisible();
   await page.getByLabel('Email').fill(dev.accounts[account]!.email);
   await page.getByLabel('Password').fill(dev.accounts[account]!.password);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   return page;
 }
 

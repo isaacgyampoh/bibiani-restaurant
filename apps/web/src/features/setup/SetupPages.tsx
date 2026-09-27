@@ -228,6 +228,7 @@ export function DevicesPage({ me }: { me: MeView }) {
             />
           ) : null}
           {hasPermission(me, 'print.manage') ? <PrintQueueTab branchId={branchId} /> : null}
+          {hasPermission(me, 'device.manage') ? <HubDownload /> : null}
         </>
       )}
     </Shell>
@@ -470,6 +471,32 @@ function BranchForm({
           </button>
         </div>
       </form>
+    </section>
+  );
+}
+
+/** Where owners and managers get the official Windows app (production releases only). */
+function HubDownload() {
+  return (
+    <section className="card hub-download" aria-labelledby="hub-download-title">
+      <h2 id="hub-download-title">MY FOOD Hub for Windows</h2>
+      <p>
+        Optional. Install it on one always-on Windows PC in the restaurant: your tills, kitchen screens,
+        printers and customer display then keep working when the internet is down, and everything is sent to
+        MY FOOD when it returns. The web POS keeps working without it.
+      </p>
+      <p className="muted small">
+        Download the file named <strong>MY-FOOD-Hub-Setup-…-production.exe</strong>. Windows may warn that the
+        app is from an unknown publisher (it is not code-signed yet): choose More info, then Run anyway.
+      </p>
+      <a
+        className="btn primary"
+        href="https://github.com/isaacgyampoh/bibiani-restaurant/releases/latest"
+        target="_blank"
+        rel="noreferrer"
+      >
+        Download for Windows
+      </a>
     </section>
   );
 }

@@ -3,6 +3,7 @@ import type {
   OrderView,
   PrintReceiptCommand,
   ReceiptView,
+  RequestBillCommand,
   VoidItemsCommand,
 } from '@rp/contracts';
 import {
@@ -334,6 +335,112 @@ export class PrintReceipt {
       }
       log.add('receipt.queued', { orderId, printJobId: id, printerId, reprint: previous > 0 });
       return { printJobId: id, isReprint: previous > 0 };
+    });
+    log.flush(this.deps.logger);
+    return result;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Bills (the customer asks for the bill before paying)
+// ---------------------------------------------------------------------------
+
+const BILL_CLOSED = new Set(['cancelled', 'voided']);
+
+/** The bill for on-screen display or browser printing. Reading it changes nothing. */
+export class GetBill {
+  constructor(private readonly deps: Dependencies) {}
+
+  async execute(ctx: RequestContext, orderId: string): Promise<ReceiptView> {
+    const now = this.deps.clock.now();
+    return this.deps.uow.run(ctx.principal.restaurantId, async (tx) => {
+      const order = await tx.read.order(orderId);
+      if (!order) throw new DomainError('NOT_FOUND', 'Order not found', { orderId });
+      authorize(ctx.principal, 'order.view', order.branchId);
+      const data = (await tx.read.receiptData(orderId))!;
+      return {
+        orderId,
+        orderNumber: order.orderNumber,
+        document: receiptDocument({ ...data, issuedAt: now }, { bill: { copy: order.bill.prints > 0 } }),
+      };
+    });
+  }
+}
+
+/**
+ * "Bring me the bill": marks the order's bill as issued and, when a printer is available, prints it
+ * ("BILL - NOT PAID"; later copies "BILL / COPY"). It never records a payment, never changes stock
+ * and never creates another order. A paid, cancelled or voided order has no bill. Retrying with the
+ * same requestId prints once. Audited.
+ */
+export class RequestBill {
+  constructor(private readonly deps: Dependencies) {}
+
+  async execute(
+    ctx: RequestContext,
+    orderId: string,
+    cmd: RequestBillCommand,
+  ): Promise<{ printJobId: string | null; copy: boolean; prints: number }> {
+    const now = this.deps.clock.now();
+    const log = new CommitLog(ctx);
+    const result = await this.deps.uow.run(ctx.principal.restaurantId, async (tx) => {
+      const agg = await lock(tx, orderId);
+      authorize(ctx.principal, 'receipt.print', agg.header.branchId);
+      const dedupeKey = `bill:${cmd.requestId}`;
+      const replay = await tx.printJobs.findByDedupeKey(dedupeKey);
+      if (replay)
+        return {
+          printJobId: replay.id,
+          copy: replay.isReprint,
+          prints: (await tx.read.order(orderId))!.bill.prints,
+        };
+      if (BILL_CLOSED.has(agg.header.status))
+        throw new DomainError(
+          'INVALID_TRANSITION',
+          `This order is ${agg.header.status}: there is no bill to give`,
+        );
+      const data = (await tx.read.receiptData(orderId))!;
+      if (data.balanceDue <= 0)
+        throw new DomainError('INVALID_TRANSITION', 'This order is already paid. Print the receipt instead.');
+      const printerId =
+        cmd.printerId ?? (ctx.deviceId ? await tx.printJobs.receiptPrinterForDevice(ctx.deviceId) : null);
+      if (printerId && !(await tx.printJobs.printerInBranch(printerId, agg.header.branchId)))
+        throw new DomainError('NOT_FOUND', 'Printer not found');
+      const before = (await tx.read.order(orderId))!.bill.prints;
+      const copy = before > 0;
+      let printJobId: string | null = null;
+      if (printerId) {
+        printJobId = this.deps.ids.uuid();
+        await tx.printJobs.insert([
+          {
+            id: printJobId,
+            branchId: agg.header.branchId,
+            printerId,
+            originalPrinterId: printerId,
+            kind: 'bill',
+            orderId,
+            productionTicketId: null,
+            copyNo: 1,
+            dedupeKey,
+            document: receiptDocument({ ...data, issuedAt: now }, { bill: { copy } }),
+            createdAt: now,
+            isReprint: copy,
+          },
+        ]);
+      }
+      const prints = await tx.orders.issueBill(orderId, printJobId !== null, now);
+      await tx.audit.append({
+        branchId: agg.header.branchId,
+        actorStaffId: ctx.principal.staffId,
+        actorDeviceId: ctx.deviceId,
+        action: copy ? 'order.bill_copy' : 'order.bill_issued',
+        entityType: 'order',
+        entityId: orderId,
+        after: { printJobId, printerId, amountDue: data.balanceDue, copies: prints },
+        correlationId: ctx.correlationId,
+      });
+      log.add('order.bill_issued', { orderId, printJobId, copy });
+      return { printJobId, copy, prints };
     });
     log.flush(this.deps.logger);
     return result;

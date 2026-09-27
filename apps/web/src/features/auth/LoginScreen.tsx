@@ -3,6 +3,7 @@ import {
   onHub,
   posDevice,
   requestPasswordReset,
+  sendSignInLink,
   signInStaff,
   signInWithPin,
   tillApi,
@@ -32,12 +33,15 @@ export function Brand() {
 }
 
 /**
- * Sign-in. On a registered till, staff unlock it with their PIN (the till proves where they are);
- * managers and owners can always use email and password, which is the only way in elsewhere.
+ * Sign-in is PIN first. A PIN works on a registered device: a restaurant till (paired) or an
+ * owner's / manager's own phone or laptop (registered through an emailed link). Email and password
+ * remain available for support accounts.
  */
 export function LoginScreen({ onSignedIn }: { onSignedIn: () => void }) {
   const till = posDevice();
-  const [mode, setMode] = useState<'pin' | 'email' | 'forgot-pin'>(till?.pinReady ? 'pin' : 'email');
+  const [mode, setMode] = useState<'pin' | 'email' | 'forgot-pin' | 'setup'>(
+    till?.pinReady ? 'pin' : 'setup',
+  );
   if (onHub) return <HubLogin tillName={till?.pinReady ? till.name : null} onSignedIn={onSignedIn} />;
   return (
     <div className="auth">
@@ -53,6 +57,8 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: () => void }) {
           />
         ) : mode === 'forgot-pin' ? (
           <ForgotPin onBack={() => setMode('pin')} />
+        ) : mode === 'setup' ? (
+          <SetUpThisDevice onPassword={() => setMode('email')} />
         ) : (
           <EmailSignIn
             tillName={till?.name ?? null}
@@ -62,6 +68,72 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: () => void }) {
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * A browser that is not registered yet. Owners and managers get an emailed link that registers
+ * this device for their PIN; restaurant tills and screens are paired by a manager.
+ */
+function SetUpThisDevice({ onPassword }: { onPassword: () => void }) {
+  const [email, setEmail] = useState('');
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await sendSignInLink(email.trim());
+      setSent(true);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (sent)
+    return (
+      <>
+        <h1>Check your email</h1>
+        <p className="lead">
+          If <strong>{email.trim()}</strong> belongs to an owner or manager, a sign-in link is on its way.
+          Open it on this device: it sets the device up for your PIN. The link works once, for one hour.
+        </p>
+        <button type="button" className="btn block" onClick={() => setSent(false)}>
+          Use another email
+        </button>
+      </>
+    );
+  return (
+    <>
+      <h1>Sign in with your PIN</h1>
+      <p className="lead">This device is not set up for PIN sign-in yet.</p>
+      <form className="form" onSubmit={submit}>
+        <Field label="Owner or manager: your email" hint="We email you a link that sets up this device.">
+          <input
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </Field>
+        <ErrorBox error={error} />
+        <button className="btn primary lg block" disabled={busy} type="submit">
+          {busy ? 'Sending…' : 'Email me a sign-in link'}
+        </button>
+      </form>
+      <a className="btn block" href="/pair">
+        Restaurant till or screen: set up this device
+      </a>
+      <div className="auth-foot">
+        <button type="button" className="link" onClick={onPassword}>
+          Sign in with email and password
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -154,7 +226,7 @@ function PinSignIn({
             Forgot PIN?
           </button>
           <button type="button" className="link" onClick={onEmail}>
-            Manager sign-in (email)
+            Sign in with email and password
           </button>
         </div>
       ) : (

@@ -1,13 +1,12 @@
 /**
- * Creates the client DEMO restaurant, "Chefelisha Restaurant — Demo", in the ONE Supabase project, with a
+ * Creates the client DEMO restaurant, "Chefelisha Restaurant — Demo", in the STAGING Supabase project (never production), with a
  * real Supabase Auth demo login and realistic data (menu, stations, routing, staff, today's orders at
  * every stage, payments). It is a separate restaurant, isolated by RLS from the real Chefelisha Restaurant.
  *
  * Everything after the restaurant row is created through the restaurant-facing API as the demo
  * account: validated, permission-checked and audited like any real use.
  *
- *   PLATFORM_DATABASE_URL=... API_URL=https://bibiani-restaurant.vercel.app \
- *     tsx --env-file=.env.production scripts/demo/seed-demo.ts
+ *   pnpm demo:seed   (STAGING only; refuses the production project)
  *
  * The demo password is generated here and written ONLY to .demo-credentials.json (gitignored; the
  * repository is public). Refuses to run if the demo restaurant already exists.
@@ -17,6 +16,13 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { ApiClient } from '@rp/client-core';
 import type { OrderView } from '@rp/contracts';
+
+// The production system holds only the real restaurant: demo data may never be created there.
+if (
+  /lgoirbfyspuflqekrcgp/.test(process.env.SUPABASE_URL ?? '') ||
+  /bibiani-restaurant\.vercel\.app/.test(process.env.API_URL ?? '')
+)
+  throw new Error('Refusing to seed demo data into PRODUCTION. Use staging (pnpm demo:seed).');
 
 const need = (k: string) => {
   const v = process.env[k];

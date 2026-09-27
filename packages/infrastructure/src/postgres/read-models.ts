@@ -15,7 +15,7 @@ import type {
 import { balanceDue } from '@rp/domain';
 import { dateOrNull, num, numOrNull, type Sql } from '../db/sql';
 import { createOpsReadModels } from './read-models-ops';
-import { iso } from './util';
+import { billState, iso } from './util';
 
 type Row = Record<string, unknown>;
 const s = (v: unknown) => v as string;
@@ -101,6 +101,7 @@ export function createReadModels(sql: Sql): ReadModels {
         isRush: Boolean(o.is_rush),
         mergedIntoOrderId: sn(o.merged_into_order_id),
         receiptsPrinted: num(o.receipts_printed),
+        bill: billState(o),
         discount: d
           ? {
               id: s(d.id),
@@ -199,6 +200,7 @@ export function createReadModels(sql: Sql): ReadModels {
         }),
         version: num(o.version),
         createdAt: isoOf(o.created_at)!,
+        bill: billState(o),
       }));
     },
 
@@ -231,6 +233,7 @@ export function createReadModels(sql: Sql): ReadModels {
         }),
         version: num(o.version),
         createdAt: isoOf(o.created_at)!,
+        bill: billState(o),
       }));
     },
 

@@ -29,6 +29,15 @@
    - They are valid only on this hub; the cloud refuses them.
    - Device logins (tills, screens) are separate hub logins, with passwords stored as scrypt hashes.
 
+## PIN sessions are bound to their device (cloud and hub)
+
+- Every PIN sign-in is recorded server-side (`pin_sessions`: session id → staff member and device).
+- **The binding decides the device**, not the browser's `x-device-id` header. It also tells a PIN session apart from an email-link session: Supabase marks both as "otp", but only PIN sessions are bound.
+- **Where the person signs in matters:**
+  - on the person's own personal device, the full role applies;
+  - on a shared till, staff, device and settings management are closed.
+- **A deactivated or unpaired device** ends its PIN sessions immediately.
+
 ## Approving devices at the hub
 
 - Pairing a till or screen needs someone whose role may manage devices.

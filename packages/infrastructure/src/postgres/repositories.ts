@@ -169,6 +169,16 @@ function orderRepository(sql: Sql): OrderRepository {
       };
     },
 
+    async issueBill(orderId, printed, at) {
+      const [r] = await sql.query(
+        `update orders set bill_issued_at = coalesce(bill_issued_at, $2::timestamptz),
+                bill_prints = bill_prints + $3::int, version = version + 1
+          where id = $1 returning bill_prints`,
+        [orderId, at.toISOString(), printed ? 1 : 0],
+      );
+      return num(r!.bill_prints);
+    },
+
     async allocateOrderNumber(branchId, businessDay, start) {
       const [row] = await sql.query(
         `insert into order_number_counters (restaurant_id, branch_id, business_day, next_number)

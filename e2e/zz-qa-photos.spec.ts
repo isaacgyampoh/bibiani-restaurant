@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
+import { usePasswordSignIn } from './support';
 
 // Manual-QA helper (not part of CI): product photo upload in the menu editor and on the POS.
 const OUT = process.env.QA_OUT!;
@@ -10,9 +11,10 @@ test.skip(!process.env.QA_OUT, 'manual QA only');
 test('photos', async ({ browser }) => {
   const page = await (await browser.newContext({ viewport: { width: 1366, height: 900 } })).newPage();
   await page.goto('/login');
+  await usePasswordSignIn(page);
   await page.getByLabel('Email').fill(env.accounts.owner!.email);
   await page.getByLabel('Password').fill(env.accounts.owner!.password);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.waitForURL((u) => !u.pathname.startsWith('/login'));
   await page.goto('/menu');
   await page

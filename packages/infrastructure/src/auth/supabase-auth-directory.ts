@@ -125,7 +125,12 @@ export class SupabaseAuthDirectory implements AuthDirectory {
       { method: 'POST', body: JSON.stringify({ type: 'magiclink', token_hash: tokenHash }) },
       this.anonKey,
     );
-    return { accessToken: s.access_token, refreshToken: s.refresh_token, expiresAt: s.expires_at };
+    return {
+      accessToken: s.access_token,
+      refreshToken: s.refresh_token,
+      expiresAt: s.expires_at,
+      sessionId: sessionIdOf(s.access_token),
+    };
   }
 
   async sendRecoveryEmail(email: string, redirectTo: string): Promise<void> {
@@ -143,5 +148,15 @@ export class SupabaseAuthDirectory implements AuthDirectory {
       this.anonKey,
     );
     return { accessToken: s.access_token, refreshToken: s.refresh_token, expiresAt: s.expires_at };
+  }
+}
+
+/** The `session_id` claim of a Supabase access token (already verified by the issuer; read only). */
+function sessionIdOf(accessToken: string): string | undefined {
+  try {
+    const payload = JSON.parse(Buffer.from(accessToken.split('.')[1] ?? '', 'base64url').toString('utf8'));
+    return typeof payload.session_id === 'string' ? payload.session_id : undefined;
+  } catch {
+    return undefined;
   }
 }

@@ -3839,3 +3839,18 @@ input.code-input {
   font-weight: 600;
   text-align: center;
 }
+.hub-download {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  justify-items: start;
+  margin-top: 16px;
+}
+.hub-download h2 {
+  margin: 0;
+  font-size: 17px;
+}
+.hub-download p {
+  margin: 0;
+  max-width: 70ch;
+}

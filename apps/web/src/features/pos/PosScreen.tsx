@@ -11,6 +11,7 @@ import { OrderScreen } from './OrderScreen';
 type View =
   | { kind: 'area'; areaId: string }
   | { kind: 'completed'; areaId: string }
+  | { kind: 'bills'; areaId: string }
   | { kind: 'order'; areaId: string; tableId: string | null; orderId: string | null };
 
 const IDLE_LOCK_MS = 5 * 60_000;
@@ -116,6 +117,15 @@ export function PosScreen({ me }: { me: MeView }) {
           <button
             type="button"
             role="tab"
+            aria-selected={view.kind === 'bills'}
+            className={`tab ${view.kind === 'bills' ? 'active' : ''}`}
+            onClick={() => setView({ kind: 'bills', areaId: view.areaId })}
+          >
+            Bills
+          </button>
+          <button
+            type="button"
+            role="tab"
             aria-selected={view.kind === 'completed'}
             className={`tab ${view.kind === 'completed' ? 'active' : ''}`}
             onClick={() => setView({ kind: 'completed', areaId: view.areaId })}
@@ -157,6 +167,12 @@ export function PosScreen({ me }: { me: MeView }) {
           existingOrderId={view.orderId}
           onClose={() => setView({ kind: 'area', areaId: view.areaId })}
           onOpenOrder={(o) => setView({ kind: 'order', areaId: o.areaId, tableId: o.tableId, orderId: o.id })}
+        />
+      ) : view.kind === 'bills' ? (
+        <BillsView
+          branchId={branchId}
+          currency={menu.currency}
+          onOpen={(o) => setView({ kind: 'order', areaId: o.areaId, tableId: o.tableId, orderId: o.id })}
         />
       ) : view.kind === 'completed' ? (
         <CompletedView
@@ -281,12 +297,15 @@ function OrderRows({
   onOpen,
   empty,
   showWhere,
+  showDue,
 }: {
   orders: OrderSummaryView[];
   currency: string;
   onOpen: (o: OrderSummaryView) => void;
   empty: string;
   showWhere?: boolean;
+  /** Show the amount still due (unpaid bills) instead of the total. */
+  showDue?: boolean;
 }) {
   return (
     <div className="card">
@@ -297,7 +316,7 @@ function OrderRows({
             <th>{showWhere ? 'Where' : 'Customer'}</th>
             <th>Status</th>
             <th>Payment</th>
-            <th className="num">{showWhere ? 'Total' : 'Due'}</th>
+            <th className="num">{showWhere && !showDue ? 'Total' : 'Due'}</th>
             <th />
           </tr>
         </thead>
@@ -317,10 +336,14 @@ function OrderRows({
                 <Badge value={o.status} />
               </td>
               <td>
-                <Badge value={o.paymentStatus} />
+                {o.bill.status === 'printed' || o.bill.status === 'requested' ? (
+                  <Badge value="awaiting_payment" label="Bill · awaiting payment" tone="warn" />
+                ) : (
+                  <Badge value={o.paymentStatus} />
+                )}
               </td>
               <td className="num">
-                <Money minor={showWhere ? o.grandTotal : o.balanceDue} currency={currency} />
+                <Money minor={showWhere && !showDue ? o.grandTotal : o.balanceDue} currency={currency} />
               </td>
               <td className="actions-cell">
                 <button
@@ -388,6 +411,71 @@ function TakeawayView({
 }
 
 /** Closed orders of today and yesterday. Opening one is read-only apart from the receipt. */
+/**
+ * The cashier's list of bills waiting for payment (a printed bill comes back with the customer's
+ * cash or MoMo). Find it by order number, table or amount, open it, take the payment.
+ */
+function BillsView({
+  branchId,
+  currency,
+  onOpen,
+}: {
+  branchId: string;
+  currency: string;
+  onOpen: (order: OrderSummaryView) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const feed = useFeed(`bills:${branchId}`, () => api.activeOrders(branchId), {
+    topic: topics.orders(branchId),
+    pollMs: 30_000,
+  });
+  const q = query.trim().toLowerCase().replace(/^#/, '');
+  const unpaid = (feed.data ?? []).filter(
+    (o) => (o.bill.status === 'printed' || o.bill.status === 'requested') && o.balanceDue > 0,
+  );
+  const shown = q
+    ? unpaid.filter(
+        (o) =>
+          String(o.orderNumber) === q ||
+          (o.tableLabel ?? '').toLowerCase() === q ||
+          (o.balanceDue / 100).toFixed(2).startsWith(q) ||
+          (o.customerName ?? '').toLowerCase().includes(q),
+      )
+    : unpaid;
+  return (
+    <>
+      <div className="floor-bar">
+        <strong>Bills awaiting payment</strong>
+        <input
+          className="search"
+          type="search"
+          aria-label="Find a bill by order number, table or amount"
+          placeholder="Order number, table or amount"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <span className="grow" />
+        <ConnectionDot state={feed.connection} />
+      </div>
+      <ErrorBox error={feed.error} />
+      <div className="orders-list">
+        {!feed.data ? (
+          <Skeleton rows={4} />
+        ) : (
+          <OrderRows
+            orders={shown}
+            currency={currency}
+            onOpen={onOpen}
+            empty={q ? 'No unpaid bill matches' : 'No bills waiting for payment'}
+            showWhere
+            showDue
+          />
+        )}
+      </div>
+    </>
+  );
+}
+
 function CompletedView({
   branchId,
   currency,

@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { type Browser, expect, type Page, test } from '@playwright/test';
+import { usePasswordSignIn } from './support';
 
 // Manual-QA helper (not part of CI): opens every screen type and fails on any Content-Security-Policy
 // violation or console error, so the security policy can never silently break the app.
@@ -53,9 +54,10 @@ test('no security-policy violations or console errors on any screen', async ({ b
   const page = await (await browser.newContext()).newPage();
   watch(page, 'owner');
   await page.goto('/login');
+  await usePasswordSignIn(page);
   await page.getByLabel('Email').fill(env.accounts.owner!.email);
   await page.getByLabel('Password').fill(env.accounts.owner!.password);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.waitForURL((u) => !u.pathname.startsWith('/login'));
   for (const path of [
     '/dashboard',

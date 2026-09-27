@@ -64,12 +64,12 @@ test('owner assigns a PIN; the cashier activates it on the till, locks, and sign
 
   // A wrong PIN is refused without saying why.
   await tap(page, starting === '2468' ? '1357' : '2468');
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('PIN not recognised');
 
   // The assigned PIN works once, and asks for the staff member's own PIN.
   await tap(page, starting);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('heading', { name: /Welcome/ })).toBeVisible();
   let own = randomPin();
   while (own === starting) own = randomPin();
@@ -85,10 +85,10 @@ test('owner assigns a PIN; the cashier activates it on the till, locks, and sign
   await page.getByRole('button', { name: 'Lock' }).click();
   await expect(page.getByRole('heading', { name: 'Enter your staff PIN' })).toBeVisible();
   await tap(page, starting);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('PIN not recognised');
   await tap(page, own);
-  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('tab', { name: 'Takeaway' })).toBeVisible();
   // A PIN session is not a back-office session.
   await expect(page.getByRole('link', { name: 'Back office' })).toHaveCount(0);

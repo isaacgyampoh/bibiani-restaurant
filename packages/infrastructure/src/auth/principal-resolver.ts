@@ -86,4 +86,31 @@ export class PgPrincipalResolver {
     ]);
     return row?.ok === true;
   }
+
+  /** The device a PIN sign-in session was opened on (and whose personal device it is), if bound. */
+  async pinSession(sessionId: string): Promise<{
+    restaurantId: string;
+    staffId: string;
+    deviceId: string;
+    personalStaffId: string | null;
+    /** False once the device is deactivated or unpaired: its PIN sessions stop working. */
+    deviceUsable: boolean;
+  } | null> {
+    const [row] = await this.db.query<{
+      restaurant_id: string;
+      staff_id: string;
+      device_id: string;
+      personal_staff_id: string | null;
+      device_usable: boolean;
+    }>('select * from app.pin_session_device($1)', [sessionId]);
+    return row
+      ? {
+          restaurantId: row.restaurant_id,
+          staffId: row.staff_id,
+          deviceId: row.device_id,
+          personalStaffId: row.personal_staff_id,
+          deviceUsable: row.device_usable === true,
+        }
+      : null;
+  }
 }

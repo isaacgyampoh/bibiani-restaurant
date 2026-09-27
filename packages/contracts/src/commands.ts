@@ -223,8 +223,14 @@ export type ManualDiscountCommand = z.infer<typeof ManualDiscountCommand>;
 // Owner onboarding (public start; accept with the emailed-link session).
 export const OnboardingStartCommand = z.object({ email: z.string().trim().max(200) });
 export type OnboardingStartCommand = z.infer<typeof OnboardingStartCommand>;
-export const OnboardingAcceptCommand = z.object({ fullName: text(80).min(2) });
+export const OnboardingAcceptCommand = z.object({
+  fullName: text(80).min(2),
+  /** The owner's own PIN (4 to 6 digits). Sent once over HTTPS; only a keyed digest is stored. */
+  pin: z.string().regex(/^\d{4,6}$/, 'A PIN is 4 to 6 digits'),
+});
 export type OnboardingAcceptCommand = z.infer<typeof OnboardingAcceptCommand>;
+export const EmailLinkCommand = z.object({ email: z.string().trim().max(200) });
+export type EmailLinkCommand = z.infer<typeof EmailLinkCommand>;
 
 // Device-initiated pairing.
 export const CollectPairingCommand = z.object({ secret: z.string().min(20).max(100) });

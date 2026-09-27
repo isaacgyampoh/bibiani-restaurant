@@ -1,23 +1,22 @@
-import { readFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
 
-// Manual-QA helper (not part of CI): READ-ONLY look at production with the demo restaurant.
-// Opens screens and dialogs, never saves, sends, pays or pairs anything.
-const OUT = process.env.QA_OUT!;
-const demo = JSON.parse(readFileSync('.demo-credentials.json', 'utf8')) as {
-  email: string;
-  password: string;
-};
+/**
+ * Post-deploy smoke test of PRODUCTION (not part of CI). Uses no account and changes nothing:
+ * production holds only the real restaurant, so it only opens public screens and checks that the
+ * app loads cleanly (no console errors, no content-security-policy violations), that the API is
+ * ready and that it refuses requests without a login. It never opens /pair (that would create a
+ * pairing request) and never submits a form.
+ *
+ *   E2E_BASE_URL=https://bibiani-restaurant.vercel.app QA_OUT=/tmp/prodqa npx playwright test e2e/zz-qa-prod-readonly.spec.ts
+ */
+const OUT = process.env.QA_OUT;
 test.skip(
-  !process.env.QA_OUT || !process.env.E2E_BASE_URL?.includes('bibiani-restaurant'),
-  'manual production QA only',
+  !OUT || !process.env.E2E_BASE_URL?.includes('bibiani-restaurant'),
+  'manual production smoke test only',
 );
-test('production read-only review', async ({ browser }) => {
-  test.setTimeout(300_000);
-  const shot = async (p: Page, n: string, full = true) => {
-    await p.waitForTimeout(2000);
-    await p.screenshot({ path: `${OUT}/${n}.png`, fullPage: full });
-  };
+
+test('production smoke test (public screens, read-only)', async ({ browser, request }) => {
+  test.setTimeout(180_000);
   const problems: string[] = [];
   const watch = (page: Page) => {
     page.on('console', (m) => {
@@ -25,44 +24,40 @@ test('production read-only review', async ({ browser }) => {
     });
     page.on('pageerror', (e) => problems.push(e.message));
   };
-  const p = await (await browser.newContext({ viewport: { width: 1366, height: 900 } })).newPage();
-  watch(p);
-  await p.goto('/login');
-  await shot(p, 'p01-login');
-  await p.getByLabel('Email').fill(demo.email);
-  await p.getByLabel('Password').fill(demo.password);
-  await p.getByRole('button', { name: 'Sign in' }).click();
-  await p.waitForURL((u) => !u.pathname.startsWith('/login'));
-  for (const [n, path] of [
-    ['p02-dashboard', '/dashboard'],
-    ['p03-menu', '/menu'],
-    ['p05-promotions', '/promotions'],
-    ['p06-orders', '/orders'],
-    ['p07-supervisor', '/expo'],
-    ['p08-inventory', '/inventory'],
-    ['p09-stock-taking', '/stock-takes'],
-    ['p10-staff', '/staff'],
-    ['p11-reports', '/reports'],
-    ['p12-settings', '/settings'],
-    ['p13-activity', '/activity'],
-  ] as const) {
-    await p.goto(path);
-    await shot(p, n);
+  const page = await (await browser.newContext({ viewport: { width: 1366, height: 900 } })).newPage();
+  watch(page);
+  const shot = (name: string) => page.screenshot({ path: `${OUT}/${name}.png`, fullPage: true });
+
+  // API: ready, on the expected schema, and closed without a login.
+  const ready = await (await request.get('/health/ready')).json();
+  expect(ready.status).toBe('ready');
+  expect(ready.environment).toBe('production');
+  expect((await request.get('/v1/me')).status()).toBeGreaterThanOrEqual(401);
+
+  // Sign-in screen (the first thing anyone sees).
+  await page.goto('/');
+  await expect(page.getByText('Chefelisha Restaurant').first()).toBeVisible();
+  await expect(page.getByRole('heading').first()).toBeVisible();
+  await shot('p01-sign-in');
+
+  // Owner welcome (invitation-based onboarding), without submitting.
+  await page.goto('/welcome');
+  await expect(page.getByRole('heading').first()).toBeVisible();
+  await shot('p02-welcome');
+
+  // Unknown address falls back to the app, not an error page.
+  await page.goto('/this-page-does-not-exist');
+  await expect(page.getByText('Chefelisha Restaurant').first()).toBeVisible();
+
+  // No demo or test restaurant is shown anywhere public.
+  for (const path of ['/', '/welcome']) {
+    await page.goto(path);
+    await expect(page.getByText(/demo|smoke test|test restaurant/i)).toHaveCount(0);
   }
-  await p.goto('/menu');
-  await p.getByRole('button', { name: 'Edit' }).first().click();
-  await shot(p, 'p04-product-editor', false);
-  await p.getByRole('button', { name: 'Cancel' }).click();
-  const pos = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage();
-  watch(pos);
-  await pos.goto('/login');
-  await pos.getByLabel('Email').fill(demo.email);
-  await pos.getByLabel('Password').fill(demo.password);
-  await pos.getByRole('button', { name: 'Sign in' }).click();
-  await pos.waitForURL((u) => !u.pathname.startsWith('/login'));
-  await pos.goto('/pos');
-  await pos.getByRole('tab', { name: 'Takeaway' }).click();
-  await pos.getByRole('button', { name: /New takeaway order/ }).click();
-  await shot(pos, 'p14-pos', false);
+
+  // Web app manifest and icons load.
+  expect((await request.get('/manifest.webmanifest')).ok()).toBe(true);
+  expect((await request.get('/logo-512.png')).ok()).toBe(true);
+
   expect(problems).toEqual([]);
 });

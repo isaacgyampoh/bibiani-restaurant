@@ -1,0 +1,6 @@
+{
+  "$comment": "PUBLIC production client values (the same ones every browser receives from the production web app). Never put the service-role / secret key here.",
+  "supabaseUrl": "https://lgoirbfyspuflqekrcgp.supabase.co",
+  "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxnb2lyYmZ5c3B1ZmxxZWtyY2dwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzNTEzNDYsImV4cCI6MjEwNTkyNzM0Nn0.nqDSJRiT4LzC1KCuJamQHIF9ee9LhMJG2MtF8UX4QUA",
+  "cloudUrl": "https://bibiani-restaurant.vercel.app"
+}

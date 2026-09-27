@@ -2,7 +2,7 @@
 
 ## Decision
 
-- **Windows only.**
+- **Windows only, optional.** The web POS keeps working without it; the Windows app is the premium mode that adds offline operation.
 - **One MY FOOD Hub PC per restaurant.** Tills, kitchen screens and the customer display open MY FOOD from the hub over the restaurant network, so they keep working without internet. See [OFFLINE-ARCHITECTURE.md](OFFLINE-ARCHITECTURE.md).
 - **Electron, not Tauri.** Everything the hub runs is already TypeScript/Node: the application layer, the API, the print agent, and PGlite (the embedded Postgres). Electron runs it in-process. Tauri would need a Node sidecar plus a Rust toolchain.
 - **One web app everywhere.** Tills and screens use the same web app as the cloud. There is no second POS to maintain.
@@ -16,7 +16,12 @@
   - the web app on port 8080 of the PC;
   - the print agent;
   - sync with the cloud.
-- **Shows the hub window:**
+- **Opens straight into the MY FOOD point of sale** (the same POS as the web). Menu **MY FOOD**:
+  - **Point of sale** (F1);
+  - **Hub status and devices** (F2).
+
+  On first start it opens the hub page instead, which shows the code that connects the hub to MY FOOD.
+- **Hub page:**
   - connection to MY FOOD;
   - "All sent" or changes waiting;
   - the address tills should open;
@@ -25,10 +30,11 @@
 - **Tray and start-up (as designed; to be confirmed on the hub PC, see [HARDWARE-ACCEPTANCE.md](HARDWARE-ACCEPTANCE.md) §1):**
   - Closing the window hides it; the hub keeps running in the tray.
   - The tray menu has *Open MY FOOD Hub*, *Open a till on this computer*, and *Quit (tills stop working)*.
+  - The window's menu has *Point of sale*, *Hub status and devices*, *Reload*, *Full screen*, and *Hide window (the hub keeps running)*.
   - It starts when this Windows account signs in.
   - Starting it a second time only brings the running hub's window forward.
 - **Secrets:** the token key and PIN key are generated on the PC at first start and kept encrypted with the Windows key store (DPAPI) in `secrets.bin`. The installer contains no secret, only public values (cloud address, Supabase URL and anon key). If the hub runs under a different Windows account than the one that set it up, it cannot read its keys and says so.
-- **Updates:** a production hub checks GitHub Releases for newer versions. No releases are published yet, so today an update means installing the new installer over the old one; data is kept.
+- **Updates:** a production hub checks the repository's GitHub Releases for newer versions (electron-updater) and installs them. Installing a newer installer over the old one also works; data is kept.
 - **Logs:** `%APPDATA%\myfood-hub\hub\hub.log`. They contain events, never PINs, keys or session tokens (checked by an automated test).
 
 ## Production and test installers
@@ -40,16 +46,20 @@
 | Name | **MY FOOD Hub**, `MY-FOOD-Hub-Setup-<version>-production.exe` | **MY FOOD Hub (TEST)** everywhere, `MY-FOOD-Hub-TEST-Setup-<version>.exe`, a TEST badge in the hub window, and its own data folder |
 | After build | The workflow checks the app contains the production project and no staging values, then uploads artifact `MY-FOOD-Hub-production-<commit>` | Never given to the restaurant |
 
-## Building the production installer
+## Building and publishing the production installer
 
-1. **One-time: add the repository variables.** These are public values, the same as in the web app, so they go under **Variables**, not Secrets:
-   - GitHub → repository **isaacgyampoh/bibiani-restaurant** → **Settings** → **Secrets and variables** → **Actions** → tab **Variables** → **New repository variable**;
-   - `PROD_SUPABASE_URL` = `https://lgoirbfyspuflqekrcgp.supabase.co`;
-   - `PROD_SUPABASE_ANON_KEY` = the production **anon (public)** key: Supabase dashboard → project → Settings → API. **Never the service-role key.**
-2. GitHub → **Actions** → **MY FOOD Hub (Windows installer)** → **Run workflow** (branch `main`; keep the default cloud address).
-3. When it finishes, download the artifact `MY-FOOD-Hub-production-<commit>`. It contains `MY-FOOD-Hub-Setup-<version>-production.exe`.
+The installer contains only **public** production values, the same ones every browser receives from the production web app: the Supabase URL, the anon key, and the cloud address. They are committed in `apps/desktop/production.public.json`.
+- The build refuses a key that is not the anon (public) key.
+- Repository variables `PROD_SUPABASE_URL` / `PROD_SUPABASE_ANON_KEY` override the file if they are ever set.
+- The service-role key never goes near an installer.
 
-If the variables are missing, the workflow stops and says which ones to add.
+**Publish a release** (what restaurants download, and where installed hubs get updates):
+1. Update `version` in `apps/desktop/package.json` (e.g. `1.0.1`), commit, push, and wait for CI.
+2. Tag the commit `v<version>` and push the tag: `git tag v1.0.1 && git push origin v1.0.1`.
+3. GitHub Actions → **MY FOOD Hub (Windows installer)** builds on Windows and checks for production (and no staging) values. It then publishes the GitHub Release with `MY-FOOD-Hub-Setup-<version>-production.exe`.
+4. In MY FOOD: **Devices & printing** → **MY FOOD Hub for Windows** → **Download for Windows** opens the latest release.
+
+**Just build, without publishing:** Actions → **MY FOOD Hub (Windows installer)** → **Run workflow**. The installer is attached to the run as the artifact `MY-FOOD-Hub-production-<commit>`.
 
 ## Code signing
 
@@ -59,7 +69,7 @@ If the variables are missing, the workflow stops and says which ones to add.
 ## Setting up the hub PC
 
 1. Use an always-on Windows 10 or 11 PC on the restaurant network, wired if possible. Give it a fixed IP address in the router.
-2. Install `MY-FOOD-Hub-Setup-<version>-production.exe` (from the workflow above). Windows SmartScreen shows a warning because the installer is unsigned; choose *More info → Run anyway*. When Windows Firewall asks, allow MY FOOD Hub on **private** networks (tills reach it on port 8080).
+2. Install `MY-FOOD-Hub-Setup-<version>-production.exe` (Devices & printing → Download for Windows). Windows SmartScreen shows a warning because the installer is unsigned; choose *More info → Run anyway*. When Windows Firewall asks, allow MY FOOD Hub on **private** networks (tills reach it on port 8080).
 3. In the back office, **Devices & printing**:
    - add a device of type **MY FOOD Hub**;
    - press *Enter code from device* and type the code the hub window shows;
@@ -76,7 +86,7 @@ If the variables are missing, the workflow stops and says which ones to add.
 | Printing through the hub over the network, with failure, retry and backup | **Verified in software** with simulated network printers (`apps/hub/test/hub-printing.test.ts`). **No physical printer tested yet** |
 | Windows app and installer | Built. Package contents verified (PGlite and migrations load from the shipped app). **Not yet installed on a Windows PC** |
 | Windows key store, tray, start with Windows, single instance | Implemented; **not yet verified on Windows** |
-| Production installer from GitHub Actions | Workflow ready and guarded. **Not yet run** (needs the two repository variables) |
+| Production installer from GitHub Actions | Workflow ready and guarded; publishes a GitHub Release on a `v<version>` tag. See the release report for the first release |
 | Code signing | **Not implemented** (needs a certificate) |
 | USB printers | **Not implemented.** Use Ethernet (network) receipt printers |
 | Cash drawer | **Not implemented.** A diagnostic can check on site whether the printer opens the drawer (`pnpm hardware:printer-check <ip> --drawer`) |

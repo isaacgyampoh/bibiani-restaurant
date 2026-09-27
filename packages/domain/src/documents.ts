@@ -177,7 +177,13 @@ export interface ReceiptInput {
 
 const METHOD_LABEL: Record<string, string> = { cash: 'CASH', momo: 'MOBILE MONEY', card: 'CARD' };
 
-export function receiptDocument(r: ReceiptInput): PrintDocument {
+/**
+ * The customer's receipt, or (with `bill`) the BILL for an unpaid order: the same layout, clearly
+ * marked "BILL - NOT PAID" (copies: "BILL / COPY"), showing any part already paid and the amount due.
+ * A bill is not a receipt and never records anything.
+ */
+export function receiptDocument(r: ReceiptInput, options: { bill?: { copy: boolean } } = {}): PrintDocument {
+  const bill = options.bill;
   const money = (minor: number) => formatMinor(minor, r.currency);
   const localDate = new Intl.DateTimeFormat('en-GB', {
     timeZone: r.timeZone,
@@ -191,6 +197,18 @@ export function receiptDocument(r: ReceiptInput): PrintDocument {
   ];
   if (r.branchAddress) blocks.push({ type: 'text', text: r.branchAddress, align: 'center' });
   if (r.restaurantPhone) blocks.push({ type: 'text', text: `Tel: ${r.restaurantPhone}`, align: 'center' });
+  if (bill)
+    blocks.push(
+      { type: 'divider' },
+      {
+        type: 'text',
+        text: bill.copy ? 'BILL / COPY' : 'BILL',
+        align: 'center',
+        size: 'large',
+        bold: true,
+      },
+      { type: 'text', text: 'NOT PAID', align: 'center', bold: true },
+    );
   blocks.push(
     { type: 'divider' },
     {
@@ -257,6 +275,16 @@ export function receiptDocument(r: ReceiptInput): PrintDocument {
       blocks.push({ type: 'columns', left: '  Cash received', right: money(p.tendered) });
       blocks.push({ type: 'columns', left: '  Change', right: money(p.change) });
     }
+  }
+  if (bill) {
+    blocks.push({ type: 'columns', left: 'AMOUNT DUE', right: money(r.balanceDue), bold: true });
+    blocks.push(
+      { type: 'feed', lines: 1 },
+      { type: 'text', text: 'This is a bill, not a receipt.', align: 'center' },
+      { type: 'text', text: 'Please pay the cashier. Thank you!', align: 'center' },
+    );
+    blocks.push({ type: 'feed', lines: 3 }, { type: 'cut' });
+    return { schema: 1, title: `Bill #${r.orderNumber}${bill.copy ? ' (copy)' : ''}`, blocks };
   }
   if (r.payments.length === 0) blocks.push({ type: 'text', text: 'NOT PAID', bold: true });
   if (r.balanceDue > 0)

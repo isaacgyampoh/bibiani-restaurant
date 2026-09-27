@@ -69,9 +69,12 @@ let window: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let quitting = false;
 let hubUrl = `http://127.0.0.1:${PORT}`;
+let firstRun = false;
 
-function showWindow() {
+/** Opens MY FOOD on this PC: the POS, or a page of the hub (e.g. "/hub" for status and devices). */
+function showWindow(path?: string) {
   if (window) {
+    if (path) void window.loadURL(`${hubUrl}${path}`);
     window.show();
     window.focus();
     return;
@@ -81,10 +84,11 @@ function showWindow() {
     height: 820,
     title: TITLE,
     icon: join(resources, 'icon.png'),
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false },
   });
-  void window.loadURL(`${hubUrl}/hub`);
+  // The POS first; the hub page on first start (it shows the code that connects the hub to MY FOOD).
+  void window.loadURL(`${hubUrl}${path ?? (firstRun ? '/hub' : '/')}`);
   // Links to the cloud back office open in the normal browser.
   window.webContents.setWindowOpenHandler(({ url }) => {
     void shell.openExternal(url);
@@ -101,7 +105,7 @@ function showWindow() {
   });
 }
 
-app.on('second-instance', showWindow);
+app.on('second-instance', () => showWindow());
 
 if (primaryInstance) void app.whenReady().then(start);
 
@@ -123,6 +127,7 @@ async function start() {
     });
     stop = hub.stop;
     hubUrl = hub.url;
+    firstRun = hub.needsCloudPairing();
   } catch (error) {
     log('error')('hub.start_failed', { error: String(error) });
     dialog.showErrorBox(
@@ -137,7 +142,7 @@ async function start() {
   tray.setToolTip(TITLE);
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: `Open ${TITLE}`, click: showWindow },
+      { label: `Open ${TITLE}`, click: () => showWindow() },
       { label: 'Open a till on this computer', click: () => void shell.openExternal(hubUrl) },
       { type: 'separator' },
       {
@@ -150,7 +155,23 @@ async function start() {
       },
     ]),
   );
-  tray.on('double-click', showWindow);
+  tray.on('double-click', () => showWindow());
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      {
+        label: 'MY FOOD',
+        submenu: [
+          { label: 'Point of sale', accelerator: 'F1', click: () => showWindow('/') },
+          { label: 'Hub status and devices', accelerator: 'F2', click: () => showWindow('/hub') },
+          { type: 'separator' },
+          { label: 'Reload', role: 'reload' },
+          { label: 'Full screen', role: 'togglefullscreen' },
+          { type: 'separator' },
+          { label: 'Hide window (the hub keeps running)', role: 'close' },
+        ],
+      },
+    ]),
+  );
   showWindow();
 
   if (app.isPackaged && CHANNEL === 'production') {

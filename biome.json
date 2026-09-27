@@ -12,7 +12,8 @@
       "!deploy",
       "!perf-results",
       "!apps/desktop/app",
-      "!apps/desktop/release"
+      "!apps/desktop/release",
+      "!.production-archives"
     ]
   },
   "formatter": {

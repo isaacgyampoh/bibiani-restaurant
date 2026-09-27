@@ -1,11 +1,17 @@
 /**
  * PLATFORM OPERATION: invite a restaurant's real owner by email (owner onboarding).
  * The owner then opens <APP_URL>/welcome, enters this email, verifies it from the emailed link,
- * sets their own password and becomes Owner. Nothing is emailed by this script and no password is
- * created or printed. A previous open invitation for the same email is revoked.
+ * chooses their own PIN and becomes Owner (their device is registered for PIN sign-in). Nothing is
+ * emailed by this script and no password or PIN is created or printed. A previous open invitation
+ * for the same email is revoked.
+ *
+ * --link (only while production email sending is not set up): also prints the single-use
+ * verification link that the email would contain (valid 1 hour). Give it to the owner PRIVATELY
+ * (in person or a direct message); whoever opens it can finish the owner sign-up. Needs
+ * SUPABASE_URL, SUPABASE_SECRET_KEY and APP_URL.
  *
  *   PLATFORM_DATABASE_URL=... pnpm platform:invite-owner --restaurant-id <uuid> --email owner@example.com
- *     [--days 14] [--note "Handover to client"]
+ *     [--days 14] [--note "Handover to client"] [--link]
  *   pnpm platform:invite-owner --list           (open invitations; emails masked)
  *   pnpm platform:invite-owner --revoke <email>
  */
@@ -20,6 +26,7 @@ const { values } = parseArgs({
     note: { type: 'string' },
     list: { type: 'boolean', default: false },
     revoke: { type: 'string' },
+    link: { type: 'boolean', default: false },
   },
 });
 const dbUrl = process.env.PLATFORM_DATABASE_URL;
@@ -57,7 +64,39 @@ try {
         values (${restaurantId}, 'owner.invited', 'owner_invitation', ${email}, ${sql.json({ email: mask(email), days })})`;
     });
     console.log(`Invited ${mask(email)} as Owner of "${r.name}" for ${days} days.`);
-    console.log('Next: the owner opens <APP_URL>/welcome and enters this email.');
+    if (!values.link) {
+      console.log('Next: the owner opens <APP_URL>/welcome and enters this email.');
+    } else {
+      const base = process.env.SUPABASE_URL?.replace(/\/$/, '');
+      const key = process.env.SUPABASE_SECRET_KEY;
+      const appUrl = process.env.APP_URL?.replace(/\/$/, '') ?? 'https://bibiani-restaurant.vercel.app';
+      if (!base || !key) throw new Error('--link needs SUPABASE_URL and SUPABASE_SECRET_KEY');
+      const headers = { apikey: key, authorization: `Bearer ${key}`, 'content-type': 'application/json' };
+      // The owner's login (random password nobody knows), as the welcome screen would create it.
+      const created = await fetch(`${base}/auth/v1/admin/users`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          email,
+          password: crypto.randomUUID() + crypto.randomUUID(),
+          email_confirm: true,
+        }),
+      });
+      if (!created.ok && created.status !== 422)
+        throw new Error(`Could not create the login: ${created.status}`);
+      const res = await fetch(`${base}/auth/v1/admin/generate_link`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ type: 'recovery', email, redirect_to: `${appUrl}/welcome/verify` }),
+      });
+      const body = (await res.json()) as { action_link?: string; properties?: { action_link?: string } };
+      const link = body.properties?.action_link ?? body.action_link;
+      if (!res.ok || !link) throw new Error(`Could not create the link: ${res.status}`);
+      console.log(
+        '\nSingle-use owner link (valid 1 hour). Give it to the owner privately, never in a group chat:',
+      );
+      console.log(link);
+    }
   }
 } finally {
   await sql.end();

@@ -12,7 +12,7 @@ import type {
 } from '@rp/contracts';
 import { balanceDue, isLowStock, stockValue } from '@rp/domain';
 import { dateOrNull, num, numOrNull, type Sql } from '../db/sql';
-import { iso } from './util';
+import { billState, iso } from './util';
 
 /** Operations read models: dashboard, expediter board, inventory and stock taking. */
 type Row = Record<string, unknown>;
@@ -47,6 +47,7 @@ function summary(o: Row): OrderSummaryView {
     }),
     version: num(o.version),
     createdAt: isoOf(o.created_at)!,
+    bill: billState(o),
   };
 }
 

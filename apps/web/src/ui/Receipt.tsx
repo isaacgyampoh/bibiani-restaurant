@@ -50,15 +50,25 @@ export function ReceiptPaper({ blocks, reprint }: { blocks: Block[]; reprint?: b
 }
 
 /** Receipt preview with a browser-print button (works before any thermal printer is installed). */
-export function ReceiptModal({ orderId, onClose }: { orderId: string; onClose: () => void }) {
+export function ReceiptModal({
+  orderId,
+  onClose,
+  kind = 'receipt',
+}: {
+  orderId: string;
+  onClose: () => void;
+  /** 'bill': the unpaid bill ("BILL - NOT PAID") instead of the receipt. */
+  kind?: 'receipt' | 'bill';
+}) {
   const [receipt, setReceipt] = useState<ReceiptView | null>(null);
   const [error, setError] = useState<unknown>(null);
   useEffect(() => {
-    api.receipt(orderId).then(setReceipt).catch(setError);
-  }, [orderId]);
+    (kind === 'bill' ? api.bill(orderId) : api.receipt(orderId)).then(setReceipt).catch(setError);
+  }, [orderId, kind]);
+  const noun = kind === 'bill' ? 'Bill' : 'Receipt';
   return (
     <Modal
-      title={receipt ? `Receipt — order #${receipt.orderNumber}` : 'Receipt'}
+      title={receipt ? `${noun} — order #${receipt.orderNumber}` : noun}
       onClose={onClose}
       footer={
         <>
@@ -75,7 +85,7 @@ export function ReceiptModal({ orderId, onClose }: { orderId: string; onClose: (
       {receipt ? (
         <ReceiptPaper blocks={receipt.document.blocks} />
       ) : (
-        <div className="muted">Loading receipt…</div>
+        <div className="muted">Loading {noun.toLowerCase()}…</div>
       )}
     </Modal>
   );
