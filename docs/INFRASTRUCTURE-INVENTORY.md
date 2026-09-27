@@ -31,6 +31,11 @@ Classification:
 - **HTTPS:** Let's Encrypt certificate issued by Vercel.
 - **Checked on the new domain:** `/health/ready` reports `production-9cc0e56`, and the app uses Supabase `lgoirbfyspuflqekrcgp`. **https://bibiani-restaurant.vercel.app still works.**
 - No new Vercel project, deployment or Supabase project was created for the domain.
+- **Auth and email links moved to the domain (2026-09-27):**
+  - Supabase Auth Site URL: `https://www.chefelisha.cc`.
+  - Redirect allow-list: `www.chefelisha.cc/**`, `chefelisha.cc/**`, `bibiani-restaurant.vercel.app/**`, `restaurant-management-prod-rouge.vercel.app/**`.
+  - Vercel `APP_URL=https://www.chefelisha.cc`, released as `production-56a12a3`.
+- **Owner invited (2026-09-27):** the real owner's email was invited as Owner of Chefelisha Restaurant, valid 14 days. The one-time sign-up link was given privately, because the email provider is not connected yet.
 
 ## Supabase projects: the one production project (2026-09-27)
 
