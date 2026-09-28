@@ -367,6 +367,8 @@ export interface NewPaymentRecord {
   requestHash: string;
   recordedByStaffId: string | null;
   deviceId: string | null;
+  /** The recording cashier's open register, when they have one. */
+  registerSessionId?: string | null;
 }
 
 export interface AuditEntry {
@@ -408,10 +410,13 @@ export interface OrderRepository {
   issueBill(orderId: string, printed: boolean, at: Date): Promise<number>;
   activeOrderIdForTable(tableId: string): Promise<string | null>;
   findSubmission(submissionId: string): Promise<SubmissionRecord | null>;
-  /** Inserts the submission with the next sequence number for the order; returns that number. */
+  /**
+   * Inserts the submission with the next sequence number for the order. Returns that number and the
+   * sender's name and main role as recorded at this moment.
+   */
   insertSubmission(
     s: Omit<SubmissionRecord, 'seq'> & { staffId: string | null; deviceId: string | null; submittedAt: Date },
-  ): Promise<number>;
+  ): Promise<{ seq: number; sentByName: string | null; sentByRole: string | null }>;
   appendEvent(event: OrderEvent): Promise<void>;
   /** Orders that were merged into this one (their stock sales count as this order's). */
   mergedFrom(orderId: string): Promise<string[]>;
@@ -685,6 +690,9 @@ export interface Repositories {
   promotions: PromotionRepository;
   discounts: DiscountRepository;
   hub: HubSyncRepository;
+  customers: CustomerRepository;
+  registers: RegisterRepository;
+  reports: ReportRepository;
 }
 
 // ---------------------------------------------------------------------------
@@ -925,4 +933,181 @@ export interface ImageStore {
   put(path: string, bytes: Uint8Array, contentType: string): Promise<void>;
   remove(path: string): Promise<void>;
   publicUrl(path: string): string;
+}
+
+// ---------------------------------------------------------------------------
+// Customers
+// ---------------------------------------------------------------------------
+export interface CustomerRecord {
+  id: string;
+  fullName: string | null;
+  phone: string;
+  email: string | null;
+  notes: string | null;
+  mergedIntoId: string | null;
+  version: number;
+}
+
+export interface CustomerRepository {
+  /** The restaurant's currency code. */
+  currency(): Promise<string>;
+  /** The unmerged customer with this canonical number. */
+  findByPhone(phone: string): Promise<CustomerRecord | null>;
+  find(customerId: string): Promise<CustomerRecord | null>;
+  insert(c: Omit<CustomerRecord, 'mergedIntoId' | 'version'> & { staffId: string | null }): Promise<boolean>;
+  update(
+    customerId: string,
+    patch: Pick<CustomerRecord, 'fullName' | 'phone' | 'email' | 'notes'>,
+    expectedVersion: number,
+  ): Promise<boolean>;
+  /** Marks `fromId` as merged into `intoId` (records merged into `fromId` follow). Orders keep their link. */
+  merge(fromId: string, intoId: string): Promise<void>;
+  linkOrder(
+    orderId: string,
+    customerId: string | null,
+    name: string | null,
+    phone: string | null,
+  ): Promise<void>;
+  list(filter: { search: string | null; limit: number; offset: number }): Promise<{
+    customers: import('@rp/contracts').CustomerSummaryView[];
+    total: number;
+  }>;
+  detail(customerId: string): Promise<Omit<import('@rp/contracts').CustomerDetailView, 'currency'> | null>;
+  /** Name search (up to `limit`), plus the exact match for a canonical number when given. */
+  lookup(
+    phone: string | null,
+    name: string | null,
+    limit: number,
+  ): Promise<{ id: string; fullName: string | null; phone: string; orders: number }[]>;
+}
+
+// ---------------------------------------------------------------------------
+// Cash registers
+// ---------------------------------------------------------------------------
+export interface RegisterRecord {
+  id: string;
+  branchId: string;
+  deviceId: string | null;
+  terminalName: string;
+  cashierStaffId: string;
+  cashierName: string;
+  status: 'open' | 'closed';
+  openedAt: Date;
+  openingCash: number;
+  openingNote: string | null;
+  closedAt: Date | null;
+  closedByName: string | null;
+  cashSales: number | null;
+  cashRefunds: number | null;
+  expectedCash: number | null;
+  countedCash: number | null;
+  variance: number | null;
+  closingTotals: import('@rp/domain').RegisterTotals | null;
+  closingNote: string | null;
+  reopenCount: number;
+  reopenedAt: Date | null;
+  reopenReason: string | null;
+  version: number;
+}
+
+export interface RegisterRepository {
+  insert(r: {
+    id: string;
+    branchId: string;
+    deviceId: string | null;
+    terminalName: string;
+    cashierStaffId: string;
+    cashierName: string;
+    openingCash: number;
+    openingNote: string | null;
+    openedAt: Date;
+  }): Promise<void>;
+  find(sessionId: string, forUpdate?: boolean): Promise<RegisterRecord | null>;
+  /** The cashier's open register in this branch (at most one). */
+  openFor(branchId: string, staffId: string): Promise<RegisterRecord | null>;
+  openOnDevice(deviceId: string): Promise<RegisterRecord | null>;
+  /** Recorded (not voided) payments attached to the session. */
+  payments(sessionId: string): Promise<import('@rp/domain').RegisterPayment[]>;
+  orderCounts(sessionId: string): Promise<{ total: number; dineIn: number; takeaway: number }>;
+  close(
+    sessionId: string,
+    c: {
+      closedAt: Date;
+      staffId: string | null;
+      totals: import('@rp/domain').RegisterTotals;
+      countedCash: number;
+      variance: number;
+      note: string | null;
+    },
+    expectedVersion: number,
+  ): Promise<boolean>;
+  reopen(
+    sessionId: string,
+    r: { at: Date; staffId: string | null; reason: string },
+    expectedVersion: number,
+  ): Promise<boolean>;
+  list(filter: {
+    branchId: string;
+    staffId: string | null;
+    from: string | null;
+    to: string | null;
+  }): Promise<RegisterRecord[]>;
+  /** Display names for snapshots. */
+  names(staffId: string, deviceId: string | null): Promise<{ staff: string | null; device: string | null }>;
+}
+
+// ---------------------------------------------------------------------------
+// Report data (read-only aggregates over the same tables everything else writes)
+// ---------------------------------------------------------------------------
+export interface ReportFilter {
+  branchId: string;
+  from: string;
+  to: string;
+  staffId: string | null;
+  method: 'cash' | 'momo' | 'card' | null;
+  channel: 'dine_in' | 'takeaway' | null;
+  deviceId: string | null;
+  tableId: string | null;
+  categoryId: string | null;
+  productId: string | null;
+  movementKind: string | null;
+  orderStatus: 'completed' | 'cancelled' | 'open' | null;
+}
+
+export type ReportRow = Record<string, string | number | null>;
+
+export interface ReportRepository {
+  context(branchId: string): Promise<{
+    restaurantName: string;
+    branchName: string;
+    currency: string;
+    timezone: string;
+    cutoff: string;
+  } | null>;
+  filterOptions(
+    branchId: string,
+  ): Promise<Omit<import('@rp/contracts').ReportFilterOptionsView, 'timezone' | 'today'>>;
+  /** Sold lines (sent, not cancelled / voided) of non-cancelled orders: gross, discounts, net, tax. */
+  salesTotals(f: ReportFilter): Promise<ReportRow>;
+  taxBreakdown(f: ReportFilter): Promise<ReportRow[]>;
+  items(f: ReportFilter): Promise<ReportRow[]>;
+  categories(f: ReportFilter): Promise<ReportRow[]>;
+  paymentMethods(f: ReportFilter): Promise<ReportRow[]>;
+  splitPayments(f: ReportFilter): Promise<ReportRow>;
+  serviceTypes(f: ReportFilter): Promise<ReportRow[]>;
+  terminals(f: ReportFilter): Promise<ReportRow[]>;
+  staffSales(f: ReportFilter): Promise<ReportRow[]>;
+  staffActivity(f: ReportFilter): Promise<ReportRow[]>;
+  voids(f: ReportFilter): Promise<ReportRow>;
+  bills(f: ReportFilter): Promise<ReportRow>;
+  orders(f: ReportFilter, limit: number): Promise<ReportRow[]>;
+  customers(f: ReportFilter): Promise<{ totals: ReportRow; rows: ReportRow[] }>;
+  registers(f: ReportFilter): Promise<ReportRow[]>;
+  inventoryValuation(branchId: string): Promise<ReportRow[]>;
+  movements(f: ReportFilter, kinds: string[] | null, limit: number): Promise<ReportRow[]>;
+  movementSummary(f: ReportFilter): Promise<ReportRow[]>;
+  stockTakes(f: ReportFilter): Promise<ReportRow[]>;
+  recipeConsumption(f: ReportFilter): Promise<ReportRow[]>;
+  /** Discounts, tax and voided items of the orders paid on a register session. */
+  registerOrders(sessionId: string): Promise<ReportRow>;
 }

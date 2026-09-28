@@ -9,6 +9,8 @@
 
 /** Floor tables the hub uploads, with the columns that identify a row (matches UPLOAD_TABLES). */
 export const CAPTURED_TABLES: readonly { table: string; key: readonly string[]; onlyStatus?: boolean }[] = [
+  { table: 'customers', key: ['id'] },
+  { table: 'register_sessions', key: ['id'] },
   { table: 'orders', key: ['id'] },
   { table: 'order_submissions', key: ['id'] },
   { table: 'order_items', key: ['id'] },

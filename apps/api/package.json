@@ -18,13 +18,14 @@
     "@rp/contracts": "workspace:*",
     "@rp/domain": "workspace:*",
     "@rp/infrastructure": "workspace:*",
+    "@rp/report-export": "workspace:*",
     "hono": "4.13.9",
     "zod": "4.6.5"
   },
   "devDependencies": {
     "@rp/client-core": "workspace:*",
     "@rp/testing": "workspace:*",
-    "jose": "6.2.12",
-    "@supabase/supabase-js": "2.117.1"
+    "@supabase/supabase-js": "2.117.1",
+    "jose": "6.2.12"
   }
 }

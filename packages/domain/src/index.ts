@@ -1,4 +1,5 @@
 export * from './business-day';
+export * from './customers';
 export * from './documents';
 export * from './enums';
 export * from './errors';
@@ -10,6 +11,8 @@ export * from './payment-policy';
 export * from './pin';
 export * from './pricing';
 export * from './print-job';
+export * from './register';
+export * from './report-period';
 export * from './roles';
 export * from './routing';
 export * from './tax';

@@ -65,6 +65,7 @@ export class RecordPayment {
         requestHash: hash,
         recordedByStaffId: ctx.principal.staffId,
         deviceId: ctx.deviceId,
+        registerSessionId: await registerFor(tx, agg.header.branchId, ctx),
       };
       await tx.payments.insert(record);
       agg.payments.push({ ...record, status: 'recorded' });
@@ -188,6 +189,7 @@ export class RefundPayment {
         requestHash: hash,
         recordedByStaffId: ctx.principal.staffId,
         deviceId: ctx.deviceId,
+        registerSessionId: await registerFor(tx, agg.header.branchId, ctx),
       };
       await tx.payments.insert(record);
       agg.payments.push({ ...record, status: 'recorded' });
@@ -215,4 +217,15 @@ async function lockOrder(tx: Repositories, orderId: string): Promise<OrderAggreg
   const agg = await tx.orders.findForUpdate(orderId);
   if (!agg) throw new DomainError('NOT_FOUND', 'Order not found', { orderId });
   return agg;
+}
+
+/**
+ * The register a payment belongs to: the recording cashier's open register, otherwise the register
+ * open on the terminal it is recorded on (e.g. a manager refunding cash from the cashier's drawer).
+ */
+async function registerFor(tx: Repositories, branchId: string, ctx: RequestContext): Promise<string | null> {
+  const own = ctx.principal.staffId ? await tx.registers.openFor(branchId, ctx.principal.staffId) : null;
+  if (own) return own.id;
+  const onTerminal = ctx.deviceId ? await tx.registers.openOnDevice(ctx.deviceId) : null;
+  return onTerminal?.branchId === branchId ? onTerminal.id : null;
 }

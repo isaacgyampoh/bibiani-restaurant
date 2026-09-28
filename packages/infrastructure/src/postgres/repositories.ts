@@ -20,11 +20,14 @@ import type {
 import { DomainError, type OrderItem, type ProductForSale, type TaxRate } from '@rp/domain';
 import { dateOrNull, num, numOrNull, type Sql } from '../db/sql';
 import { createAdminRepository } from './admin';
+import { createCustomerRepository } from './customers';
 import { createHubSyncRepository } from './hub-sync';
 import { createInventoryRepository } from './inventory';
 import { createPinRepository } from './pins';
 import { createDiscountRepository, createPromotionRepository } from './pricing';
 import { createReadModels } from './read-models';
+import { createRegisterRepository } from './registers';
+import { createReportRepository } from './reports';
 import { assignments, json } from './util';
 
 type Row = Record<string, unknown>;
@@ -48,6 +51,9 @@ export function createRepositories(sql: Sql): Repositories {
     promotions: createPromotionRepository(sql),
     discounts: createDiscountRepository(sql),
     hub: createHubSyncRepository(sql),
+    customers: createCustomerRepository(sql),
+    registers: createRegisterRepository(sql),
+    reports: createReportRepository(sql),
   };
 }
 
@@ -395,13 +401,24 @@ function orderRepository(sql: Sql): OrderRepository {
 
     async insertSubmission(sub) {
       const [row] = await sql.query(
-        `insert into order_submissions (id, restaurant_id, order_id, seq, request_hash, submitted_by_staff_id, device_id, submitted_at)
+        // The sender's name and main role are captured NOW (history must not follow later changes).
+        `insert into order_submissions (id, restaurant_id, order_id, seq, request_hash, submitted_by_staff_id, device_id,
+                                        submitted_at, submitted_by_name, submitted_by_role)
          values ($1, app.current_restaurant_id(), $2,
-                 (select coalesce(max(seq), 0) + 1 from order_submissions where order_id = $2), $3, $4, $5, $6)
-         returning seq`,
+                 (select coalesce(max(seq), 0) + 1 from order_submissions where order_id = $2), $3, $4, $5, $6,
+                 (select display_name from staff where id = $4::uuid),
+                 (select r.name from staff_roles sr join roles r on r.id = sr.role_id
+                   where sr.staff_id = $4::uuid
+                   order by array_position(array['Owner','Manager','Supervisor','Cashier','Waiter','Kitchen'], r.name) nulls last, r.name
+                   limit 1))
+         returning seq, submitted_by_name, submitted_by_role`,
         [sub.id, sub.orderId, sub.requestHash, sub.staffId, sub.deviceId, sub.submittedAt.toISOString()],
       );
-      return num(row!.seq);
+      return {
+        seq: num(row!.seq),
+        sentByName: (row!.submitted_by_name ?? null) as string | null,
+        sentByRole: (row!.submitted_by_role ?? null) as string | null,
+      };
     },
 
     async appendEvent(e) {
@@ -990,8 +1007,8 @@ function paymentRepository(sql: Sql): PaymentRepository {
     async insert(p) {
       await sql.query(
         `insert into payments (id, restaurant_id, branch_id, order_id, direction, refund_of_payment_id, method, amount,
-           tendered_amount, change_amount, reference, note, request_hash, recorded_by_staff_id, device_id)
-         values ($1, app.current_restaurant_id(), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+           tendered_amount, change_amount, reference, note, request_hash, recorded_by_staff_id, device_id, register_session_id)
+         values ($1, app.current_restaurant_id(), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
         [
           p.id,
           p.branchId,
@@ -1007,6 +1024,7 @@ function paymentRepository(sql: Sql): PaymentRepository {
           p.requestHash,
           p.recordedByStaffId,
           p.deviceId,
+          p.registerSessionId ?? null,
         ],
       );
     },

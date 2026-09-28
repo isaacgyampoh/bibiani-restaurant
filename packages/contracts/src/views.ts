@@ -37,6 +37,12 @@ export interface OrderItemView {
   ticketId: string | null;
 }
 
+/** Who sent a round to the kitchen, as recorded at that moment (never an email). */
+export interface SentByView {
+  name: string;
+  role: string | null;
+}
+
 export interface TicketView {
   id: string;
   stationId: string;
@@ -47,6 +53,7 @@ export interface TicketView {
   itemIds: string[];
   createdAt: string;
   readyAt: string | null;
+  sentBy: SentByView | null;
   printJobs: { id: string; printerId: string; status: PrintJobStatus; possibleDuplicate: boolean }[];
 }
 
@@ -148,6 +155,9 @@ export interface StationTicketView {
   startedAt: string | null;
   readyAt: string | null;
   isRush: boolean;
+  /** Who sent this round to the kitchen and when. */
+  sentBy: SentByView | null;
+  sentAt: string | null;
   items: {
     id: string;
     quantity: number;
@@ -520,6 +530,7 @@ export interface ExpoOrderView {
     ticketId: string;
     stationId: string;
     stationName: string;
+    sentBy: SentByView | null;
     status: TicketStatus;
     createdAt: string;
     readyAt: string | null;

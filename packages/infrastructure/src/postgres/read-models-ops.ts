@@ -407,8 +407,10 @@ export function createOpsReadModels(sql: Sql): OpsModels {
       const ids = orders.map((o) => s(o.id));
       const [tickets, items] = await Promise.all([
         sql.query(
-          `select t.id, t.order_id, t.station_id, st.name as station_name, st.target_prep_seconds, t.status, t.created_at, t.ready_at
+          `select t.id, t.order_id, t.station_id, st.name as station_name, st.target_prep_seconds, t.status, t.created_at, t.ready_at,
+                  sub.submitted_by_name as sent_by_name, sub.submitted_by_role as sent_by_role
            from production_tickets t join stations st on st.id = t.station_id
+           left join order_submissions sub on sub.id = t.submission_id
            where t.order_id = any($1::uuid[]) and t.status <> 'cancelled'
            order by st.sort_order, st.name, t.created_at`,
           [ids],
@@ -433,6 +435,7 @@ export function createOpsReadModels(sql: Sql): OpsModels {
             ticketId: s(t.id),
             stationId: s(t.station_id),
             stationName: s(t.station_name),
+            sentBy: t.sent_by_name ? { name: s(t.sent_by_name), role: sn(t.sent_by_role) } : null,
             status: t.status as ExpoOrderView['stations'][number]['status'],
             createdAt: isoOf(t.created_at)!,
             readyAt: isoOf(t.ready_at),

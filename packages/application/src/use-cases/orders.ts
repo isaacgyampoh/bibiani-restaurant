@@ -13,11 +13,13 @@ import {
   type OrderItem,
   planSubmission,
   priceNewItem,
+  requirePhone,
   sameItemRequest,
   summarizePayments,
 } from '@rp/domain';
 import type { NewPrintJob, NewTicket, OrderAggregate, Repositories, RoutingSnapshot } from '../ports';
 import { authorize, type RequestContext } from '../principal';
+import { customerForOrder } from './customers';
 import { deductStockForSale } from './inventory';
 import { CommitLog, type Dependencies, settleOrderState } from './shared';
 
@@ -132,6 +134,12 @@ export class SubmitOrder {
       throw new DomainError('CUSTOMER_NAME_REQUIRED', 'Enter the customer name');
     }
 
+    // A telephone number links the order to the customer database (found, or created, by number).
+    const customer = await customerForOrder(this.deps, tx, ctx, cmd.customerName, cmd.customerPhone);
+    const customerName = cmd.customerName?.trim() || customer?.name || null;
+    const customerPhone =
+      customer?.phone ?? (cmd.customerPhone?.trim() ? requirePhone(cmd.customerPhone) : null);
+
     const day = reservation.businessDay;
     const orderNumber = reservation.orderNumber;
     await tx.orders.insertHeader({
@@ -144,8 +152,8 @@ export class SubmitOrder {
       status: 'draft',
       paymentStatus: 'unpaid',
       tableId: cmd.tableId ?? null,
-      customerName: cmd.customerName ?? null,
-      customerPhone: cmd.customerPhone ?? null,
+      customerName,
+      customerPhone,
       notes: cmd.notes ?? null,
       subtotal: 0,
       taxTotal: 0,
@@ -158,6 +166,7 @@ export class SubmitOrder {
       createdByDeviceId: ctx.deviceId,
       clientCreatedAt: cmd.clientCreatedAt ? new Date(cmd.clientCreatedAt) : null,
     });
+    if (customer) await tx.customers.linkOrder(cmd.orderId, customer.id, customerName, customerPhone);
     if (cmd.tableId) await tx.config.setTableStatus(cmd.tableId, 'occupied', now);
     await tx.orders.appendEvent({
       orderId: cmd.orderId,
@@ -187,8 +196,8 @@ export class SubmitOrder {
         status: 'draft',
         paymentStatus: 'unpaid',
         tableId: cmd.tableId ?? null,
-        customerName: cmd.customerName ?? null,
-        customerPhone: cmd.customerPhone ?? null,
+        customerName,
+        customerPhone,
         notes: cmd.notes ?? null,
         subtotal: 0,
         taxTotal: 0,
@@ -364,7 +373,7 @@ async function sendPendingItems(
     stations,
   );
 
-  const seq = await tx.orders.insertSubmission({
+  const { seq, sentByName, sentByRole } = await tx.orders.insertSubmission({
     id: submissionId,
     orderId: h.id,
     requestHash,
@@ -423,6 +432,7 @@ async function sendPendingItems(
       timeZone: branch.timezone,
       submissionSeq: seq,
       ticketId: ticket.id,
+      sentBy: sentByName ? { name: sentByName, role: sentByRole } : null,
       currency: station.showPrices ? station.currency : null,
       items: ticket.itemIds.map((id) => {
         const item = agg.items.find((i) => i.id === id)!;

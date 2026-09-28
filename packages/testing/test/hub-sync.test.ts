@@ -345,6 +345,85 @@ describe('in-store hub: offline operation and sync', () => {
     expect(await count(cloudDb, 'payments where order_id = $1', [order.id])).toBe(1);
   });
 
+  it('offline: sender, customer and cash register made on the hub reach the cloud once; a number known to the cloud is merged', async () => {
+    online = false;
+    const waiter = await hub.as(f.authUsers.waiter, f.devices.pos);
+    const cashier = await hub.as(f.authUsers.cashier, f.devices.pos);
+    const sessionId = uuid();
+    await hub.app.openRegister.execute(cashier, { sessionId, branchId: f.branchId, openingCash: 10000 });
+    const order = await hub.app.submitOrder.execute(waiter, {
+      orderId: uuid(),
+      branchId: f.branchId,
+      areaId: f.areas.takeaway,
+      customerName: 'Hub Customer',
+      customerPhone: '024 888 7777',
+      items: [line(f.products.coke, 1)],
+      send: { submissionId: uuid() },
+    });
+    expect(order.tickets[0]!.sentBy).toEqual({ name: 'Esi Waiter', role: 'Waiter' });
+    await hub.app.recordPayment.execute(cashier, order.id, {
+      paymentId: uuid(),
+      method: 'cash',
+      tendered: 2000,
+    });
+    const open = (await hub.app.getCurrentRegister.execute(cashier, f.branchId))!;
+    await hub.app.closeRegister.execute(cashier, sessionId, { countedCash: 11000, version: open.version });
+    // Meanwhile the back office already has this number.
+    const known = await cloud.app.createCustomer.execute(await cloud.as(f.authUsers.manager), {
+      customerId: uuid(),
+      fullName: 'Known Customer',
+      phone: '+233248887777',
+    });
+
+    online = true;
+    await engine.syncOnce();
+    await engine.syncOnce();
+
+    const [sub] = await cloudDb.query<{ submitted_by_name: string; submitted_by_role: string }>(
+      'select submitted_by_name, submitted_by_role from order_submissions where order_id = $1',
+      [order.id],
+    );
+    expect(sub).toEqual({ submitted_by_name: 'Esi Waiter', submitted_by_role: 'Waiter' });
+    const [reg] = await cloudDb.query<{ status: string; expected_cash: string; variance: string }>(
+      'select status, expected_cash::int, variance::int from register_sessions where id = $1',
+      [sessionId],
+    );
+    expect(reg).toMatchObject({ status: 'closed', expected_cash: 11000, variance: 0 });
+    expect(
+      await count(cloudDb, 'payments where order_id = $1 and register_session_id = $2', [
+        order.id,
+        sessionId,
+      ]),
+    ).toBe(1);
+    const [hubCustomer] = await cloudDb.query<{ merged_into_id: string }>(
+      `select c.merged_into_id from orders o join customers c on c.id = o.customer_id where o.id = $1`,
+      [order.id],
+    );
+    expect(hubCustomer!.merged_into_id).toBe(known.id);
+    const found = await cloud.app.getCustomer.execute(await cloud.as(f.authUsers.manager), known.id);
+    expect(found.orders).toBe(1);
+
+    // Delivered again: nothing changes, and the merge is not undone.
+    const before = {
+      customers: await count(cloudDb, 'customers'),
+      registers: await count(cloudDb, 'register_sessions'),
+      submissions: await count(cloudDb, 'order_submissions'),
+    };
+    const ctx = await cloud.as(hubUser);
+    for (const batch of uploads.slice(-3))
+      await cloud.app.ingestHubBatch.execute(ctx, { ...batch, batchId: uuid() });
+    expect({
+      customers: await count(cloudDb, 'customers'),
+      registers: await count(cloudDb, 'register_sessions'),
+      submissions: await count(cloudDb, 'order_submissions'),
+    }).toEqual(before);
+    const [still] = await cloudDb.query<{ merged_into_id: string }>(
+      `select c.merged_into_id from orders o join customers c on c.id = o.customer_id where o.id = $1`,
+      [order.id],
+    );
+    expect(still!.merged_into_id).toBe(known.id);
+  });
+
   it('a staff member deactivated in the back office can no longer act on the hub after the next sync', async () => {
     const [cashierStaff] = await cloudDb.query<{ id: string }>('select id from staff where user_id = $1', [
       f.authUsers.cashier,

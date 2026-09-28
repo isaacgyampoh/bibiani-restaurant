@@ -40,6 +40,8 @@ export interface KitchenTicketInput {
   timeZone: string;
   submissionSeq: number;
   ticketId: string;
+  /** Who sent this round to the kitchen, as recorded at that moment (e.g. "Kofi", "Waiter"). */
+  sentBy?: { name: string; role: string | null } | null;
   items: {
     quantity: number;
     name: string;
@@ -70,8 +72,14 @@ export function kitchenTicketDocument(t: KitchenTicketInput): PrintDocument {
       left: localTime(t.createdAt, t.timeZone),
       right: t.submissionSeq > 1 ? `ROUND ${t.submissionSeq}` : '',
     },
-    { type: 'divider' },
   ];
+  if (t.sentBy)
+    blocks.push({
+      type: 'text',
+      text: `SENT BY: ${t.sentBy.name.toUpperCase()}${t.sentBy.role ? ` - ${t.sentBy.role.toUpperCase()}` : ''}`,
+      bold: true,
+    });
+  blocks.push({ type: 'divider' });
   const currency = t.currency ?? null;
   const money = (minor: number) => formatMinor(minor, currency ?? '');
   const priced = (i: KitchenTicketInput['items'][number]) =>

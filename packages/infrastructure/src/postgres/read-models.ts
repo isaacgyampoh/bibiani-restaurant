@@ -54,10 +54,11 @@ export function createReadModels(sql: Sql): ReadModels {
           [orderId],
         ),
         sql.query(
-          `select t.*, st.name as station_name,
+          `select t.*, st.name as station_name, sub.submitted_by_name as sent_by_name, sub.submitted_by_role as sent_by_role,
              coalesce((select json_agg(pti.order_item_id order by oi.position) from production_ticket_items pti
                        join order_items oi on oi.id = pti.order_item_id where pti.ticket_id = t.id), '[]'::json) as item_ids
            from production_tickets t join stations st on st.id = t.station_id
+           left join order_submissions sub on sub.id = t.submission_id
            where t.order_id = $1 order by st.sort_order, st.name, t.created_at`,
           [orderId],
         ),
@@ -149,6 +150,7 @@ export function createReadModels(sql: Sql): ReadModels {
           itemIds: t.item_ids as string[],
           createdAt: isoOf(t.created_at)!,
           readyAt: isoOf(t.ready_at),
+          sentBy: t.sent_by_name ? { name: s(t.sent_by_name), role: sn(t.sent_by_role) } : null,
           printJobs: jobs
             .filter((j) => j.production_ticket_id === t.id)
             .map((j) => ({
@@ -246,9 +248,11 @@ export function createReadModels(sql: Sql): ReadModels {
       if (!station) return null;
       const [tickets, items, alerts] = await Promise.all([
         sql.query(
-          `select t.*, o.channel, o.customer_name, o.notes as order_notes, o.is_rush, a.name as area_name, dt.label as table_label
+          `select t.*, o.channel, o.customer_name, o.notes as order_notes, o.is_rush, a.name as area_name, dt.label as table_label,
+                  sub.submitted_by_name as sent_by_name, sub.submitted_by_role as sent_by_role, sub.submitted_at as sent_at
            from production_tickets t
            join orders o on o.id = t.order_id
+           left join order_submissions sub on sub.id = t.submission_id
            join operational_areas a on a.id = o.area_id
            left join dining_tables dt on dt.id = o.table_id
            where t.station_id = $1 and t.status not in ('completed', 'cancelled')
@@ -304,6 +308,8 @@ export function createReadModels(sql: Sql): ReadModels {
             startedAt: isoOf(t.started_at),
             readyAt: isoOf(t.ready_at),
             isRush: Boolean(t.is_rush),
+            sentBy: t.sent_by_name ? { name: s(t.sent_by_name), role: sn(t.sent_by_role) } : null,
+            sentAt: isoOf(t.sent_at),
             items: items
               .filter((i) => i.ticket_id === t.id)
               .map((i) => ({

@@ -13,6 +13,15 @@ import {
   SaveConfig,
   UpdateStaff,
 } from './use-cases/administration';
+import {
+  CreateCustomer,
+  GetCustomer,
+  ListCustomers,
+  LookupCustomer,
+  MergeCustomer,
+  SetOrderCustomer,
+  UpdateCustomer,
+} from './use-cases/customers';
 import { GetHubSnapshot, IngestHubBatch, SetBranchHub } from './use-cases/hub-sync';
 import {
   ApproveStockCount,
@@ -75,12 +84,27 @@ import {
   ListRecentClosedOrders,
   RecordHeartbeat,
 } from './use-cases/queries';
+import {
+  CloseRegister,
+  GetCurrentRegister,
+  GetRegister,
+  ListRegisters,
+  OpenRegister,
+  ReopenRegister,
+} from './use-cases/registers';
+import {
+  ExportReport,
+  GetRegisterClosingReport,
+  GetReport,
+  GetReportFilterOptions,
+} from './use-cases/reports';
 import { GetFloor, GetMe, GetMenu, GetOperationsStatus, SetTableStatus } from './use-cases/session';
 import type { Dependencies } from './use-cases/shared';
 import { MergeOrders, SetOrderPriority, TransferOrder } from './use-cases/table-ops';
 
 export * from './ports';
 export * from './principal';
+export { REPORT_TITLES } from './use-cases/reports';
 export type { Dependencies } from './use-cases/shared';
 
 export function createApplication(deps: Dependencies) {
@@ -169,6 +193,23 @@ export function createApplication(deps: Dependencies) {
     setPromotionStatus: new SetPromotionStatus(deps),
     applyManualDiscount: new ApplyManualDiscount(deps),
     removeManualDiscount: new RemoveManualDiscount(deps),
+    listCustomers: new ListCustomers(deps),
+    getCustomer: new GetCustomer(deps),
+    lookupCustomer: new LookupCustomer(deps),
+    createCustomer: new CreateCustomer(deps),
+    updateCustomer: new UpdateCustomer(deps),
+    mergeCustomer: new MergeCustomer(deps),
+    setOrderCustomer: new SetOrderCustomer(deps),
+    openRegister: new OpenRegister(deps),
+    getCurrentRegister: new GetCurrentRegister(deps),
+    getRegister: new GetRegister(deps),
+    listRegisters: new ListRegisters(deps),
+    closeRegister: new CloseRegister(deps),
+    reopenRegister: new ReopenRegister(deps),
+    getReport: new GetReport(deps),
+    getReportFilterOptions: new GetReportFilterOptions(deps),
+    exportReport: new ExportReport(deps),
+    getRegisterClosingReport: new GetRegisterClosingReport(deps),
   };
 }
 export type Application = ReturnType<typeof createApplication>;

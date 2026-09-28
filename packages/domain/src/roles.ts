@@ -7,8 +7,17 @@ import { PERMISSIONS, type Permission } from './enums';
 export const ROLE_TEMPLATES: Record<string, readonly Permission[]> = {
   Owner: PERMISSIONS,
   Manager: PERMISSIONS.filter((p) => p !== 'staff.manage'),
-  Cashier: ['order.create', 'order.send', 'order.view', 'order.fulfil', 'payment.record', 'receipt.print'],
-  Waiter: ['order.create', 'order.send', 'order.view', 'order.fulfil', 'receipt.print'],
+  Cashier: [
+    'order.create',
+    'order.send',
+    'order.view',
+    'order.fulfil',
+    'payment.record',
+    'receipt.print',
+    'customer.attach',
+    'register.operate',
+  ],
+  Waiter: ['order.create', 'order.send', 'order.view', 'order.fulfil', 'receipt.print', 'customer.attach'],
   Kitchen: ['kitchen.operate', 'order.view'],
   Supervisor: [
     'order.view',
@@ -17,6 +26,7 @@ export const ROLE_TEMPLATES: Record<string, readonly Permission[]> = {
     'receipt.print',
     'reports.view',
     'discount.apply',
+    'customer.view',
   ],
   'Inventory Manager': ['inventory.manage', 'stock.count', 'reports.view', 'order.view'],
 };

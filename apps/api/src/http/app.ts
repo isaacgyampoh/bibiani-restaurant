@@ -7,36 +7,48 @@ import {
   CancelOrderCommand,
   ChangePinCommand,
   ClaimPrintJobsCommand,
+  CloseRegisterCommand,
   CONFIG_ENTITIES,
   CollectPairingCommand,
   type ConfigEntity,
+  CreateCustomerCommand,
   CreateStaffCommand,
   EmailLinkCommand,
+  EXPORT_FORMATS,
+  type ExportFormat,
   FulfilOrderCommand,
   HeartbeatCommand,
   HubBatchCommand,
   HubPinChangeCommand,
   HubPinVerifyCommand,
   ManualDiscountCommand,
+  MergeCustomerCommand,
   MergeOrderCommand,
   OnboardingAcceptCommand,
   OnboardingStartCommand,
+  OpenRegisterCommand,
   OrderPriorityCommand,
   PairDeviceCommand,
   PinRecoveryCommand,
   PinSignInCommand,
   PrintJobResultCommand,
   PrintReceiptCommand,
+  REPORT_KINDS,
   RecordCountLineCommand,
   RecordPaymentCommand,
   RecordStockMovementCommand,
   RefundPaymentCommand,
+  ReopenRegisterCommand,
+  type ReportKind,
+  ReportQuery,
+  type ReportView,
   RequestBillCommand,
   SaveInventoryItemCommand,
   SavePromotionCommand,
   SaveRecipeCommand,
   SendToKitchenCommand,
   SetBranchHubCommand,
+  SetOrderCustomerCommand,
   SetPromotionStatusCommand,
   SetTableStatusCommand,
   StartStockCountCommand,
@@ -45,6 +57,7 @@ import {
   TestPrintCommand,
   TicketActionCommand,
   TransferOrderCommand,
+  UpdateCustomerCommand,
   UpdateStaffCommand,
   VoidItemsCommand,
   VoidPaymentCommand,
@@ -58,6 +71,7 @@ import {
   translatePgError,
   withRequestMetrics,
 } from '@rp/infrastructure';
+import { renderReport } from '@rp/report-export';
 import { type Context, Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { z } from 'zod';
@@ -761,6 +775,154 @@ export function createHttpApp(deps: HttpDependencies) {
         id(c, 'branchId'),
         c.req.query('from') ?? '',
         c.req.query('to') ?? '',
+      ),
+    ),
+  );
+  // Reports: every report is computed once (application layer); the screen gets JSON and the
+  // exports render the same view as PDF, Excel or CSV. Exports are audited.
+  const reportQuery = (c: Context<Env>): ReportQuery => {
+    const parsed = ReportQuery.safeParse({
+      ...Object.fromEntries(Object.entries(c.req.query()).filter(([, v]) => v !== '')),
+      branchId: id(c, 'branchId'),
+    });
+    if (!parsed.success) throw new DomainError('VALIDATION_FAILED', 'Check the report filters');
+    return parsed.data;
+  };
+  const reportKind = (c: Context<Env>): ReportKind => {
+    const kind = c.req.param('kind') as ReportKind;
+    if (!REPORT_KINDS.includes(kind)) throw new DomainError('NOT_FOUND', 'Not found');
+    return kind;
+  };
+  const exportFormat = (c: Context<Env>): ExportFormat => {
+    const format = c.req.query('format') as ExportFormat;
+    if (!EXPORT_FORMATS.includes(format))
+      throw new DomainError('VALIDATION_FAILED', 'Choose PDF, Excel or CSV');
+    return format;
+  };
+  const download = async (c: Context<Env>, view: ReportView, format: ExportFormat) => {
+    const file = await renderReport(view, format);
+    return c.body(file.bytes as Uint8Array<ArrayBuffer>, 200, {
+      'content-type': file.contentType,
+      'content-disposition': `attachment; filename="${file.fileName}"`,
+      'cache-control': 'no-store',
+    });
+  };
+  v1.get('/branches/:branchId/reports/options', async (c) =>
+    c.json(await deps.app.getReportFilterOptions.execute(c.var.ctx, id(c, 'branchId'))),
+  );
+  v1.get('/branches/:branchId/reports/:kind/export', async (c) => {
+    op(c, 'export_report');
+    const format = exportFormat(c);
+    return download(
+      c,
+      await deps.app.exportReport.execute(c.var.ctx, reportKind(c), format, reportQuery(c)),
+      format,
+    );
+  });
+  v1.get('/branches/:branchId/reports/:kind', async (c) =>
+    c.json(await deps.app.getReport.execute(c.var.ctx, reportKind(c), reportQuery(c))),
+  );
+
+  // Cash registers
+  v1.get('/branches/:branchId/registers/current', async (c) =>
+    c.json({ register: await deps.app.getCurrentRegister.execute(c.var.ctx, id(c, 'branchId')) }),
+  );
+  v1.get('/branches/:branchId/registers', async (c) =>
+    c.json(
+      await deps.app.listRegisters.execute(c.var.ctx, id(c, 'branchId'), {
+        from: c.req.query('from') || null,
+        to: c.req.query('to') || null,
+      }),
+    ),
+  );
+  v1.post('/registers/open', async (c) => {
+    op(c, 'open_register');
+    return c.json(await deps.app.openRegister.execute(c.var.ctx, await body(c, OpenRegisterCommand)));
+  });
+  v1.get('/registers/:sessionId', async (c) =>
+    c.json(await deps.app.getRegister.execute(c.var.ctx, id(c, 'sessionId'))),
+  );
+  v1.post('/registers/:sessionId/close', async (c) => {
+    op(c, 'close_register');
+    return c.json(
+      await deps.app.closeRegister.execute(
+        c.var.ctx,
+        id(c, 'sessionId'),
+        await body(c, CloseRegisterCommand),
+      ),
+    );
+  });
+  v1.post('/registers/:sessionId/reopen', async (c) =>
+    c.json(
+      await deps.app.reopenRegister.execute(
+        c.var.ctx,
+        id(c, 'sessionId'),
+        await body(c, ReopenRegisterCommand),
+      ),
+    ),
+  );
+  v1.get('/registers/:sessionId/report', async (c) => {
+    const sessionId = id(c, 'sessionId');
+    if (!c.req.query('format'))
+      return c.json(await deps.app.getRegisterClosingReport.execute(c.var.ctx, sessionId));
+    op(c, 'export_report');
+    const format = exportFormat(c);
+    const register = await deps.app.getRegister.execute(c.var.ctx, sessionId);
+    return download(
+      c,
+      await deps.app.exportReport.execute(c.var.ctx, 'register_closing', format, {
+        branchId: register.branchId,
+        sessionId,
+      }),
+      format,
+    );
+  });
+
+  // Customers (private: see docs/CUSTOMERS.md)
+  v1.get('/customers', async (c) => {
+    const offset = Number(c.req.query('offset'));
+    return c.json(
+      await deps.app.listCustomers.execute(c.var.ctx, {
+        search: c.req.query('q') ?? null,
+        offset: Number.isSafeInteger(offset) && offset > 0 ? offset : 0,
+      }),
+    );
+  });
+  v1.get('/customers/lookup', async (c) =>
+    c.json(await deps.app.lookupCustomer.execute(c.var.ctx, c.req.query('q') ?? '')),
+  );
+  v1.get('/customers/:customerId', async (c) =>
+    c.json(await deps.app.getCustomer.execute(c.var.ctx, id(c, 'customerId'))),
+  );
+  v1.post('/customers', async (c) => {
+    op(c, 'save_customer');
+    return c.json(await deps.app.createCustomer.execute(c.var.ctx, await body(c, CreateCustomerCommand)));
+  });
+  v1.post('/customers/:customerId', async (c) => {
+    op(c, 'save_customer');
+    return c.json(
+      await deps.app.updateCustomer.execute(
+        c.var.ctx,
+        id(c, 'customerId'),
+        await body(c, UpdateCustomerCommand),
+      ),
+    );
+  });
+  v1.post('/customers/:customerId/merge', async (c) =>
+    c.json(
+      await deps.app.mergeCustomer.execute(
+        c.var.ctx,
+        id(c, 'customerId'),
+        await body(c, MergeCustomerCommand),
+      ),
+    ),
+  );
+  v1.post('/orders/:orderId/customer', async (c) =>
+    c.json(
+      await deps.app.setOrderCustomer.execute(
+        c.var.ctx,
+        id(c, 'orderId'),
+        await body(c, SetOrderCustomerCommand),
       ),
     ),
   );

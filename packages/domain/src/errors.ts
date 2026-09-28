@@ -34,6 +34,9 @@ export const DOMAIN_ERROR_CODES = [
   'RATE_LIMITED',
   'UNAVAILABLE',
   'ORDER_NOT_MOVABLE',
+  'CUSTOMER_EXISTS',
+  'REGISTER_OPEN',
+  'REGISTER_CLOSED',
 ] as const;
 export type DomainErrorCode = (typeof DOMAIN_ERROR_CODES)[number];
 

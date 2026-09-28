@@ -65,3 +65,14 @@ export interface RequestContext {
    */
   authMethod?: 'password' | 'pin' | 'email_link';
 }
+
+/** Restaurant-wide data (e.g. customers): the permission in any of the restaurant's branches. */
+export function canAnywhere(principal: Principal, permission: Permission): boolean {
+  return principal.grants.some((g) => g.permissions.has(permission));
+}
+
+export function authorizeAnywhere(principal: Principal, permission: Permission): void {
+  if (!canAnywhere(principal, permission)) {
+    throw new DomainError('FORBIDDEN', 'You do not have permission to do this', { permission });
+  }
+}

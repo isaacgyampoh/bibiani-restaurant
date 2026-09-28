@@ -23,6 +23,9 @@ const STATUS: Partial<Record<DomainErrorCode, ContentfulStatusCode>> = {
   RATE_LIMITED: 429,
   UNAVAILABLE: 503,
   ORDER_NOT_MOVABLE: 409,
+  CUSTOMER_EXISTS: 409,
+  REGISTER_OPEN: 409,
+  REGISTER_CLOSED: 409,
 };
 
 /** Messages shown to restaurant staff. Domain messages are already written for them; these override where needed. */
@@ -48,6 +51,10 @@ export const OPERATION_FAILED: Record<string, string> = {
   pair_device: 'Pairing did not complete. Please try again.',
   save_config: 'Changes were not saved. Please try again.',
   save_photo: 'The photo was not saved. Please try again.',
+  export_report: 'The report could not be exported. Please try again.',
+  open_register: 'The register was not opened. Please try again.',
+  close_register: 'The register was not closed. Please try again.',
+  save_customer: 'The customer was not saved. Please try again.',
   save_staff: 'Staff changes were not saved. Please try again.',
   save_stock: 'Stock changes were not saved. Please try again.',
   stock_count: 'Stock count could not be saved. Please try again.',

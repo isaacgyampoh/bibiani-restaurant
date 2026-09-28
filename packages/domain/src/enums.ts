@@ -125,6 +125,11 @@ export const PERMISSIONS = [
   'promotions.manage',
   'discount.apply',
   'hub.sync',
+  'customer.attach',
+  'customer.view',
+  'customer.manage',
+  'register.operate',
+  'register.manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 

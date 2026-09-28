@@ -48,8 +48,13 @@ export const SNAPSHOT_TABLES: readonly { table: string; branch?: string; exclude
  * `upsert`: replace by primary key. `origin`: event rows keyed by origin_id, inserted once.
  * `movement`: inserted once, and the quantity change is applied when first seen.
  * `table_status`: only the table's status columns belong to the hub.
+ * `customer`: customers are restaurant-wide. A customer made on the hub whose number the cloud
+ *   already has (made meanwhile elsewhere) is kept, marked as merged into the cloud's record, so
+ *   orders stay linked and no duplicate appears; a merge done in the cloud is never undone by a replay.
  */
 export const UPLOAD_TABLES = {
+  customers: 'customer',
+  register_sessions: 'upsert',
   orders: 'upsert',
   order_submissions: 'upsert',
   order_items: 'upsert',
@@ -310,6 +315,16 @@ export function createHubSyncRepository(sql: Sql): HubSyncRepository {
           case 'origin':
             applied = await insertByOrigin(sql, table, record);
             break;
+          case 'customer': {
+            const [clash] = await sql.query<{ id: string }>(
+              `select id from customers where phone = $1 and merged_into_id is null and id <> $2`,
+              [record.phone, record.id],
+            );
+            if (clash) await upsertRow(sql, table, { ...record, merged_into_id: clash.id });
+            else await upsertRow(sql, table, record, { exclude: ['merged_into_id'] });
+            applied = true;
+            break;
+          }
           case 'movement':
             applied = await applyForeignMovement(sql, record);
             break;
