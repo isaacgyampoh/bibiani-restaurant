@@ -158,7 +158,12 @@ test.describe
       const owner = await signIn(browser, 'owner');
       await expect(owner.getByText('Sales today')).toBeVisible();
       await owner.getByRole('link', { name: 'Reports' }).click();
+      await owner.getByRole('link', { name: /^Sales overview/ }).click();
       await expect(owner.getByRole('heading', { name: 'Best sellers' })).toBeVisible();
       await expect(owner.getByText('Net sales')).toBeVisible();
+      // The End of Day report shows the same day's figures, with an export.
+      await owner.goto('/reports/end_of_day');
+      await expect(owner.getByRole('region', { name: 'Sales' })).toContainText('Net sales');
+      await expect(owner.getByRole('button', { name: 'Export' })).toBeEnabled();
     });
   });

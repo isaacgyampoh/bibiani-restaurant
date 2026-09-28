@@ -5,6 +5,7 @@ import { useFeed } from '../../infra/use-feed';
 import { Badge, ConnectionDot, ErrorBox, Field, Modal, Money, useToast } from '../../ui/components';
 import { Icon } from '../../ui/icons';
 import { ReceiptModal } from '../../ui/Receipt';
+import { CustomerFields, OrderCustomerDialog } from './CustomerFields';
 import { PaymentModal } from './PaymentModal';
 
 type Product = MenuView['products'][number];
@@ -54,8 +55,9 @@ export function OrderScreen({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [modFor, setModFor] = useState<Product | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
   const [dialog, setDialog] = useState<
-    'pay' | 'correct' | 'receipt' | 'bill' | 'move' | 'merge' | 'discount' | null
+    'pay' | 'correct' | 'receipt' | 'bill' | 'move' | 'merge' | 'discount' | 'customer' | null
   >(null);
   const [printed, setPrinted] = useState<string | null>(null);
 
@@ -211,8 +213,15 @@ export function OrderScreen({
     ? `${area.channel === 'takeaway' ? 'Takeaway' : 'Order'} #${order.orderNumber}${order.table ? ` · Table ${order.table.label}` : ''}`
     : `New ${area.name.toLowerCase()} order`;
 
+  const itemCount =
+    cart.reduce((n, l) => n + l.quantity, 0) +
+    (order?.items
+      .filter((i) => i.status !== 'voided' && i.status !== 'cancelled')
+      .reduce((n, i) => n + i.quantity, 0) ?? 0);
+  const summaryTotal = (order ? order.balanceDue : 0) + cartEstimate;
+
   return (
-    <div className="pos">
+    <div className={`pos ${cartOpen ? 'cart-open' : ''}`}>
       <div className="menu">
         <div className="menu-head">
           <button type="button" className="btn lg" onClick={onClose}>
@@ -315,7 +324,23 @@ export function OrderScreen({
         </div>
       </div>
 
+      {/* Phones: the order is one tap away, without scrolling past the menu. */}
+      <div className="pos-summary">
+        <span className="grow">
+          <strong>
+            {itemCount} {itemCount === 1 ? 'item' : 'items'}
+          </strong>
+          <Money minor={summaryTotal} currency={menu.currency} />
+        </span>
+        <button type="button" className="btn primary lg" onClick={() => setCartOpen(true)}>
+          View order
+        </button>
+      </div>
+
       <div className="cart">
+        <button type="button" className="btn cart-back" onClick={() => setCartOpen(false)}>
+          <Icon name="arrow-left" size={18} /> Menu
+        </button>
         <div className="cart-head">
           <div className="row">
             <strong className="grow">{title}</strong>
@@ -351,6 +376,11 @@ export function OrderScreen({
                   {order.isRush ? 'Remove rush' : 'Rush'}
                 </button>
               ) : null}
+              {hasPermission(me, 'order.create') && hasPermission(me, 'customer.attach') ? (
+                <button type="button" className="btn sm" onClick={() => setDialog('customer')}>
+                  Customer
+                </button>
+              ) : null}
               {hasPermission(me, 'order.create') ? (
                 <>
                   <button type="button" className="btn sm" onClick={() => setDialog('move')}>
@@ -374,20 +404,15 @@ export function OrderScreen({
             </div>
           ) : null}
           {area.channel === 'takeaway' && !known ? (
-            <div className="row">
-              <input
-                placeholder={area.requiresCustomerName ? 'Customer name (required)' : 'Customer name'}
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                aria-label="Customer name"
-              />
-              <input
-                placeholder="Phone"
-                value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
-                aria-label="Customer phone"
-              />
-            </div>
+            <CustomerFields
+              name={customerName}
+              phone={customerPhone}
+              onName={setCustomerName}
+              onPhone={setCustomerPhone}
+              nameRequired={area.requiresCustomerName}
+            />
+          ) : order?.customerName || order?.customerPhone ? (
+            <div className="small muted">Customer: {order.customerName ?? order.customerPhone}</div>
           ) : null}
         </div>
 
@@ -691,6 +716,16 @@ export function OrderScreen({
           order={order}
           onClose={() => setDialog(null)}
           onChanged={() => feed.refresh()}
+        />
+      ) : null}
+      {dialog === 'customer' && order ? (
+        <OrderCustomerDialog
+          order={order}
+          onClose={() => setDialog(null)}
+          onSaved={() => {
+            setDialog(null);
+            feed.refresh();
+          }}
         />
       ) : null}
       {dialog === 'receipt' ? <ReceiptModal orderId={orderId} onClose={() => setDialog(null)} /> : null}

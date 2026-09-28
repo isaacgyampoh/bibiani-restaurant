@@ -4,7 +4,7 @@ import { linkTo, navigate } from '../../infra/router';
 import { api, hasPermission, posDevice, signOut, topics } from '../../infra/session';
 import { useFeed } from '../../infra/use-feed';
 import { Badge, ConnectionDot, ErrorBox, Money, statusLabel } from '../../ui/components';
-import { Empty, Skeleton } from '../../ui/Shell';
+import { Empty, MobileNav, Skeleton } from '../../ui/Shell';
 import { BrandPanel } from '../auth/LoginScreen';
 import { OrderScreen } from './OrderScreen';
 
@@ -24,6 +24,19 @@ export function PosScreen({ me }: { me: MeView }) {
   const [menuError, setMenuError] = useState<unknown>(null);
   const [view, setView] = useState<View | null>(null);
   const till = posDevice();
+  const cashier = hasPermission(me, 'register.operate');
+  const [register, setRegister] = useState<'open' | 'closed' | null>(null);
+  useEffect(() => {
+    if (!cashier || !branchId) return;
+    const check = () =>
+      api
+        .currentRegister(branchId)
+        .then((r) => setRegister(r.register ? 'open' : 'closed'))
+        .catch(() => undefined);
+    void check();
+    const t = setInterval(check, 60_000);
+    return () => clearInterval(t);
+  }, [cashier, branchId]);
 
   // Heartbeat from a registered till, so managers can see it is alive (sent as the signed-in staff
   // member on this terminal).
@@ -97,7 +110,7 @@ export function PosScreen({ me }: { me: MeView }) {
   const area = menu.areas.find((a) => a.id === view.areaId)!;
 
   return (
-    <div className="pos-app">
+    <div className={`pos-app ${view.kind === 'order' ? 'ordering' : 'with-tabs'}`}>
       <div className="topbar">
         <img className="logo-img" src="/logo-64.png" alt="" />
         <span className="title">{me.restaurant.name}</span>
@@ -134,6 +147,20 @@ export function PosScreen({ me }: { me: MeView }) {
           </button>
         </div>
         <span className="spacer" />
+        {register ? (
+          <a
+            href="/register"
+            onClick={linkTo('/register')}
+            className={`register-pill ${register}`}
+            title={
+              register === 'open'
+                ? 'Your cash register is open'
+                : 'Open your cash register before taking cash'
+            }
+          >
+            {register === 'open' ? 'Register open' : 'Open register'}
+          </a>
+        ) : null}
         {hasPermission(me, 'order.view') ? (
           <a href="/orders" onClick={linkTo('/orders')}>
             Orders
@@ -195,6 +222,7 @@ export function PosScreen({ me }: { me: MeView }) {
           onOpen={(orderId) => setView({ kind: 'order', areaId: area.id, tableId: null, orderId })}
         />
       )}
+      {view.kind !== 'order' ? <MobileNav me={me} /> : null}
     </div>
   );
 }

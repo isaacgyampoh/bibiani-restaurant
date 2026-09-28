@@ -26,7 +26,10 @@ const map = (r: Row): RegisterRecord => ({
   expectedCash: numOrNull(r.expected_cash),
   countedCash: numOrNull(r.counted_cash),
   variance: numOrNull(r.variance),
-  closingTotals: (r.closing_totals ?? null) as RegisterTotals | null,
+  // (Rows written before the ::text::jsonb fix hold the object as a JSON string.)
+  closingTotals: (typeof r.closing_totals === 'string'
+    ? JSON.parse(r.closing_totals)
+    : (r.closing_totals ?? null)) as RegisterTotals | null,
   closingNote: sn(r.closing_note),
   reopenCount: num(r.reopen_count),
   reopenedAt: dateOrNull(r.reopened_at),
@@ -109,7 +112,7 @@ export function createRegisterRepository(sql: Sql): RegisterRepository {
       const rows = await sql.query(
         `update register_sessions
             set status = 'closed', closed_at = $2, closed_by_staff_id = $3, cash_sales = $4, cash_refunds = $5,
-                expected_cash = $6, counted_cash = $7, variance = $8, closing_totals = $9::jsonb, closing_note = $10,
+                expected_cash = $6, counted_cash = $7, variance = $8, closing_totals = $9::text::jsonb, closing_note = $10,
                 version = version + 1
           where id = $1 and status = 'open' and version = $11
           returning 1`,

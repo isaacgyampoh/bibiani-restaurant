@@ -68,6 +68,8 @@ export interface PaymentView {
   reference: string | null;
   status: PaymentRecordStatus;
   createdAt: string;
+  /** The cashier who recorded it (display name only). */
+  recordedByName?: string | null;
 }
 
 export interface OrderView {
@@ -83,6 +85,8 @@ export interface OrderView {
   table: { id: string; label: string } | null;
   customerName: string | null;
   customerPhone: string | null;
+  /** Who opened the order (display name only). */
+  createdByName?: string | null;
   notes: string | null;
   currency: string;
   subtotal: number;

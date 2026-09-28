@@ -35,7 +35,8 @@ export function createReadModels(sql: Sql): ReadModels {
                    'reason', d.reason, 'originalTotal', d.original_total, 'finalTotal', d.final_total,
                    'appliedBy', st.display_name, 'createdAt', d.created_at)
                  from order_discounts d left join staff st on st.id = d.applied_by_staff_id
-                 where d.order_id = o.id and d.removed_at is null) as discount
+                 where d.order_id = o.id and d.removed_at is null) as discount,
+                (select display_name from staff where id = o.created_by_staff_id) as created_by_name
          from orders o
          join operational_areas a on a.id = o.area_id
          join restaurants r on r.id = o.restaurant_id
@@ -67,7 +68,12 @@ export function createReadModels(sql: Sql): ReadModels {
            where order_id = $1 order by created_at, copy_no`,
           [orderId],
         ),
-        sql.query('select * from payments where order_id = $1 order by created_at, id', [orderId]),
+        sql.query(
+          `select p.*, st.display_name as recorded_by_name from payments p
+             left join staff st on st.id = p.recorded_by_staff_id
+            where p.order_id = $1 order by p.created_at, p.id`,
+          [orderId],
+        ),
       ]);
       const d = (o.discount ?? null) as Record<string, unknown> | null;
       const paid = num(o.paid_total);
@@ -85,6 +91,7 @@ export function createReadModels(sql: Sql): ReadModels {
         table: o.table_id ? { id: s(o.table_id), label: s(o.table_label) } : null,
         customerName: sn(o.customer_name),
         customerPhone: sn(o.customer_phone),
+        createdByName: sn(o.created_by_name),
         notes: sn(o.notes),
         currency: s(o.currency).trim(),
         subtotal: num(o.subtotal),
@@ -171,6 +178,7 @@ export function createReadModels(sql: Sql): ReadModels {
           reference: sn(p.reference),
           status: p.status as OrderView['payments'][number]['status'],
           createdAt: isoOf(p.created_at)!,
+          recordedByName: sn(p.recorded_by_name),
         })),
       };
     },

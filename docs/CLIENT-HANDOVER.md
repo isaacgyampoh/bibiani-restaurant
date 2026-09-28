@@ -216,3 +216,11 @@ For help, changes or new devices, contact your MY FOOD developer: **Isaac Gyampo
 - what you were doing;
 - the time;
 - the device name (e.g. POS-01).
+
+## Reports, customers, cash registers, phones (added 2026-09-28)
+
+- **Kitchen tickets show who sent them** ("SENT BY: KOFI - WAITER"), on the printed ticket, kitchen screen, supervisor board and order details. The name and role are saved when the order is sent, so later renames or role changes do not rewrite history.
+- **Reports** with PDF, Excel and CSV export: see [REPORTS.md](REPORTS.md).
+- **Customers** (telephone number required): see [CUSTOMERS.md](CUSTOMERS.md).
+- **Cash registers** (open, count, close, variance): see [CASH-REGISTER.md](CASH-REGISTER.md).
+- **Phones and tablets:** see [MOBILE.md](MOBILE.md).

@@ -198,6 +198,12 @@ export function ExpoScreen({ me }: { me: MeView }) {
                           </button>
                         ) : null}
                       </div>
+                      {s.sentBy ? (
+                        <div className="sent-by">
+                          Sent by {s.sentBy.name}
+                          {s.sentBy.role ? ` • ${s.sentBy.role}` : ''}
+                        </div>
+                      ) : null}
                       <div className="items">
                         {s.items.map((i, n) => (
                           // biome-ignore lint/suspicious/noArrayIndexKey: items have no id in this view

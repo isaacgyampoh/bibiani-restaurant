@@ -1,6 +1,6 @@
 import type { MeView, OrderSummaryView, OrderView } from '@rp/contracts';
 import { formatMinor } from '@rp/domain';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { navigate } from '../../infra/router';
 import { api, hasPermission, topics } from '../../infra/session';
 import { useFeed } from '../../infra/use-feed';
@@ -74,7 +74,7 @@ export function OrdersPage({ me }: { me: MeView }) {
               : 'Completed orders of today and yesterday are listed here.'}
           </Empty>
         ) : (
-          <table className="list clickable">
+          <table className="list clickable order-rows">
             <thead>
               <tr>
                 <th>#</th>
@@ -146,6 +146,7 @@ function OrderDetail({ me, orderId, onClose }: { me: MeView; orderId: string; on
               {order.customerName ? ` · ${order.customerName}` : ''} · {time(order.createdAt)}
             </span>
           </div>
+          <StaffTrail order={order} />
           <table className="list">
             <tbody>
               {order.items.map((i) => {
@@ -247,5 +248,48 @@ function OrderDetail({ me, orderId, onClose }: { me: MeView; orderId: string; on
         <ReceiptModal orderId={order.id} onClose={() => setShowReceipt(false)} />
       ) : null}
     </Modal>
+  );
+}
+
+/** Who took the order, who sent it to the kitchen (each send) and who took payment. */
+export function StaffTrail({ order }: { order: OrderView }) {
+  const sends = new Map<string, { at: string; who: string }>();
+  for (const t of order.tickets)
+    if (t.sentBy && !sends.has(t.submissionId))
+      sends.set(t.submissionId, {
+        at: t.createdAt,
+        who: `${t.sentBy.name}${t.sentBy.role ? ` • ${t.sentBy.role}` : ''}`,
+      });
+  const cashiers = [
+    ...new Set(
+      order.payments
+        .filter((p) => p.status === 'recorded' && p.direction === 'charge' && p.recordedByName)
+        .map((p) => p.recordedByName as string),
+    ),
+  ];
+  if (!order.createdByName && sends.size === 0 && cashiers.length === 0) return null;
+  return (
+    <dl className="staff-trail">
+      {order.createdByName ? (
+        <>
+          <dt>Order taken by</dt>
+          <dd>{order.createdByName}</dd>
+        </>
+      ) : null}
+      {[...sends.values()].map((s, n) => (
+        <Fragment key={s.at + s.who}>
+          <dt>{n === 0 ? 'Sent to kitchen by' : 'Also sent by'}</dt>
+          <dd>
+            {s.who} · {time(s.at)}
+          </dd>
+        </Fragment>
+      ))}
+      {cashiers.length ? (
+        <>
+          <dt>Payment taken by</dt>
+          <dd>{cashiers.join(', ')}</dd>
+        </>
+      ) : null}
+    </dl>
   );
 }

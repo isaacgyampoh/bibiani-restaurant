@@ -285,9 +285,18 @@ function Board({
                 <span className="t-status">
                   {late ? 'Late · ' : ''}
                   {STATE[t.status] ?? t.status} ·{' '}
-                  {new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {new Date(t.sentAt ?? t.createdAt).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
                 </span>
               </div>
+              {t.sentBy ? (
+                <div className="sent-by">
+                  Sent by <strong>{t.sentBy.name}</strong>
+                  {t.sentBy.role ? ` • ${t.sentBy.role}` : ''}
+                </div>
+              ) : null}
               <ul>
                 {t.items.map((i) => (
                   <li

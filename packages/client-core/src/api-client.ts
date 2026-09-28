@@ -6,11 +6,17 @@ import type {
   ChangePinCommand,
   ClaimedPrintJobView,
   ClaimPrintJobsCommand,
+  CloseRegisterCommand,
   ConfigEntity,
   ConfigurationView,
+  CreateCustomerCommand,
   CreateStaffCommand,
   CustomerBoardView,
+  CustomerDetailView,
+  CustomerListView,
+  CustomerLookupView,
   DashboardView,
+  ExportFormat,
   ExpoView,
   FloorView,
   FulfilOrderCommand,
@@ -22,7 +28,9 @@ import type {
   InventoryView,
   ManualDiscountCommand,
   MenuView,
+  MergeCustomerCommand,
   MeView,
+  OpenRegisterCommand,
   OperationsView,
   OrderSummaryView,
   OrderView,
@@ -37,12 +45,19 @@ import type {
   RecordCountLineCommand,
   RecordPaymentCommand,
   RecordStockMovementCommand,
+  RegisterListView,
+  RegisterSessionView,
+  ReportFilterOptionsView,
+  ReportKind,
+  ReportQuery,
+  ReportView,
   RequestBillCommand,
   SalesReportView,
   SaveInventoryItemCommand,
   SavePromotionCommand,
   SaveRecipeCommand,
   SendToKitchenCommand,
+  SetOrderCustomerCommand,
   SetTableStatusCommand,
   StartStockCountCommand,
   StationBoardView,
@@ -52,6 +67,7 @@ import type {
   SubmitOrderCommand,
   TicketActionCommand,
   TransferOrderCommand,
+  UpdateCustomerCommand,
   UpdateStaffCommand,
   VoidItemsCommand,
 } from '@rp/contracts';
@@ -101,6 +117,42 @@ export class ApiClient {
   constructor(private readonly options: ApiClientOptions) {
     // Bound: browsers throw "Illegal invocation" when fetch is called with a foreign `this`.
     this.fetchImpl = options.fetch ?? ((input, init) => globalThis.fetch(input, init));
+  }
+
+  private headers(): Promise<Record<string, string>> {
+    return this.options.getAccessToken().then((token) => {
+      const headers: Record<string, string> = { authorization: `Bearer ${token}` };
+      const deviceId = this.options.getDeviceId?.() ?? this.options.deviceId;
+      if (deviceId) headers['x-device-id'] = deviceId;
+      if (this.options.restaurantId) headers['x-restaurant-id'] = this.options.restaurantId;
+      return headers;
+    });
+  }
+
+  /** A file from the API (report exports): the bytes and the server's file name. */
+  private async file(path: string): Promise<{ blob: Blob; fileName: string }> {
+    let response: Response;
+    try {
+      response = await this.fetchImpl(`${this.options.baseUrl}${path}`, {
+        headers: await this.headers(),
+        signal: AbortSignal.timeout(90_000),
+      });
+    } catch (cause) {
+      throw ApiError.network(cause);
+    }
+    if (!response.ok) {
+      const err = ((await response.json().catch(() => null)) as ApiErrorBody | null)?.error;
+      throw new ApiError(
+        response.status,
+        err?.code ?? 'HTTP_ERROR',
+        err?.message ?? 'The file could not be created. Please try again.',
+        err?.retryable ?? response.status >= 500,
+        err?.correlationId ?? response.headers.get('x-request-id'),
+      );
+    }
+    const name =
+      /filename="([^"]+)"/.exec(response.headers.get('content-disposition') ?? '')?.[1] ?? 'report';
+    return { blob: await response.blob(), fileName: name };
   }
 
   private async request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<T> {
@@ -307,4 +359,61 @@ export class ApiClient {
     this.request<PairingCodeView>('POST', `/v1/admin/devices/${deviceId}/pairing-code`, {});
   revokeDevice = (deviceId: string) =>
     this.request<{ ok: true }>('POST', `/v1/admin/devices/${deviceId}/revoke`, {});
+
+  // Reports
+  reportOptions = (branchId: string) =>
+    this.request<ReportFilterOptionsView>('GET', `/v1/branches/${branchId}/reports/options`);
+  report = (kind: ReportKind, q: ReportQuery) =>
+    this.request<ReportView>('GET', `/v1/branches/${q.branchId}/reports/${kind}?${reportParams(q)}`);
+  exportReport = (kind: ReportKind, q: ReportQuery, format: ExportFormat) =>
+    this.file(`/v1/branches/${q.branchId}/reports/${kind}/export?${reportParams(q)}&format=${format}`);
+
+  // Cash registers
+  currentRegister = (branchId: string) =>
+    this.request<{ register: RegisterSessionView | null }>(
+      'GET',
+      `/v1/branches/${branchId}/registers/current`,
+    );
+  registers = (branchId: string, from?: string, to?: string) =>
+    this.request<RegisterListView>(
+      'GET',
+      `/v1/branches/${branchId}/registers?${new URLSearchParams({ from: from ?? '', to: to ?? '' })}`,
+    );
+  openRegister = (cmd: OpenRegisterCommand) =>
+    this.request<RegisterSessionView>('POST', '/v1/registers/open', cmd);
+  getRegister = (sessionId: string) => this.request<RegisterSessionView>('GET', `/v1/registers/${sessionId}`);
+  closeRegister = (sessionId: string, cmd: CloseRegisterCommand) =>
+    this.request<RegisterSessionView>('POST', `/v1/registers/${sessionId}/close`, cmd);
+  reopenRegister = (sessionId: string, reason: string) =>
+    this.request<RegisterSessionView>('POST', `/v1/registers/${sessionId}/reopen`, { reason });
+  registerReport = (sessionId: string) =>
+    this.request<ReportView>('GET', `/v1/registers/${sessionId}/report`);
+  exportRegisterReport = (sessionId: string, format: ExportFormat) =>
+    this.file(`/v1/registers/${sessionId}/report?format=${format}`);
+
+  // Customers
+  customers = (search: string, offset = 0) =>
+    this.request<CustomerListView>(
+      'GET',
+      `/v1/customers?${new URLSearchParams({ q: search, offset: String(offset) })}`,
+    );
+  customer = (customerId: string) => this.request<CustomerDetailView>('GET', `/v1/customers/${customerId}`);
+  lookupCustomer = (q: string) =>
+    this.request<CustomerLookupView>('GET', `/v1/customers/lookup?${new URLSearchParams({ q })}`);
+  createCustomer = (cmd: CreateCustomerCommand) =>
+    this.request<CustomerDetailView>('POST', '/v1/customers', cmd);
+  updateCustomer = (customerId: string, cmd: UpdateCustomerCommand) =>
+    this.request<CustomerDetailView>('POST', `/v1/customers/${customerId}`, cmd);
+  mergeCustomer = (customerId: string, cmd: MergeCustomerCommand) =>
+    this.request<CustomerDetailView>('POST', `/v1/customers/${customerId}/merge`, cmd);
+  setOrderCustomer = (orderId: string, cmd: SetOrderCustomerCommand) =>
+    this.request<OrderView>('POST', `/v1/orders/${orderId}/customer`, cmd);
+}
+
+/** Report filters as query parameters (empty ones left out). */
+function reportParams(q: ReportQuery): string {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(q))
+    if (k !== 'branchId' && v !== null && v !== undefined && v !== '') p.set(k, String(v));
+  return p.toString();
 }

@@ -1,5 +1,5 @@
 import type { MeView } from '@rp/contracts';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { linkTo, useLocation } from '../infra/router';
 import { hasPermission, signOut } from '../infra/session';
 import { Icon } from './icons';
@@ -36,6 +36,11 @@ const ICON = {
   staff: I('M16 21v-2a4 4 0 0 0-8 0v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'),
   reports: I('M4 20V10M10 20V4M16 20v-7M22 20H2'),
   settings: I('M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0M14 4v4M8 10v4M16 16v4'),
+  customers: I(
+    'M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM21 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8',
+  ),
+  register: I('M3 7h18v13H3zM3 11h18M7 15h2M15 3v4M9 3v4'),
+  more: I('M5 12h.01M12 12h.01M19 12h.01'),
 };
 
 export interface NavItem {
@@ -55,6 +60,13 @@ export const NAV: { title: string; items: NavItem[] }[] = [
       { path: '/dashboard', label: 'Dashboard', icon: 'dashboard', anyOf: ['reports.view'] },
       { path: '/pos', label: 'POS', icon: 'pos', anyOf: ['order.create'], fullScreen: true },
       { path: '/orders', label: 'Orders', icon: 'orders', anyOf: ['order.view'] },
+      {
+        path: '/register',
+        label: 'Cash register',
+        icon: 'register',
+        anyOf: ['register.operate', 'register.manage'],
+      },
+      { path: '/customers', label: 'Customers', icon: 'customers', anyOf: ['customer.view'] },
       { path: '/kds', label: 'Kitchen', icon: 'kitchen', anyOf: ['kitchen.operate'], fullScreen: true },
       {
         path: '/expo',
@@ -127,7 +139,135 @@ export const initials = (name: string) =>
     .join('')
     .toUpperCase();
 
-/** Back-office layout: sidebar navigation + page header. Operational screens are full screen. */
+/** Phone tabs: the first four the person may use, then More (everything else). */
+const TABS: NavItem[] = [
+  { path: '/dashboard', label: 'Home', icon: 'dashboard', anyOf: ['reports.view'] },
+  { path: '/pos', label: 'POS', icon: 'pos', anyOf: ['order.create'] },
+  { path: '/orders', label: 'Orders', icon: 'orders', anyOf: ['order.view'] },
+  { path: '/register', label: 'Register', icon: 'register', anyOf: ['register.operate'] },
+  { path: '/customers', label: 'Customers', icon: 'customers', anyOf: ['customer.view'] },
+  { path: '/kds', label: 'Kitchen', icon: 'kitchen', anyOf: ['kitchen.operate'] },
+  { path: '/inventory', label: 'Stock', icon: 'stock', anyOf: ['inventory.manage', 'stock.count'] },
+  { path: '/reports', label: 'Reports', icon: 'reports', anyOf: ['reports.view'] },
+];
+
+export function mobileTabs(me: MeView): NavItem[] {
+  return TABS.filter((t) => allowed(me, t)).slice(0, 4);
+}
+
+/**
+ * Phone navigation: a bottom tab bar with the person's main screens and More, which opens a sheet
+ * with everything else they may use. Shown on narrow screens only (see styles.css, .tabbar).
+ */
+export function MobileNav({ me }: { me: MeView }) {
+  const { path } = useLocation();
+  const [more, setMore] = useState(false);
+  const tabs = mobileTabs(me);
+  const inTabs = tabs.some((t) => path.startsWith(t.path));
+  return (
+    <>
+      <nav className="tabbar" aria-label="Main">
+        {tabs.map((t) => {
+          const active = path.startsWith(t.path);
+          return (
+            <a
+              key={t.path}
+              href={t.path}
+              className={active ? 'active' : ''}
+              aria-current={active ? 'page' : undefined}
+              onClick={linkTo(t.path)}
+            >
+              {ICON[t.icon]}
+              <span>{t.label}</span>
+            </a>
+          );
+        })}
+        <button
+          type="button"
+          className={more || !inTabs ? 'active' : ''}
+          aria-expanded={more}
+          onClick={() => setMore(true)}
+        >
+          {ICON.more}
+          <span>More</span>
+        </button>
+      </nav>
+      {more ? <MoreSheet me={me} onClose={() => setMore(false)} /> : null}
+    </>
+  );
+}
+
+function MoreSheet({ me, onClose }: { me: MeView; onClose: () => void }) {
+  const { path } = useLocation();
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: tapping outside closes; Escape and Close do too
+    <div
+      className="sheet-backdrop"
+      role="presentation"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="sheet" role="dialog" aria-modal="true" aria-label="More">
+        <div className="sheet-grip" aria-hidden />
+        <div className="sheet-who">
+          <span className="avatar" aria-hidden>
+            {initials(me.displayName)}
+          </span>
+          <div className="grow">
+            <strong>{me.displayName}</strong>
+            <span>{me.restaurant.name}</span>
+          </div>
+          <button type="button" className="btn" onClick={onClose}>
+            Close
+          </button>
+        </div>
+        <nav className="sheet-nav">
+          {NAV.map((group) => {
+            const items = group.items.filter((i) => allowed(me, i));
+            if (items.length === 0) return null;
+            return (
+              <div key={group.title} className="sheet-group">
+                <div className="nav-title">{group.title}</div>
+                <div className="sheet-grid">
+                  {items.map((i) => (
+                    <a
+                      key={i.path}
+                      href={i.path}
+                      className={path.startsWith(i.path) ? 'active' : ''}
+                      onClick={(e) => {
+                        onClose();
+                        linkTo(i.path)(e);
+                      }}
+                    >
+                      {ICON[i.icon]}
+                      <span>{i.label}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </nav>
+        <div className="sheet-foot">
+          {me.pin?.hasPin ? (
+            <a href="/my-pin" className="btn" onClick={linkTo('/my-pin')}>
+              Change PIN
+            </a>
+          ) : null}
+          <button type="button" className="btn" onClick={() => void signOut()}>
+            Sign out
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Back-office layout: sidebar navigation + page header (desktop), app bar + tab bar (phone). */
 export function Shell({
   me,
   title,
@@ -142,9 +282,8 @@ export function Shell({
   children: ReactNode;
 }) {
   const { path } = useLocation();
-  const [open, setOpen] = useState(false);
   return (
-    <div className={`shell ${open ? 'nav-open' : ''}`}>
+    <div className="shell">
       <aside className="sidebar" aria-label="Main navigation">
         <div className="brand">
           <img className="logo-img" src="/logo-64.png" alt="" />
@@ -166,10 +305,7 @@ export function Shell({
                     href={i.path}
                     className={`nav-item ${path.startsWith(i.path) ? 'active' : ''}`}
                     aria-current={path.startsWith(i.path) ? 'page' : undefined}
-                    onClick={(e) => {
-                      setOpen(false);
-                      linkTo(i.path)(e);
-                    }}
+                    onClick={linkTo(i.path)}
                   >
                     {ICON[i.icon]}
                     {i.label}
@@ -199,9 +335,7 @@ export function Shell({
       </aside>
       <div className="main">
         <header className="page-head">
-          <button type="button" className="btn menu-toggle" onClick={() => setOpen(!open)} aria-label="Menu">
-            <Icon name="menu" size={20} />
-          </button>
+          <img className="app-logo" src="/logo-64.png" alt="" />
           <div className="grow">
             <h1>{title}</h1>
             {subtitle ? <div className="sub">{subtitle}</div> : null}
@@ -210,6 +344,7 @@ export function Shell({
         </header>
         <div className="content">{children}</div>
       </div>
+      <MobileNav me={me} />
     </div>
   );
 }
