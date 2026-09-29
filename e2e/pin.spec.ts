@@ -97,7 +97,9 @@ test('owner assigns a PIN; the cashier activates it on the till, locks, and sign
 test('manager on a new laptop: email + PIN once (no link); then this laptop asks only for the PIN', async ({
   browser,
 }) => {
-  const config = await ownerCall<{ staff: { id: string; email: string | null }[] }>('/v1/admin/configuration');
+  const config = await ownerCall<{ staff: { id: string; email: string | null }[] }>(
+    '/v1/admin/configuration',
+  );
   const manager = config.staff.find((s) => s.email === env.accounts.manager!.email)!;
   const starting = randomPin();
   await ownerCall(`/v1/admin/staff/${manager.id}/pin`, 'POST', { pin: starting });
