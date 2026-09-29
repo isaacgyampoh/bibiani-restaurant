@@ -430,7 +430,7 @@ export function DevicesTab({
           submitLabel="Add device"
           fields={[
             ['name', 'Name (e.g. PASTRY-KDS-01)', 'text'],
-            ['kind', 'Type', 'select', DEVICE_KINDS.map((k) => [k, k.replace('_', ' ')])],
+            ['kind', 'Type', 'select', DEVICE_KINDS.map((k) => [k, DEVICE_LABEL[k] ?? k.replace('_', ' ')])],
             ['stationId', 'Station (KDS)', 'select', stations.map((s) => [str(s.id), str(s.name)])],
             [
               'connection',

@@ -8,6 +8,11 @@ const FILES = [
     'Installer Guide with pictures',
     'PDF · step by step, easy to share',
   ],
+  [
+    'MY-FOOD-Hub-Guide-with-Pictures.pdf',
+    'Hub Guide with pictures',
+    'PDF · connect the desktop Hub (works offline)',
+  ],
   ['MY-FOOD-Installation-and-Operations-Manual.pdf', 'Installation & Operations Manual', 'PDF · full manual'],
   ['MY-FOOD-Quick-Reference.pdf', 'Quick Reference', 'PDF · one page for every till'],
   ['MY-FOOD-Installer-Checklist.pdf', 'Installer Checklist', 'PDF · two pages, with sign-off'],
