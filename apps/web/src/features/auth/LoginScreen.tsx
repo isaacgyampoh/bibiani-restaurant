@@ -5,6 +5,7 @@ import {
   requestPasswordReset,
   sendSignInLink,
   signInStaff,
+  signInWithEmailAndPin,
   signInWithPin,
   tillApi,
 } from '../../infra/session';
@@ -33,9 +34,9 @@ export function Brand() {
 }
 
 /**
- * Sign-in is PIN first. A PIN works on a registered device: a restaurant till (paired) or an
- * owner's / manager's own phone or laptop (registered through an emailed link). Email and password
- * remain available for support accounts.
+ * Sign-in is PIN first. On a device MY FOOD knows (a paired till, or an owner's / manager's own
+ * phone or laptop) only the PIN is asked. On a new device an owner or manager enters email + PIN
+ * once. Email and password remain available for support accounts.
  */
 export function LoginScreen({ onSignedIn }: { onSignedIn: () => void }) {
   const till = posDevice();
@@ -58,7 +59,7 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: () => void }) {
         ) : mode === 'forgot-pin' ? (
           <ForgotPin onBack={() => setMode('pin')} />
         ) : mode === 'setup' ? (
-          <SetUpThisDevice onPassword={() => setMode('email')} />
+          <SetUpThisDevice onSignedIn={onSignedIn} onPassword={() => setMode('email')} />
         ) : (
           <EmailSignIn
             tillName={till?.name ?? null}
@@ -72,11 +73,80 @@ export function LoginScreen({ onSignedIn }: { onSignedIn: () => void }) {
 }
 
 /**
- * A browser that is not registered yet. Owners and managers get an emailed link that registers
- * this device for their PIN; restaurant tills and screens are paired by a manager.
+ * A browser MY FOOD does not know yet. Owners and managers sign in with their email and PIN; this
+ * device then remembers them and asks only for the PIN. Restaurant tills are paired by a manager.
  */
-function SetUpThisDevice({ onPassword }: { onPassword: () => void }) {
+function SetUpThisDevice({ onSignedIn, onPassword }: { onSignedIn: () => void; onPassword: () => void }) {
   const [email, setEmail] = useState('');
+  const [pin, setPin] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const [forgot, setForgot] = useState(false);
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await signInWithEmailAndPin(email.trim(), pin);
+      onSignedIn();
+    } catch (err) {
+      setError(err);
+      setPin('');
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (forgot) return <ForgotOwnerPin email={email} onBack={() => setForgot(false)} />;
+  return (
+    <>
+      <h1>Sign in</h1>
+      <form className="form" onSubmit={submit}>
+        <Field label="Email">
+          <input
+            type="email"
+            autoComplete="username"
+            inputMode="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </Field>
+        <Field label="PIN">
+          <input
+            type="password"
+            inputMode="numeric"
+            autoComplete="current-password"
+            pattern="[0-9]{4,6}"
+            maxLength={6}
+            required
+            value={pin}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+          />
+        </Field>
+        <ErrorBox error={error} />
+        <button className="btn primary lg block" disabled={busy || pin.length < 4} type="submit">
+          {busy ? 'Signing in…' : 'Sign in'}
+        </button>
+      </form>
+      <p className="muted small">Next time on this device, just enter your PIN.</p>
+      <div className="auth-foot">
+        <button type="button" className="link" onClick={() => setForgot(true)}>
+          Forgot PIN?
+        </button>
+        <a href="/pair">Set up a restaurant till</a>
+      </div>
+      <div className="auth-foot">
+        <button type="button" className="link" onClick={onPassword}>
+          Sign in with email and password
+        </button>
+      </div>
+    </>
+  );
+}
+
+/** Forgotten PIN (owners and managers): an emailed link to choose a new one. */
+function ForgotOwnerPin({ email: initial, onBack }: { email: string; onBack: () => void }) {
+  const [email, setEmail] = useState(initial);
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -93,44 +163,34 @@ function SetUpThisDevice({ onPassword }: { onPassword: () => void }) {
       setBusy(false);
     }
   }
-  if (sent)
-    return (
-      <>
-        <h1>Check your email</h1>
-        <p className="lead">
-          If <strong>{email.trim()}</strong> belongs to an owner or manager, a sign-in link is on its way.
-          Open it on this device: it sets the device up for your PIN. The link works once, for one hour.
-        </p>
-        <button type="button" className="btn block" onClick={() => setSent(false)}>
-          Use another email
-        </button>
-      </>
-    );
   return (
     <>
-      <h1>Sign in with your PIN</h1>
-      <p className="lead">This device is not set up for PIN sign-in yet.</p>
-      <form className="form" onSubmit={submit}>
-        <Field label="Owner or manager: your email" hint="We email you a link that sets up this device.">
-          <input
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </Field>
-        <ErrorBox error={error} />
-        <button className="btn primary lg block" disabled={busy} type="submit">
-          {busy ? 'Sending…' : 'Email me a sign-in link'}
-        </button>
-      </form>
-      <a className="btn block" href="/pair">
-        Restaurant till or screen: set up this device
-      </a>
+      <h1>Forgot your PIN?</h1>
+      {sent ? (
+        <p className="lead">
+          If <strong>{email.trim()}</strong> belongs to an owner or manager, a link to choose a new PIN is on
+          its way. Another owner or manager can also reset your PIN in Staff.
+        </p>
+      ) : (
+        <form className="form" onSubmit={submit}>
+          <Field label="Your email" hint="We email you a link to choose a new PIN.">
+            <input
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </Field>
+          <ErrorBox error={error} />
+          <button className="btn primary lg block" disabled={busy} type="submit">
+            {busy ? 'Sending…' : 'Email me a link'}
+          </button>
+        </form>
+      )}
       <div className="auth-foot">
-        <button type="button" className="link" onClick={onPassword}>
-          Sign in with email and password
+        <button type="button" className="link" onClick={onBack}>
+          Back to sign in
         </button>
       </div>
     </>

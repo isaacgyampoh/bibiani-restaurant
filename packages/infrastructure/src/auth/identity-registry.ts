@@ -85,6 +85,14 @@ export class PgIdentityRegistry implements IdentityRegistry {
     };
   }
 
+  async managersByEmail(email: string) {
+    const rows = await this.db.query<{ restaurant_id: string; staff_id: string }>(
+      'select * from app.managers_by_email($1)',
+      [email],
+    );
+    return rows.map((r) => ({ restaurantId: r.restaurant_id, staffId: r.staff_id }));
+  }
+
   async findOwnerInvitation(email: string, now: Date) {
     const [r] = await this.db.query<{ id: string; restaurant_id: string; restaurant_name: string }>(
       'select * from app.find_owner_invitation($1, $2)',

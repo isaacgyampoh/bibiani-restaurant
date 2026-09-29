@@ -231,6 +231,9 @@ export const OnboardingAcceptCommand = z.object({
 export type OnboardingAcceptCommand = z.infer<typeof OnboardingAcceptCommand>;
 export const EmailLinkCommand = z.object({ email: z.string().trim().max(200) });
 export type EmailLinkCommand = z.infer<typeof EmailLinkCommand>;
+/** Owner / manager on a new device: email + PIN (the PIN is checked, never stored or logged). */
+export const EmailPinSignInCommand = z.object({ email: z.string().trim().max(200), pin: z.string().max(6) });
+export type EmailPinSignInCommand = z.infer<typeof EmailPinSignInCommand>;
 
 // Device-initiated pairing.
 export const CollectPairingCommand = z.object({ secret: z.string().min(20).max(100) });

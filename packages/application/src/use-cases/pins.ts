@@ -1,7 +1,8 @@
+import type { PairDeviceResult } from '@rp/contracts';
 import { assertAcceptablePin, DomainError, PIN_POLICY, pinLockedUntil } from '@rp/domain';
 import type { AuthSession, PinHasher, PinStaff, Repositories } from '../ports';
 import { authorize, type RequestContext } from '../principal';
-import { authorizeRestaurantWide } from './administration';
+import { authorizeRestaurantWide, registerPersonalDevice } from './administration';
 import type { Dependencies } from './shared';
 
 /**
@@ -268,5 +269,72 @@ export class RequestPinRecovery {
       );
     }
     return { ok: true };
+  }
+}
+
+/** Email + PIN sign-in lockouts: per account only (never the restaurant's tills). */
+const EMAIL_PIN = { shortMax: 5, shortSeconds: 10 * 60, dayMax: 10, daySeconds: 24 * 3600 } as const;
+
+/**
+ * An owner or manager signs in on a phone or laptop MY FOOD does not know yet, with their email and
+ * PIN (no emailed link). A correct pair registers this browser as their own device and returns its
+ * login; from then on the device shows the PIN pad only. Wrong PINs count against that account:
+ * 5 within 10 minutes lock it for 10 minutes, 10 within a day lock it for a day. Tills are never
+ * affected. Unknown emails and wrong PINs get the same answer.
+ */
+export class SignInWithEmailAndPin {
+  constructor(private readonly deps: Dependencies) {}
+
+  async execute(input: { email: string; pin: string; correlationId: string }): Promise<PairDeviceResult> {
+    const email = input.email.trim().toLowerCase();
+    const generic = new DomainError('PIN_INVALID', 'Email or PIN not recognised');
+    if (!/^\S+@\S+\.\S+$/.test(email) || !/^\d{4,6}$/.test(input.pin)) throw generic;
+    const matches = await this.deps.identity!.managersByEmail(email);
+    if (matches.length !== 1) {
+      this.deps.logger.warn('security.email_pin_unknown', { correlationId: input.correlationId });
+      throw generic;
+    }
+    const { restaurantId, staffId } = matches[0]!;
+    const now = this.deps.clock.now();
+    const lookup = hasher(this.deps).lookup(restaurantId, input.pin);
+    const ctx = {
+      principal: { kind: 'staff', staffId, restaurantId } as RequestContext['principal'],
+      correlationId: input.correlationId,
+      deviceId: null,
+    } as RequestContext;
+    const outcome = await this.deps.uow.run(restaurantId, async (tx) => {
+      const recent = await tx.pins.failures(
+        { staffId },
+        new Date(now.getTime() - EMAIL_PIN.daySeconds * 1000),
+      );
+      const inShort = recent.filter((d) => now.getTime() - d.getTime() < EMAIL_PIN.shortSeconds * 1000);
+      if (recent.length >= EMAIL_PIN.dayMax) return { kind: 'locked' as const, day: true };
+      if (inShort.length >= EMAIL_PIN.shortMax) return { kind: 'locked' as const, day: false };
+      const me = await tx.pins.staffById(staffId);
+      const owner = await tx.pins.staffByLookup(lookup);
+      const ok = !!me?.isActive && owner?.staffId === staffId;
+      await tx.pins.recordAttempt({ deviceId: null, staffId, succeeded: ok, at: now });
+      if (!ok) {
+        if (recent.length + 1 >= EMAIL_PIN.dayMax || inShort.length + 1 >= EMAIL_PIN.shortMax)
+          await audit(tx, ctx, 'security.email_pin_lockout', staffId, {});
+        return { kind: 'failed' as const };
+      }
+      await audit(tx, ctx, 'staff.email_pin_sign_in', staffId, {});
+      return { kind: 'ok' as const, displayName: me!.displayName };
+    });
+    if (outcome.kind === 'locked')
+      throw new DomainError(
+        'RATE_LIMITED',
+        outcome.day
+          ? 'Too many wrong PINs today. Use "Forgot PIN?" or ask another owner or manager to reset your PIN.'
+          : 'Too many wrong PINs. Wait 10 minutes and try again, or use "Forgot PIN?".',
+      );
+    if (outcome.kind === 'failed') throw generic;
+    return registerPersonalDevice(this.deps, {
+      restaurantId,
+      staffId,
+      displayName: outcome.displayName,
+      correlationId: input.correlationId,
+    });
   }
 }

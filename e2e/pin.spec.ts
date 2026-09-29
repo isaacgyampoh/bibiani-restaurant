@@ -93,3 +93,43 @@ test('owner assigns a PIN; the cashier activates it on the till, locks, and sign
   // A PIN session is not a back-office session.
   await expect(page.getByRole('link', { name: 'Back office' })).toHaveCount(0);
 });
+
+test('manager on a new laptop: email + PIN once (no link); then this laptop asks only for the PIN', async ({
+  browser,
+}) => {
+  const config = await ownerCall<{ staff: { id: string; email: string | null }[] }>('/v1/admin/configuration');
+  const manager = config.staff.find((s) => s.email === env.accounts.manager!.email)!;
+  const starting = randomPin();
+  await ownerCall(`/v1/admin/staff/${manager.id}/pin`, 'POST', { pin: starting });
+
+  const page = await (await browser.newContext()).newPage();
+  await page.goto('/login');
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+  await page.getByLabel('Email').fill(env.accounts.manager!.email);
+  await page.getByLabel('PIN').fill(starting === '2468' ? '1357' : '2468');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Email or PIN not recognised');
+
+  await page.getByLabel('PIN').fill(starting);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  // A PIN given by the owner is replaced by the manager's own PIN first.
+  await expect(page.getByRole('heading', { name: /Welcome/ })).toBeVisible();
+  let own = randomPin();
+  while (own === starting) own = randomPin();
+  await tap(page, own);
+  await page.getByRole('button', { name: 'Next' }).click();
+  await tap(page, own);
+  await page.getByRole('button', { name: 'Save PIN' }).click();
+  await page.getByRole('button', { name: 'Continue' }).click();
+  // Their own device: management is open.
+  await page.goto('/staff');
+  await expect(page.getByRole('heading', { name: 'Staff', exact: true })).toBeVisible();
+
+  // Sign out: this laptop now shows the PIN pad only.
+  await page.getByRole('button', { name: 'Sign out' }).first().click();
+  await expect(page.getByRole('heading', { name: 'Enter your staff PIN' })).toBeVisible();
+  await tap(page, own);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page).not.toHaveURL(/\/login$/);
+  await expect(page.getByRole('heading', { name: 'Enter your staff PIN' })).toHaveCount(0);
+});

@@ -61,15 +61,23 @@ export function createPinRepository(sql: Sql): PinRepository {
     async failures(scope, since) {
       const rows =
         scope === 'restaurant'
-          ? await sql.query(
-              `select created_at from pin_attempts where not succeeded and created_at > $1 order by created_at desc limit 100`,
+          ? // Device attempts only: email + PIN guesses must never lock the restaurant's tills.
+            await sql.query(
+              `select created_at from pin_attempts where not succeeded and device_id is not null and created_at > $1
+               order by created_at desc limit 100`,
               [since.toISOString()],
             )
-          : await sql.query(
-              `select created_at from pin_attempts where device_id = $1 and not succeeded and created_at > $2
+          : 'staffId' in scope
+            ? await sql.query(
+                `select created_at from pin_attempts where staff_id = $1 and device_id is null and not succeeded
+                 and created_at > $2 order by created_at desc limit 100`,
+                [scope.staffId, since.toISOString()],
+              )
+            : await sql.query(
+                `select created_at from pin_attempts where device_id = $1 and not succeeded and created_at > $2
                order by created_at desc limit 100`,
-              [scope.deviceId, since.toISOString()],
-            );
+                [scope.deviceId, since.toISOString()],
+              );
       return rows.map((r) => dateOrNull(r.created_at)!);
     },
   };

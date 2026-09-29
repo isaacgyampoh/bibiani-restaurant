@@ -14,6 +14,7 @@ import {
   CreateCustomerCommand,
   CreateStaffCommand,
   EmailLinkCommand,
+  EmailPinSignInCommand,
   EXPORT_FORMATS,
   type ExportFormat,
   FulfilOrderCommand,
@@ -315,6 +316,19 @@ export function createHttpApp(deps: HttpDependencies) {
       throw new DomainError('RATE_LIMITED', 'Too many attempts. Wait a minute and try again.');
     const { email } = await body(c, EmailLinkCommand);
     return c.json(await deps.app.sendSignInLink.execute({ email, correlationId: c.var.correlationId }));
+  });
+
+  // Owner / manager on a new phone or laptop: email + PIN registers the device (public, rate limited).
+  const emailPinLimiter = new RateLimiter(10, 60_000);
+  http.post('/v1/auth/email-pin', async (c) => {
+    const client =
+      c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? c.req.header('x-real-ip') ?? 'local';
+    if (!emailPinLimiter.allow(client))
+      throw new DomainError('RATE_LIMITED', 'Too many attempts. Wait a minute and try again.');
+    const { email, pin } = await body(c, EmailPinSignInCommand);
+    return c.json(
+      await deps.app.signInWithEmailAndPin.execute({ email, pin, correlationId: c.var.correlationId }),
+    );
   });
 
   // Name the operation before authentication, so even an auth-stage failure gets an operation-specific message.

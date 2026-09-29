@@ -805,8 +805,11 @@ export interface PinRepository {
   }): Promise<void>;
   /** Records on which device a PIN sign-in session was opened (see migration pin_first_and_bills). */
   bindSession(sessionId: string, staffId: string, deviceId: string, at: Date): Promise<void>;
-  /** Failed attempt times since `since`, newest first. */
-  failures(scope: { deviceId: string } | 'restaurant', since: Date): Promise<Date[]>;
+  /**
+   * Failed attempt times since `since`, newest first. 'restaurant' counts attempts made on devices
+   * (tills, hubs); `{ staffId }` counts email + PIN attempts for that account only.
+   */
+  failures(scope: { deviceId: string } | { staffId: string } | 'restaurant', since: Date): Promise<Date[]>;
 }
 
 // ---------------------------------------------------------------------------
@@ -911,6 +914,8 @@ export interface IdentityRegistry {
         } | null;
       }
   >;
+  /** Active owners / managers (device.manage) with this email, across restaurants. */
+  managersByEmail(email: string): Promise<{ restaurantId: string; staffId: string }[]>;
   /** The open (not accepted, revoked or expired) owner invitation for an email, across restaurants. */
   findOwnerInvitation(
     email: string,

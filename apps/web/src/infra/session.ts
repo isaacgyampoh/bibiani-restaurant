@@ -129,6 +129,22 @@ export async function acceptOwnerInvitation(
   return { restaurantName: body.restaurantName };
 }
 
+/**
+ * Owner / manager on a new phone or laptop: email + PIN. The server registers this browser as their
+ * own device; then the PIN signs in as usual, and next time only the PIN is asked.
+ */
+export async function signInWithEmailAndPin(email: string, pin: string): Promise<void> {
+  const res = await fetch(`${API_URL}/v1/auth/email-pin`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email, pin }),
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(body?.error?.message ?? 'Sign-in failed. Try again.');
+  await adoptPairing(body as PairDeviceResult);
+  await signInWithPin(pin);
+}
+
 /** "Email me a sign-in link" (owners and managers). Same answer for every address. */
 export async function sendSignInLink(email: string): Promise<void> {
   const res = await fetch(`${API_URL}/v1/auth/email-link`, {

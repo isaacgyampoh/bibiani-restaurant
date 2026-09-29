@@ -57,6 +57,7 @@ import {
   ChangePinFromHub,
   PinSignIn,
   RequestPinRecovery,
+  SignInWithEmailAndPin,
   VerifyPinForHub,
 } from './use-cases/pins';
 import {
@@ -137,6 +138,7 @@ export function createApplication(deps: Dependencies) {
     mergeOrders: new MergeOrders(deps),
     setOrderPriority: new SetOrderPriority(deps),
     pinSignIn: new PinSignIn(deps),
+    signInWithEmailAndPin: new SignInWithEmailAndPin(deps),
     changeOwnPin: new ChangeOwnPin(deps),
     assignStaffPin: new AssignStaffPin(deps),
     requestPinRecovery: new RequestPinRecovery(deps),

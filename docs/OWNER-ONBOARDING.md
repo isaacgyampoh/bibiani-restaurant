@@ -53,15 +53,19 @@ The owner lands on **Set up your restaurant**, a 13-step checklist. Any step can
 
 ### Every day after that
 
-Open MY FOOD on that device and enter the PIN.
+Open MY FOOD on that device and enter the PIN. Nothing else.
 
-### Another phone or laptop, or a forgotten PIN
+### Another phone or laptop
 
-1. On the sign-in screen: **Owner or manager: your email** → **Email me a sign-in link**. The answer is the same for any address, so nobody can probe who is registered.
-2. Open the link on the device → **Set up this device**. Then either:
-   - **Use this device with my PIN**, or
-   - **Forgot your PIN? Choose a new one**: the new PIN replaces the old one at once. The old PIN is never shown or sent.
-3. From then on, sign in with the PIN on that device.
+On the sign-in screen type **email + PIN** → **Sign in**. No link. That device is then registered as the owner's own device (visible in Devices & printing, removable there) and asks only for the PIN from then on.
+
+- Only owners and managers can do this; other staff use the restaurant's paired tills.
+- Wrong PINs count against that account only (never the restaurant's tills): 5 within 10 minutes lock it for 10 minutes; 10 in a day lock it for the day. Unknown emails and wrong PINs get the same answer.
+- Recorded in Activity: `staff.email_pin_sign_in`, `device.personal_registered`, `security.email_pin_lockout`.
+
+### Forgotten PIN
+
+**Forgot PIN?** on the sign-in screen emails a link to choose a new PIN (needs production email sending), or another owner or manager resets it in **Staff**.
 
 **Staff** (cashiers, waiters, kitchen) sign in with their PIN on the restaurant's paired tills. A manager gives them a starting PIN in **Staff**; they must replace it with their own at first sign-in. "Forgot PIN?" on a till sends them an email link to choose a new one.
 
