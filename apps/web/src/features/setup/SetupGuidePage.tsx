@@ -5,6 +5,7 @@ import { api } from '../../infra/session';
 import { ErrorBox } from '../../ui/components';
 import { Icon } from '../../ui/icons';
 import { Shell, Skeleton } from '../../ui/Shell';
+import { ManualDownloads } from './ManualDownloads';
 
 type Row = Record<string, unknown>;
 interface Step {
@@ -103,6 +104,7 @@ export function SetupGuidePage({ me }: { me: MeView }) {
               ))}
             </ol>
           </section>
+          <ManualDownloads />
         </>
       )}
     </Shell>

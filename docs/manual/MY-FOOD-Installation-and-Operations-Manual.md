@@ -11,6 +11,7 @@
 | **Manual version** | 1.0 |
 | **Date** | 29 September 2026 |
 | **Software described** | MY FOOD web app release `production-2b3383f`; MY FOOD Printing 1.1.1; MY FOOD Hub 1.1.1 (Windows) |
+| **Download** | In MY FOOD: **Set-up guide** or **Devices & printing** → **Manual and checklists** → **Download**. Direct link: https://www.chefelisha.cc/manual/MY-FOOD-Installation-and-Operations-Manual.pdf |
 | **Intended readers** | Installation company and technician, restaurant owner and managers, supervisors, cashiers, waiters, kitchen staff, printing/IT support |
 
 > **How to read this manual.** Sections 1–4 are for everyone. The **installer** follows sections 5–19 in order, then the checklists in sections 37–39. **Managers** use sections 6–7 and 20–31. **Cashiers, waiters and kitchen staff** only need their part of section 20 and the **Quick Reference Card** (section 40).

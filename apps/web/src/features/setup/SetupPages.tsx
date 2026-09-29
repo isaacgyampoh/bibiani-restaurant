@@ -8,6 +8,7 @@ import { InstallAppButton } from '../../ui/install';
 import { Empty, Shell, Skeleton } from '../../ui/Shell';
 import { DevicesTab, FloorTab, PrintQueueTab, StationsTab } from '../admin/AdminScreen';
 import { useConfiguration } from '../menu/MenuPage';
+import { ManualDownloads } from './ManualDownloads';
 
 type Row = Record<string, unknown>;
 const str = (v: unknown) => (v === null || v === undefined ? '' : String(v));
@@ -229,6 +230,7 @@ export function DevicesPage({ me }: { me: MeView }) {
           ) : null}
           {hasPermission(me, 'print.manage') ? <PrintQueueTab branchId={branchId} /> : null}
           {hasPermission(me, 'device.manage') ? <HubDownload /> : null}
+          <ManualDownloads />
         </>
       )}
     </Shell>

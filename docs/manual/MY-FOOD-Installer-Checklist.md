@@ -2,6 +2,8 @@
 
 Restaurant: **Chefelisha Restaurant** · MY FOOD address: **www.chefelisha.cc** · Full instructions: *MY FOOD Installation & Operations Manual* (section numbers shown as §).
 
+Download the manual, this checklist and the Device Register in MY FOOD: **Set-up guide** → **Manual and checklists**.
+
 Never write passwords, PINs or pairing codes on this sheet.
 
 ## 1. Before you start (§5)

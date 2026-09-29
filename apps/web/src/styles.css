@@ -3865,6 +3865,20 @@ input.code-input {
   margin: 0;
   max-width: 70ch;
 }
+.manual-downloads {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  max-width: 640px;
+}
+.manual-downloads li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 
 /* Supervisor board: who sent each station's ticket. */
 .expo .stations .sent-by {
