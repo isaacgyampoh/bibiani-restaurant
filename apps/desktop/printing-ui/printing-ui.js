@@ -162,6 +162,7 @@ $('usb').onclick = async () => {
 };
 
 $('forget').onclick = () => void window.printing.forget();
+$('newCode').onclick = () => void window.printing.newCode();
 
 void render();
 setInterval(() => void render(), 2000);

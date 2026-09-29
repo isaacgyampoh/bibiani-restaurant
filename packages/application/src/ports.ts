@@ -888,14 +888,28 @@ export interface IdentityRegistry {
   } | null>;
   bindDeviceIdentity(deviceId: string, authUserId: string): Promise<void>;
   /** Device-initiated pairing (the device shows a code; a manager approves it). */
-  createPairingRequest(codeHash: string, secretHash: string, expiresAt: Date, now: Date): Promise<void>;
+  /**
+   * A device asks for a code. `kind`: what the device can only be (MY FOOD Printing, a hub), or null
+   * (a browser, which can become any kind). `replacesSecretHash`: the previous code of the same
+   * screen, which stops working now.
+   */
+  createPairingRequest(
+    codeHash: string,
+    secretHash: string,
+    expiresAt: Date,
+    now: Date,
+    kind?: string | null,
+    replacesSecretHash?: string | null,
+  ): Promise<void>;
+  /** Approves the code for this device, or says why not (see migration 20260929000200). */
   approvePairingRequest(
     codeHash: string,
+    managerCodeHash: string,
     restaurantId: string,
     deviceId: string,
     staffId: string | null,
     now: Date,
-  ): Promise<boolean>;
+  ): Promise<string>;
   collectPairingRequest(
     secretHash: string,
     now: Date,

@@ -34,6 +34,22 @@ The hub itself pairs with the cloud the same way: the hub window shows a code; i
 
 On your own personal device your PIN carries your full role. On shared tills, management needs your own device.
 
+## Which code goes where (the two kinds of code)
+
+- **Code shown ON the device** (on /pair, in MY FOOD Printing, in the hub window) → a manager types it in Devices & printing → **Enter code from device** on that device's row.
+- **Code made WITH "Create code"** in Devices & printing → typed ON the device: /pair → **I have a code from a manager**.
+
+Typing one in the other's place is refused with a message saying where it belongs.
+
+## Lifecycle rules (since 2026-09-29)
+
+- **One live code per screen.** A device screen asks for one code and keeps showing it while it waits. It gets a new code only when the server says the code expired (10 minutes) or when someone presses **Show a new code**; the previous code then stops working. No-internet moments and busy servers keep the same code on screen. The PC's own clock is never used to decide expiry.
+- **Programs that can only be one kind of device say so.** MY FOOD Printing asks for a *print agent* code and the MY FOOD Hub for a *hub* code. Entering such a code on another device's row (for example a till) is refused **before anything changes**: the till keeps its login.
+- **After pairing the device stops.** It saves its login and never asks for a code again by itself: not after waiting, refreshing, reopening or restarting. Opening /pair on a paired till says "This device is already paired" and asks before pairing again.
+- **Approving the same code twice** for the same device is a success (nothing changes). A used code cannot pair another device.
+- **Pairing a device that is already paired** warns first: it gives the device a new login, which signs out the screen using it.
+- **Clear refusals:** not valid, expired, already used, replaced by a newer code, a "Create code" code typed in the wrong box, or the wrong kind of device.
+
 ## Security
 
 - **Code format:** codes use an unambiguous 30-symbol alphabet, 8 characters (about 6.6 × 10¹¹ possibilities). They work once and expire after 10 minutes.

@@ -33,27 +33,37 @@ export class PgIdentityRegistry implements IdentityRegistry {
     await this.db.query('select app.bind_device_identity($1, $2)', [deviceId, authUserId]);
   }
 
-  async createPairingRequest(codeHash: string, secretHash: string, expiresAt: Date, now: Date) {
-    await this.db.query('select app.create_pairing_request($1, $2, $3, $4)', [
+  async createPairingRequest(
+    codeHash: string,
+    secretHash: string,
+    expiresAt: Date,
+    now: Date,
+    kind: string | null = null,
+    replacesSecretHash: string | null = null,
+  ) {
+    await this.db.query('select app.create_pairing_request_v2($1, $2, $3, $4, $5::device_kind, $6)', [
       codeHash,
       secretHash,
       expiresAt.toISOString(),
       now.toISOString(),
+      kind,
+      replacesSecretHash,
     ]);
   }
 
   async approvePairingRequest(
     codeHash: string,
+    managerCodeHash: string,
     restaurantId: string,
     deviceId: string,
     staffId: string | null,
     now: Date,
   ) {
-    const [r] = await this.db.query<{ ok: boolean }>(
-      'select app.approve_pairing_request($1, $2, $3, $4, $5) as ok',
-      [codeHash, restaurantId, deviceId, staffId, now.toISOString()],
+    const [r] = await this.db.query<{ status: string }>(
+      'select app.approve_pairing_request_v2($1, $2, $3, $4, $5, $6) as status',
+      [codeHash, managerCodeHash, restaurantId, deviceId, staffId, now.toISOString()],
     );
-    return Boolean(r?.ok);
+    return r?.status ?? 'not_found';
   }
 
   async collectPairingRequest(secretHash: string, now: Date) {

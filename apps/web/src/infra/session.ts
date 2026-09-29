@@ -177,10 +177,16 @@ export async function pairDevice(code: string): Promise<PairDeviceResult> {
 }
 
 /** Device-initiated pairing: a code to show on this screen, and a secret kept only in memory. */
-export async function requestPairing(): Promise<{ code: string; secret: string; expiresAt: string }> {
-  const res = await fetch(`${API_URL}/v1/devices/pairing-requests`, { method: 'POST' });
-  const body = await res.json();
-  if (!res.ok) throw new Error(body?.error?.message ?? 'Could not get a pairing code');
+export async function requestPairing(
+  replaces: string | null = null,
+): Promise<{ code: string; secret: string; expiresAt: string }> {
+  const res = await fetch(`${API_URL}/v1/devices/pairing-requests`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(replaces ? { replaces } : {}),
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(body?.error?.message ?? 'Could not get a pairing code. Check the connection.');
   return body;
 }
 

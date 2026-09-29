@@ -135,6 +135,7 @@ void app.whenReady().then(() => {
     cloud: CLOUD_URL,
   }));
   ipcMain.handle('printing:scan', () => station.scan());
+  ipcMain.handle('printing:newCode', () => station.newCode());
   ipcMain.handle('printing:usb', () => station.usbPrinters());
   ipcMain.handle('printing:refresh', () => station.refreshPrinters());
   ipcMain.handle(

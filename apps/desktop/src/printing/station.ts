@@ -96,6 +96,8 @@ export class PrintStation {
   private pairingRun = 0;
   /** Why the last pairing attempt did not work; shown with the next code until pairing succeeds. */
   private pairingProblem: string | null = null;
+  /** The secret of the code on screen (memory only): named when it is replaced. */
+  private pairingSecret: string | null = null;
   private readonly fetchImpl: typeof fetch;
 
   constructor(private readonly o: StationOptions) {
@@ -128,14 +130,23 @@ export class PrintStation {
     void this.beginPairing();
   }
 
-  /** Shows a code for a manager to enter on the print agent in Devices & printing; waits for approval. */
-  async beginPairing(): Promise<void> {
+  /**
+   * Pairing state machine: request ONE code (declaring this PC a print agent) → show it → ask every
+   * few seconds whether it was entered → paired: save the login, stop, print. The code is replaced
+   * only when the server says it expired, or when someone presses "Show a new code" (the old code
+   * then stops working). Network errors and rate limits keep the same code on screen.
+   */
+  async beginPairing(replaceCurrent = false): Promise<void> {
     const run = ++this.pairingRun;
-    this.state = { ...this.state, phase: 'pairing', pairing: null, message: null };
+    let previous = replaceCurrent ? this.pairingSecret : null;
+    this.state = { ...this.state, phase: 'pairing', pairing: null, message: this.pairingProblem };
     while (run === this.pairingRun) {
       let request: { code: string; secret: string; expiresAt: string };
       try {
-        request = await this.post('/v1/devices/pairing-requests', undefined);
+        request = await this.post('/v1/devices/pairing-requests', {
+          kind: 'print_agent',
+          replaces: previous,
+        });
       } catch (e) {
         this.state = {
           ...this.state,
@@ -145,44 +156,58 @@ export class PrintStation {
         await sleep(10_000);
         continue;
       }
+      this.pairingSecret = request.secret;
+      previous = request.secret;
       this.state = {
         ...this.state,
         cloud: 'ok',
         message: this.pairingProblem,
+        // Shown as "about N minutes left", counted from now: the PC's clock may be wrong.
         pairing: { code: request.code, expiresAt: new Date(Date.now() + 10 * 60_000).toISOString() },
       };
-      // The PC's clock may be wrong: ask until the server says the code expired (or 11 minutes pass).
-      const giveUp = Date.now() + 11 * 60_000;
-      while (run === this.pairingRun && Date.now() < giveUp) {
-        await sleep(this.o.pairingPollMs ?? 3000);
+      let wait = this.o.pairingPollMs ?? 3000;
+      for (;;) {
+        await sleep(wait);
         if (run !== this.pairingRun) return;
-        let result: (PairDeviceResult & { status?: string }) | { status: 'waiting' | 'expired' };
+        let result: (PairDeviceResult & { status?: string }) | { status: 'waiting' };
         try {
           result = await this.post('/v1/devices/pairing-requests/collect', { secret: request.secret });
         } catch (e) {
-          this.state = { ...this.state, message: (e as Error).message };
+          // The server says this code is over (expired or replaced): get the next one.
+          if ((e as { code?: string }).code === 'PAIRING_CODE_INVALID') break;
+          // Anything else (no internet, too many requests): keep the same code and try again later.
+          this.state = { ...this.state, message: `Checking for approval… (${(e as Error).message})` };
+          wait = Math.min(wait * 2, 30_000);
+          continue;
+        }
+        wait = this.o.pairingPollMs ?? 3000;
+        if (this.state.message && this.state.message !== this.pairingProblem)
+          this.state = { ...this.state, message: this.pairingProblem };
+        if (!('device' in result) || !result.device) continue;
+        if (result.device.kind !== 'print_agent') {
+          // The server refuses this since 20260929000200; kept as a last safety net.
+          this.pairingProblem = `The code was used for "${result.device.name}", which is not a print agent. Enter the new code on the print agent (for example PRINT-AGENT-01).`;
           break;
         }
-        if ('device' in result && result.device) {
-          if (result.device.kind !== 'print_agent') {
-            this.pairingProblem = `The code was entered on "${result.device.name}", which is not a print agent, so this PC did not connect. Enter the new code below on the print agent (for example PRINT-AGENT-01) in Devices & printing.`;
-            this.state = { ...this.state, pairing: null, message: this.pairingProblem };
-            break;
-          }
-          const saved = {
-            refreshToken: result.session.refreshToken,
-            deviceId: result.device.id,
-            deviceName: result.device.name,
-          };
-          this.pairingProblem = null;
-          this.o.store.save(saved);
-          this.o.log.info('printing.paired', { device: saved.deviceName });
-          this.run(saved);
-          return;
-        }
-        if (result.status === 'expired') break;
+        const saved = {
+          refreshToken: result.session.refreshToken,
+          deviceId: result.device.id,
+          deviceName: result.device.name,
+        };
+        this.pairingProblem = null;
+        this.pairingSecret = null;
+        this.o.store.save(saved);
+        this.o.log.info('printing.paired', { device: saved.deviceName });
+        this.run(saved);
+        return;
       }
     }
+  }
+
+  /** "Show a new code": the current code stops working and exactly one new code is shown. */
+  newCode(): void {
+    if (this.state.phase !== 'pairing') return;
+    void this.beginPairing(true);
   }
 
   private run(saved: SavedPairing): void {
@@ -317,8 +342,13 @@ export class PrintStation {
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(20_000),
     });
-    const json = (await res.json().catch(() => null)) as (T & { error?: { message?: string } }) | null;
-    if (!res.ok) throw new Error(json?.error?.message ?? `MY FOOD answered ${res.status}`);
+    const json = (await res.json().catch(() => null)) as
+      | (T & { error?: { message?: string; code?: string } })
+      | null;
+    if (!res.ok)
+      throw Object.assign(new Error(json?.error?.message ?? `MY FOOD answered ${res.status}`), {
+        code: json?.error?.code,
+      });
     return json as T;
   }
 }

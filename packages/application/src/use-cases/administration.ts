@@ -375,7 +375,14 @@ const normalizeCode = (c: string) => c.toUpperCase().replace(/[^A-Z0-9]/g, '');
 export class RequestDevicePairing {
   constructor(private readonly deps: Dependencies) {}
 
-  async execute(): Promise<{ code: string; secret: string; expiresAt: string }> {
+  /**
+   * `kind`: set by programs that can only be one kind of device (MY FOOD Printing: print_agent; MY
+   * FOOD Hub: hub). `replaces`: the secret of this screen's previous code, which stops working now,
+   * so a screen has one live code at a time.
+   */
+  async execute(
+    input: { kind?: 'print_agent' | 'hub' | null; replaces?: string | null } = {},
+  ): Promise<{ code: string; secret: string; expiresAt: string }> {
     const identity = required(this.deps.identity, 'identity registry');
     const secrets = required(this.deps.secrets, 'secret generator');
     const now = this.deps.clock.now();
@@ -387,8 +394,39 @@ export class RequestDevicePairing {
       this.deps.fingerprint.of({ pairingSecret: secret }),
       expiresAt,
       now,
+      input.kind ?? null,
+      input.replaces ? this.deps.fingerprint.of({ pairingSecret: input.replaces }) : null,
     );
     return { code: formatCode(code), secret, expiresAt: expiresAt.toISOString() };
+  }
+}
+
+const KIND_LABEL: Record<string, string> = {
+  print_agent: 'a print agent (for example PRINT-AGENT-01)',
+  hub: 'the MY FOOD Hub device',
+};
+
+/** What went wrong with a code, in words the manager can act on. */
+export function pairingRefusal(status: string, deviceName: string): string {
+  if (status.startsWith('wrong_kind:')) {
+    const kind = status.slice('wrong_kind:'.length);
+    const program =
+      kind === 'print_agent' ? 'MY FOOD Printing' : kind === 'hub' ? 'MY FOOD Hub' : 'this program';
+    return `This code comes from ${program}, which can only be paired as ${KIND_LABEL[kind] ?? kind}, not as ${deviceName}. Nothing was changed. Press "Enter code from device" on ${KIND_LABEL[kind] ?? kind} and type the code there.`;
+  }
+  switch (status) {
+    case 'expired':
+      return 'That pairing code has expired. The device now shows a new code: enter that one.';
+    case 'already_used':
+      return 'That pairing code has already been used for another device. If this device still needs pairing, enter the code it shows now.';
+    case 'replaced':
+      return 'The device has shown a newer code since. Enter the code that is on its screen now.';
+    case 'manager_code':
+      return 'That is a code created here in MY FOOD ("Create code"). Type it on the device itself (Pair this device → "I have a code from a manager"), or enter the code the device shows.';
+    case 'device_unavailable':
+      return 'This device is deactivated or belongs to another restaurant.';
+    default:
+      return 'That pairing code is not valid. Check the code shown on the device and try again.';
   }
 }
 
@@ -410,19 +448,20 @@ export class ApproveDevicePairing {
         throw new DomainError('VALIDATION_FAILED', 'Printers are driven by a print agent and are not paired');
       return d;
     });
-    // 2. Approve (the database checks the device's restaurant again).
-    const ok = await identity.approvePairingRequest(
-      this.deps.fingerprint.of({ pairingRequest: normalizeCode(code) }),
+    // 2. Approve (the database checks the device's restaurant again) or learn why not.
+    const normalized = normalizeCode(code);
+    const status = await identity.approvePairingRequest(
+      this.deps.fingerprint.of({ pairingRequest: normalized }),
+      this.deps.fingerprint.of({ pairing: normalized }),
       restaurantId,
       deviceId,
       ctx.principal.staffId,
       now,
     );
-    if (!ok)
-      throw new DomainError(
-        'PAIRING_CODE_INVALID',
-        'That code is not valid or has expired. Check the code on the device screen',
-      );
+    // The same code approved again for the same device (double submit): already done.
+    if (status === 'already_approved') return { ok: true };
+    if (status !== 'approved')
+      throw new DomainError('PAIRING_CODE_INVALID', pairingRefusal(status, device.name), { reason: status });
     // 3. Record it.
     await this.deps.uow.run(restaurantId, (tx) =>
       tx.audit.append({

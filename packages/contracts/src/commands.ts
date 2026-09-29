@@ -237,6 +237,12 @@ export type EmailPinSignInCommand = z.infer<typeof EmailPinSignInCommand>;
 
 // Device-initiated pairing.
 export const CollectPairingCommand = z.object({ secret: z.string().min(20).max(100) });
+/** A device asks for a pairing code: what it can only be (optional), and the code it replaces. */
+export const PairingRequestCommand = z.object({
+  kind: z.enum(['print_agent', 'hub']).nullish(),
+  replaces: z.string().min(20).max(100).nullish(),
+});
+export type PairingRequestCommand = z.infer<typeof PairingRequestCommand>;
 export type CollectPairingCommand = z.infer<typeof CollectPairingCommand>;
 export const ApprovePairingCommand = z.object({ code: z.string().trim().min(8).max(12) });
 export type ApprovePairingCommand = z.infer<typeof ApprovePairingCommand>;

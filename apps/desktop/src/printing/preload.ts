@@ -4,6 +4,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('printing', {
   status: () => ipcRenderer.invoke('printing:status'),
   scan: () => ipcRenderer.invoke('printing:scan'),
+  newCode: () => ipcRenderer.invoke('printing:newCode'),
   usb: () => ipcRenderer.invoke('printing:usb'),
   refresh: () => ipcRenderer.invoke('printing:refresh'),
   test: (p: unknown) => ipcRenderer.invoke('printing:test', p),

@@ -36,17 +36,24 @@ export async function pairHubWithCloud(options: {
       });
     return json!;
   };
+  let previous: string | null = null;
   for (;;) {
     let request: { code: string; secret: string; expiresAt: string };
     try {
-      request = (await post('/v1/devices/pairing-requests', {})) as typeof request;
+      // The hub can only be paired as a hub; asking for a new code cancels the previous one.
+      request = (await post('/v1/devices/pairing-requests', {
+        kind: 'hub',
+        replaces: previous,
+      })) as typeof request;
+      previous = request.secret;
     } catch (error) {
       options.onState({ status: 'error', message: `No connection to MY FOOD: ${(error as Error).message}` });
       await sleep(15_000);
       continue;
     }
     options.onState({ status: 'waiting', code: request.code, expiresAt: request.expiresAt });
-    while (Date.now() < Date.parse(request.expiresAt)) {
+    // Until the server says the code is over: the PC's clock may be wrong.
+    for (;;) {
       await sleep(options.pollMs ?? 3000);
       try {
         const result = await post('/v1/devices/pairing-requests/collect', { secret: request.secret });

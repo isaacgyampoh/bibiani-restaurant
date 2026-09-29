@@ -208,7 +208,12 @@ export function DevicesTab({
     pollMs: 20_000,
   });
   const [pairing, setPairing] = useState<(PairingCodeView & { name: string }) | null>(null);
-  const [approving, setApproving] = useState<{ id: string; name: string } | null>(null);
+  const [approving, setApproving] = useState<{
+    id: string;
+    name: string;
+    kind?: string;
+    paired?: boolean;
+  } | null>(null);
   const [renaming, setRenaming] = useState<Row | null>(null);
   const [editing, setEditing] = useState<Row | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -309,7 +314,9 @@ export function DevicesTab({
                       <button
                         type="button"
                         className="btn sm"
-                        onClick={() => setApproving({ id: d.id, name: d.name })}
+                        onClick={() =>
+                          setApproving({ id: d.id, name: d.name, kind: d.kind, paired: d.paired })
+                        }
                       >
                         Enter code from device
                       </button>
@@ -576,7 +583,7 @@ function ApprovePairingDialog({
   onClose,
   onDone,
 }: {
-  device: { id: string; name: string };
+  device: { id: string; name: string; kind?: string; paired?: boolean };
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -600,9 +607,21 @@ function ApprovePairingDialog({
     <Modal title={`Pair ${device.name}`} onClose={onClose}>
       <form className="form" onSubmit={submit}>
         <p className="muted">
-          On the device, open {location.origin}/pair. It shows a code like <strong>K7M4-Q2RT</strong>. Enter
-          it here: the device then becomes <strong>{device.name}</strong> and continues by itself. Any earlier
-          installation of this device stops working.
+          {device.kind === 'print_agent'
+            ? 'Type the code shown in MY FOOD Printing on the printing PC.'
+            : device.kind === 'hub'
+              ? 'Type the code shown in the MY FOOD Hub window.'
+              : `Type the code shown on the device's "Pair this device" screen (${location.origin}/pair).`}{' '}
+          The device then becomes <strong>{device.name}</strong> and continues by itself.
+        </p>
+        {device.paired ? (
+          <div className="alert-box warn" role="status">
+            <strong>{device.name} is already paired.</strong> Pairing it again gives it a new login: the
+            screen that uses it now is signed out. Only continue for a new or reset screen.
+          </div>
+        ) : null}
+        <p className="small muted">
+          A code you made with "Create code" is not entered here: it is typed on the device itself.
         </p>
         <input
           className="code-input"

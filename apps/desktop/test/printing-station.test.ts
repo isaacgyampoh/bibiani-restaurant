@@ -88,17 +88,26 @@ describe('MY FOOD Printing (the restaurant PC program)', () => {
       body: JSON.stringify({ code }),
     });
 
-  it('a code entered on a device that is not a print agent is refused on the PC with an explanation', async () => {
+  const requests = async () =>
+    (await h.db.query<{ n: number }>('select count(*)::int as n from device_pairing_requests'))[0]!.n;
+
+  it('its code entered on a till is refused and nothing changes: same code on screen, till keeps its login', async () => {
     station.start();
     await until(() => station.status().pairing !== null);
-    const res = await approve(h.f.devices.display, station.status().pairing!.code);
-    expect(res.status).toBe(200);
-    await until(() => /not a print agent/.test(station.status().message ?? ''), 20_000);
+    const code = station.status().pairing!.code;
+    const before = await requests();
+    const res = await approve(h.f.devices.display, code);
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: { message: string } }).error.message).toContain(
+      'MY FOOD Printing',
+    );
+    await new Promise((r) => setTimeout(r, 4000)); // two polls
+    expect(station.status().pairing?.code).toBe(code);
+    expect(await requests()).toBe(before);
     expect(saved).toBeNull();
   });
 
   it('shows a code; the manager enters it on the print agent; the PC connects and sees its printers', async () => {
-    await until(() => station.status().pairing !== null, 20_000);
     const res = await approve(h.f.devices.agent, station.status().pairing!.code);
     expect(res.status).toBe(200);
     await until(() => station.status().phase === 'running');
@@ -113,6 +122,35 @@ describe('MY FOOD Printing (the restaurant PC program)', () => {
     });
     // A printer with a wrong address is reported as not reachable, with the reason.
     expect(station.status().printers.find((p) => p.id === h.f.printers.grill)?.reachable).toBe(false);
+  });
+
+  it('after pairing no new code ever appears (waiting, polling), and a restart does not pair again', async () => {
+    const before = await requests();
+    await new Promise((r) => setTimeout(r, 5000));
+    expect(station.status()).toMatchObject({ phase: 'running', pairing: null });
+    expect(await requests()).toBe(before);
+    // Restart: a new app process with the same saved pairing goes straight to printing.
+    const restarted = new PrintStation({
+      cloudUrl: 'http://api.test',
+      supabaseUrl: 'http://unused',
+      supabaseAnonKey: 'unused',
+      store,
+      journalFile: join(mkdtempSync(join(tmpdir(), 'printing-')), 'journal.jsonl'),
+      version: 'test',
+      log: { info: () => {}, warn: () => {}, error: () => {} },
+      fetch: h.fetch,
+      tokenSourceFor: (s) => async () => h.token(await deviceUser(s.deviceId)),
+      pollIntervalMs: 100,
+    });
+    restarted.start();
+    expect(restarted.status()).toMatchObject({
+      phase: 'running',
+      pairing: null,
+      device: { name: 'AGENT-01' },
+    });
+    await new Promise((r) => setTimeout(r, 2000));
+    expect(await requests()).toBe(before);
+    restarted.stop();
   });
 
   it('an order sent to the kitchen prints on the network printer, once', async () => {
@@ -154,5 +192,40 @@ describe('MY FOOD Printing (the restaurant PC program)', () => {
 
   it('network search finds a printer listening on the printing port', async () => {
     expect(await scanHosts(['127.0.0.1', '127.0.0.2'], port, 300)).toEqual(['127.0.0.1']);
+  });
+
+  it('an unpaired PC keeps the same code through network errors; "Show a new code" cancels the old one', async () => {
+    let failCollect = 3;
+    const flaky: typeof fetch = async (input, init) => {
+      if (String(input).endsWith('/collect') && failCollect-- > 0) throw new TypeError('fetch failed');
+      return h.fetch(input, init);
+    };
+    let local: SavedPairing | null = null;
+    const fresh = new PrintStation({
+      cloudUrl: 'http://api.test',
+      supabaseUrl: 'http://unused',
+      supabaseAnonKey: 'unused',
+      store: { load: () => local, save: (p) => (local = p), saveToken: () => {} },
+      journalFile: join(mkdtempSync(join(tmpdir(), 'printing-')), 'journal.jsonl'),
+      version: 'test',
+      log: { info: () => {}, warn: () => {}, error: () => {} },
+      fetch: flaky,
+      pairingPollMs: 300,
+    });
+    fresh.start();
+    await until(() => fresh.status().pairing !== null);
+    const first = fresh.status().pairing!.code;
+    await new Promise((r) => setTimeout(r, 4000));
+    expect(fresh.status().pairing?.code).toBe(first);
+    fresh.newCode();
+    await until(() => (fresh.status().pairing?.code ?? first) !== first);
+    const second = fresh.status().pairing!.code;
+    const old = await approve(h.f.devices.agent, first);
+    expect(((await old.json()) as { error: { message: string } }).error.message).toContain('newer code');
+    const ok = await approve(h.f.devices.agent, second);
+    expect(ok.status).toBe(200);
+    await until(() => fresh.status().phase === 'running' || fresh.status().phase === 'error');
+    expect(local?.deviceName).toBe('AGENT-01');
+    fresh.stop();
   });
 });

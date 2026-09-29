@@ -30,6 +30,7 @@ import {
   OpenRegisterCommand,
   OrderPriorityCommand,
   PairDeviceCommand,
+  PairingRequestCommand,
   PinRecoveryCommand,
   PinSignInCommand,
   PrintJobResultCommand,
@@ -260,14 +261,19 @@ export function createHttpApp(deps: HttpDependencies) {
   });
 
   // Device-initiated pairing (the device shows a code). Both device-side calls are public.
-  const pairingRequestLimiter = new RateLimiter(5, 60_000);
-  const pairingCollectLimiter = new RateLimiter(40, 60_000);
+  // Per network address. A restaurant's screens all share one address, and each waiting screen asks
+  // every 3 seconds, so the limits allow several screens at once. Codes (8 characters, 10 minutes,
+  // one use) and secrets (256 bits) are not guessable within these limits.
+  const pairingRequestLimiter = new RateLimiter(30, 60_000);
+  const pairingCollectLimiter = new RateLimiter(400, 60_000);
   const clientOf = (c: Context<Env>) =>
     c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? c.req.header('x-real-ip') ?? 'local';
   http.post('/v1/devices/pairing-requests', async (c) => {
     if (!pairingRequestLimiter.allow(clientOf(c)))
       throw new DomainError('RATE_LIMITED', 'Too many attempts. Wait a minute and try again.');
-    return c.json(await deps.app.requestDevicePairing.execute());
+    const raw = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+    const parsed = PairingRequestCommand.safeParse(raw ?? {});
+    return c.json(await deps.app.requestDevicePairing.execute(parsed.success ? parsed.data : {}));
   });
   http.post('/v1/devices/pairing-requests/collect', async (c) => {
     if (!pairingCollectLimiter.allow(clientOf(c)))
