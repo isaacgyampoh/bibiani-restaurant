@@ -6,6 +6,7 @@ import { api, signOut, topics } from '../../infra/session';
 import { useFeed } from '../../infra/use-feed';
 import { Alert, Badge, ConnectionDot, ErrorBox, Modal, Money } from '../../ui/components';
 import { Icon } from '../../ui/icons';
+import { EditDeviceDialog, PrintingHealth, testPrintAndFollow } from './PrintingSetup';
 
 type Tab = 'devices' | 'menu' | 'stations' | 'floor' | 'staff' | 'print';
 type Row = Record<string, unknown>;
@@ -209,6 +210,7 @@ export function DevicesTab({
   const [pairing, setPairing] = useState<(PairingCodeView & { name: string }) | null>(null);
   const [approving, setApproving] = useState<{ id: string; name: string } | null>(null);
   const [renaming, setRenaming] = useState<Row | null>(null);
+  const [editing, setEditing] = useState<Row | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const deviceRow = (id: string) => (config.devices as Row[]).find((x) => x.id === id) ?? null;
   const setActive = (id: string, isActive: boolean) => {
@@ -241,6 +243,14 @@ export function DevicesTab({
           </p>
         ) : null}
         <HubSummary devices={feed.data?.devices ?? []} />
+        {feed.data ? (
+          <PrintingHealth
+            devices={feed.data.devices}
+            config={config}
+            branchId={branchId}
+            onEnterCode={(d) => setApproving(d)}
+          />
+        ) : null}
         <table className="list">
           <thead>
             <tr>
@@ -270,6 +280,10 @@ export function DevicesTab({
                       {d.printer.address}{' '}
                       {d.printer.lastError ? (
                         <span className="badge failed">{d.printer.lastError}</span>
+                      ) : null}
+                      {d.printer.connection === 'usb_escpos' ? <span className="muted">(USB) </span> : null}
+                      {d.printer.waitingJobs > 0 ? (
+                        <span className="badge warn">{d.printer.waitingJobs} waiting</span>
                       ) : null}
                       {d.printer.failedJobs + d.printer.deadJobs > 0 ? (
                         <span className="badge dead">
@@ -318,22 +332,24 @@ export function DevicesTab({
                       type="button"
                       className="btn sm"
                       onClick={() =>
-                        void api
-                          .testPrint(d.id, crypto.randomUUID())
-                          .then(() =>
-                            setNotice(
-                              `Test page sent to ${d.name}. If nothing prints within a minute, check the printer and the Print queue.`,
-                            ),
-                          )
-                          .catch(onError)
+                        void testPrintAndFollow({ id: d.id, name: d.name }, branchId, (text) => {
+                          setNotice(text);
+                          feed.refresh();
+                        }).catch(onError)
                       }
                     >
                       Test print
                     </button>
                   ) : null}
-                  <button type="button" className="btn sm" onClick={() => setRenaming(deviceRow(d.id))}>
-                    Rename
-                  </button>
+                  {['printer', 'pos', 'kds'].includes(d.kind) ? (
+                    <button type="button" className="btn sm" onClick={() => setEditing(deviceRow(d.id))}>
+                      Edit
+                    </button>
+                  ) : (
+                    <button type="button" className="btn sm" onClick={() => setRenaming(deviceRow(d.id))}>
+                      Rename
+                    </button>
+                  )}
                   {d.kind === 'printer' ? (
                     <button
                       type="button"
@@ -409,7 +425,16 @@ export function DevicesTab({
             ['name', 'Name (e.g. PASTRY-KDS-01)', 'text'],
             ['kind', 'Type', 'select', DEVICE_KINDS.map((k) => [k, k.replace('_', ' ')])],
             ['stationId', 'Station (KDS)', 'select', stations.map((s) => [str(s.id), str(s.name)])],
-            ['address', 'Printer address (IP:9100)', 'text'],
+            [
+              'connection',
+              'Printer connected by',
+              'select',
+              [
+                ['network_escpos', 'Network (IP address)'],
+                ['usb_escpos', 'USB into the printing PC'],
+              ],
+            ],
+            ['address', 'Printer IP address, or Windows printer name for USB', 'text'],
             [
               'agentDeviceId',
               'Printer driven by agent',
@@ -431,7 +456,13 @@ export function DevicesTab({
               stationId: v.stationId ?? null,
               receiptPrinterId: v.receiptPrinterId ?? null,
               printer:
-                v.kind === 'printer' ? { address: v.address, agentDeviceId: v.agentDeviceId ?? null } : null,
+                v.kind === 'printer'
+                  ? {
+                      connection: v.connection || 'network_escpos',
+                      address: v.address,
+                      agentDeviceId: v.agentDeviceId ?? null,
+                    }
+                  : null,
             }).then((ok) => {
               if (ok) feed.refresh();
               return ok;
@@ -445,6 +476,20 @@ export function DevicesTab({
           onClose={() => setApproving(null)}
           onDone={() => {
             setApproving(null);
+            feed.refresh();
+          }}
+        />
+      ) : null}
+      {editing ? (
+        <EditDeviceDialog
+          device={editing}
+          config={config}
+          branchId={branchId}
+          save={save}
+          onClose={() => setEditing(null)}
+          onDone={() => {
+            setEditing(null);
+            reloadConfig?.();
             feed.refresh();
           }}
         />

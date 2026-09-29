@@ -385,6 +385,10 @@ export interface OperationsView {
       lastStatusAt: string | null;
       failedJobs: number;
       deadJobs: number;
+      /** Jobs no program has picked up yet (none, when printing is running). */
+      waitingJobs: number;
+      oldestWaitingAt: string | null;
+      connection: 'network_escpos' | 'usb_escpos';
     } | null;
     /** 'hub': status as reported by the branch's in-store hub (the device talks to the hub, not the cloud). */
     via: 'hub' | null;

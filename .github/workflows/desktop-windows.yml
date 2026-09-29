@@ -1,4 +1,4 @@
-name: MY FOOD Hub (Windows installer)
+name: MY FOOD Hub and MY FOOD Printing (Windows installers)
 
 # Builds the PRODUCTION MY FOOD Hub installer on a real Windows machine.
 #  - Run by hand (Actions tab): the installer is attached to the run as an artifact.
@@ -78,4 +78,38 @@ jobs:
         with:
           name: MY-FOOD-Hub-production-${{ github.sha }}
           path: apps/desktop/release/MY-FOOD-Hub-Setup-*-production.exe
+          if-no-files-found: error
+
+      # MY FOOD Printing: the print program for a restaurant PC (same guards as the hub).
+      - name: Build MY FOOD Printing (production channel)
+        working-directory: apps/desktop
+        run: node build.mjs --app printing --channel production ${{ env.ENV_ARG }}
+
+      - name: Check MY FOOD Printing is production (and not staging)
+        shell: bash
+        working-directory: apps/desktop
+        run: |
+          grep -q '"channel":"production"' app-printing/build-info.json
+          grep -q 'lgoirbfyspuflqekrcgp.supabase.co' app-printing/main.cjs
+          if grep -rq 'impairlsvhkumjzhjhti\|restaurant-management-staging' app-printing; then
+            echo "::error::Staging values found in the production printing build"; exit 1
+          fi
+          cat app-printing/build-info.json
+
+      - name: Package MY FOOD Printing
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        working-directory: apps/desktop
+        run: pnpm exec electron-builder --config electron-builder.printing.generated.json --win nsis --x64 --publish never
+
+      - name: Package and publish MY FOOD Printing
+        if: startsWith(github.ref, 'refs/tags/v')
+        working-directory: apps/desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pnpm exec electron-builder --config electron-builder.printing.generated.json --win nsis --x64 --publish always
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MY-FOOD-Printing-production-${{ github.sha }}
+          path: apps/desktop/release-printing/MY-FOOD-Printing-Setup.exe
           if-no-files-found: error

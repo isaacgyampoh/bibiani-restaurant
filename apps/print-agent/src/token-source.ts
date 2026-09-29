@@ -15,12 +15,17 @@ export function supabaseDeviceTokenSource(
   supabaseUrl: string,
   anonKey: string,
   initialRefreshToken: string,
-  sessionFile: string,
+  /** Where the latest refresh token is kept: a private file, or a store (e.g. the Windows key store). */
+  sessionFile: string | { load(): string | null; save(refreshToken: string): void },
 ) {
   const client = createClient(supabaseUrl, anonKey, {
     auth: { persistSession: false, autoRefreshToken: true },
   });
   const persist = (refreshToken: string) => {
+    if (typeof sessionFile !== 'string') {
+      sessionFile.save(refreshToken);
+      return;
+    }
     mkdirSync(dirname(sessionFile), { recursive: true });
     writeFileSync(sessionFile, JSON.stringify({ refreshToken, savedAt: new Date().toISOString() }), {
       mode: 0o600,
@@ -32,6 +37,7 @@ export function supabaseDeviceTokenSource(
   });
 
   const stored = (): string | null => {
+    if (typeof sessionFile !== 'string') return sessionFile.load();
     if (!existsSync(sessionFile)) return null;
     try {
       return (
@@ -45,7 +51,9 @@ export function supabaseDeviceTokenSource(
   let ready: Promise<void> | null = null;
   const start = async () => {
     // Prefer the persisted (latest) token; fall back to the configured first-start token.
-    for (const candidate of [stored(), initialRefreshToken].filter((t): t is string => Boolean(t))) {
+    for (const candidate of [...new Set([stored(), initialRefreshToken])].filter((t): t is string =>
+      Boolean(t),
+    )) {
       const { data, error } = await client.auth.refreshSession({ refresh_token: candidate });
       if (!error && data.session) {
         persist(data.session.refresh_token);

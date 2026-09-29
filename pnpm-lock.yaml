@@ -93,9 +93,18 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@rp/client-core':
+        specifier: workspace:*
+        version: link:../../packages/client-core
+      '@rp/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@rp/hub-app':
         specifier: workspace:*
         version: link:../hub
+      '@rp/print-agent':
+        specifier: workspace:*
+        version: link:../print-agent
     devDependencies:
       electron:
         specifier: 38.2.0

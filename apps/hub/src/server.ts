@@ -25,7 +25,7 @@ import {
   sha256Fingerprinter,
   systemClock,
 } from '@rp/infrastructure';
-import { NetworkEscPosDriver, PrintAgent, PrintJournal } from '@rp/print-agent';
+import { NetworkEscPosDriver, PrintAgent, PrintJournal, WindowsSpoolerDriver } from '@rp/print-agent';
 import { type Context, Hono } from 'hono';
 
 export interface HubConfig {
@@ -295,9 +295,11 @@ export async function createHub(config: HubConfig) {
         },
       }),
       driverFor: (printer) => {
-        if (printer.connection !== 'network_escpos' || !printer.address)
-          throw new Error(`Printer ${printer.name}: only network printers are supported by the hub`);
-        return new NetworkEscPosDriver(printer.address);
+        if (!printer.address) throw new Error(`Printer ${printer.name} has no address`);
+        // A USB printer must be plugged into the hub PC itself.
+        return printer.connection === 'usb_escpos'
+          ? new WindowsSpoolerDriver(printer.address)
+          : new NetworkEscPosDriver(printer.address);
       },
       journal: new PrintJournal(join(config.dataDir, 'print-journal.jsonl')),
       logger,

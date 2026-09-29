@@ -246,6 +246,7 @@ export function createAdminRepository(sql: Sql): AdminRepository {
       if (entity === 'device') {
         const printer = record.printer as
           | {
+              connection?: 'network_escpos' | 'usb_escpos';
               address: string;
               agentDeviceId?: string | null;
               paperWidthMm?: number;
@@ -256,15 +257,17 @@ export function createAdminRepository(sql: Sql): AdminRepository {
         if (record.kind === 'printer' && printer) {
           await sql.query(
             `insert into printers (device_id, restaurant_id, connection, address, agent_device_id, paper_width_mm, backup_printer_id)
-             values ($1, app.current_restaurant_id(), 'network_escpos', $2, $3, $4, $5)
-             on conflict (device_id) do update set address = excluded.address, agent_device_id = excluded.agent_device_id,
-               paper_width_mm = excluded.paper_width_mm, backup_printer_id = excluded.backup_printer_id`,
+             values ($1, app.current_restaurant_id(), $6::printer_connection, $2, $3, $4, $5)
+             on conflict (device_id) do update set connection = excluded.connection, address = excluded.address,
+               agent_device_id = excluded.agent_device_id, paper_width_mm = excluded.paper_width_mm,
+               backup_printer_id = excluded.backup_printer_id, last_error = null`,
             [
               id,
               printer.address,
               printer.agentDeviceId ?? null,
               printer.paperWidthMm ?? 80,
               printer.backupPrinterId ?? null,
+              printer.connection ?? 'network_escpos',
             ],
           );
         }

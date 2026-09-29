@@ -28,6 +28,9 @@ const arg = (name, fallback) => {
   return i > 0 ? process.argv[i + 1] : fallback;
 };
 const channel = arg('channel', null);
+/** 'hub' (MY FOOD Hub) or 'printing' (MY FOOD Printing: the print program for a restaurant PC). */
+const appKind = arg('app', 'hub');
+if (appKind !== 'hub' && appKind !== 'printing') throw new Error('--app must be hub or printing');
 if (channel !== 'production' && channel !== 'test')
   throw new Error('Choose the channel explicitly: --channel production, or --channel test');
 // Public values: from --env (e.g. .env.staging for a test build), or for production the committed
@@ -77,6 +80,98 @@ if (channel === 'production') {
     throw new Error(`${cloudUrl} reports environment "${health.environment}", not production`);
 } else if (supabaseHost === `${PRODUCTION_SUPABASE_REF}.supabase.co`) {
   throw new Error('A test hub must not use the production Supabase project');
+}
+
+if (appKind === 'printing') {
+  const out = join(here, 'app-printing');
+  rmSync(out, { recursive: true, force: true });
+  mkdirSync(out, { recursive: true });
+  const define = {
+    'process.env.MYFOOD_CLOUD_URL': JSON.stringify(cloudUrl),
+    'process.env.MYFOOD_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
+    'process.env.MYFOOD_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
+    'process.env.MYFOOD_CHANNEL': JSON.stringify(channel),
+  };
+  for (const [entry, file] of [
+    ['src/printing/main.ts', 'main.cjs'],
+    ['src/printing/preload.ts', 'printing-preload.cjs'],
+  ])
+    await build({
+      entryPoints: [join(here, entry)],
+      outfile: join(out, file),
+      bundle: true,
+      platform: 'node',
+      target: 'node22',
+      format: 'cjs',
+      sourcemap: true,
+      external: ['electron'],
+      define,
+      logLevel: 'warning',
+    });
+  for (const f of ['printing.html', 'printing.css', 'printing-ui.js'])
+    cpSync(join(here, 'printing-ui', f), join(out, f));
+  cpSync(join(root, 'apps/web/public/logo-512.png'), join(out, 'icon.png'));
+  const pkg = JSON.parse(readFileSync(join(here, 'package.json'), 'utf8'));
+  const production = channel === 'production';
+  const productName = production ? 'MY FOOD Printing' : 'MY FOOD Printing (TEST)';
+  writeFileSync(
+    join(out, 'package.json'),
+    JSON.stringify(
+      {
+        name: production ? 'myfood-printing' : 'myfood-printing-test',
+        productName,
+        version: pkg.version,
+        main: 'main.cjs',
+        author: pkg.author,
+        description:
+          'MY FOOD Printing: prints kitchen tickets, receipts and bills on the restaurant printers',
+      },
+      null,
+      2,
+    ),
+  );
+  writeFileSync(
+    join(out, 'build-info.json'),
+    JSON.stringify({ app: 'printing', channel, cloudUrl, supabaseHost, version: pkg.version }),
+  );
+  writeFileSync(
+    join(here, 'electron-builder.printing.generated.json'),
+    JSON.stringify(
+      {
+        appId: production ? 'com.myfood.printing' : 'com.myfood.printing.test',
+        productName,
+        // A fixed file name, so ".../releases/latest/download/MY-FOOD-Printing-Setup.exe" always works.
+        artifactName: production ? 'MY-FOOD-Printing-Setup.${ext}' : 'MY-FOOD-Printing-TEST-Setup.${ext}',
+        directories: { app: 'app-printing', output: 'release-printing' },
+        files: ['**/*'],
+        asar: true,
+        win: { target: 'nsis', icon: 'app-printing/icon.png' },
+        nsis: {
+          oneClick: false,
+          perMachine: true,
+          allowToChangeInstallationDirectory: false,
+          createDesktopShortcut: 'always',
+          shortcutName: productName,
+        },
+        // Its own update channel ("printing.yml"), so it never picks up the hub's updates.
+        publish: production
+          ? {
+              provider: 'github',
+              owner: 'isaacgyampoh',
+              repo: 'bibiani-restaurant',
+              releaseType: 'release',
+              channel: 'printing',
+            }
+          : null,
+      },
+      null,
+      2,
+    ),
+  );
+  console.log(
+    `Built ${productName} ${pkg.version} [${channel}] into ${out} (cloud ${cloudUrl}, ${supabaseHost})`,
+  );
+  process.exit(0);
 }
 
 const app = join(here, 'app');

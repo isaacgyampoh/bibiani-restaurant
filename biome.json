@@ -13,6 +13,9 @@
       "!perf-results",
       "!apps/desktop/app",
       "!apps/desktop/release",
+      "!apps/desktop/app-printing",
+      "!apps/desktop/release-printing",
+      "!apps/desktop/electron-builder.printing.generated.json",
       "!.production-archives"
     ]
   },

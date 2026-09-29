@@ -21,4 +21,7 @@ perf-results/
 apps/desktop/app/
 apps/desktop/release/
 apps/desktop/electron-builder.generated.json
+apps/desktop/app-printing/
+apps/desktop/release-printing/
+apps/desktop/electron-builder.printing.generated.json
 .production-archives/

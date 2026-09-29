@@ -4,6 +4,7 @@ import { PrintAgent } from './agent';
 import { NetworkEscPosDriver } from './driver';
 import { PrintJournal } from './journal';
 import { supabaseDeviceTokenSource } from './token-source';
+import { WindowsSpoolerDriver } from './windows';
 
 function required(name: string): string {
   const v = process.env[name];
@@ -35,12 +36,10 @@ const api = new ApiClient({
 const agent = new PrintAgent({
   api,
   driverFor: (printer) => {
-    if (printer.connection !== 'network_escpos' || !printer.address) {
-      throw new Error(
-        `Printer ${printer.name}: connection ${printer.connection} is not supported by this agent yet`,
-      );
-    }
-    return new NetworkEscPosDriver(printer.address);
+    if (!printer.address) throw new Error(`Printer ${printer.name} has no address`);
+    return printer.connection === 'usb_escpos'
+      ? new WindowsSpoolerDriver(printer.address)
+      : new NetworkEscPosDriver(printer.address);
   },
   journal: new PrintJournal(resolve(process.env.JOURNAL_FILE ?? '.journal/print-journal.jsonl')),
   logger,

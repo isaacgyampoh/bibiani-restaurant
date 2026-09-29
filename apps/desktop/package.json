@@ -1,6 +1,6 @@
 {
   "name": "@rp/desktop",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "MY FOOD Hub for Windows: runs the restaurant locally, also without internet",
   "author": "MY FOOD",
@@ -9,15 +9,21 @@
     "dist:win": "node build.mjs --channel production && electron-builder --config electron-builder.generated.json --win nsis --x64 --publish never",
     "dist:win:test": "node build.mjs --channel test --env .env.staging --cloud https://restaurant-management-staging.vercel.app && electron-builder --config electron-builder.generated.json --win nsis --x64 --publish never",
     "start": "node build.mjs --channel test --env .env.staging --cloud https://restaurant-management-staging.vercel.app && electron app",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json",
+    "dist:printing": "node build.mjs --app printing --channel production && electron-builder --config electron-builder.printing.generated.json --win nsis --x64 --publish never",
+    "dist:printing:test": "node build.mjs --app printing --channel test --env .env.staging --cloud https://restaurant-management-staging.vercel.app && electron-builder --config electron-builder.printing.generated.json --win nsis --x64 --publish never",
+    "start:printing": "node build.mjs --app printing --channel test --env .env.staging --cloud https://restaurant-management-staging.vercel.app && electron app-printing"
   },
   "dependencies": {
-    "@rp/hub-app": "workspace:*"
+    "@rp/client-core": "workspace:*",
+    "@rp/contracts": "workspace:*",
+    "@rp/hub-app": "workspace:*",
+    "@rp/print-agent": "workspace:*"
   },
   "devDependencies": {
     "electron": "38.2.0",
     "electron-builder": "26.0.12",
-    "esbuild": "0.28.2",
-    "electron-updater": "6.6.2"
+    "electron-updater": "6.6.2",
+    "esbuild": "0.28.2"
   }
 }

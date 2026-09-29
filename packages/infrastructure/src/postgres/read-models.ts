@@ -521,6 +521,9 @@ export function createReadModels(sql: Sql): ReadModels {
                 pr.address, pr.agent_device_id, pr.last_error, pr.last_status_at,
                 (select count(*) from print_jobs j where j.printer_id = d.id and j.status = 'failed')::int as failed_jobs,
                 (select count(*) from print_jobs j where j.printer_id = d.id and j.status = 'dead')::int as dead_jobs,
+                (select count(*) from print_jobs j where j.printer_id = d.id and j.status = 'pending')::int as waiting_jobs,
+                (select min(j.created_at) from print_jobs j where j.printer_id = d.id and j.status = 'pending') as oldest_waiting_at,
+                pr.connection,
                 agent.last_heartbeat_at as agent_heartbeat_at, d.hub_health,
                 (select b.hub_device_id from branches b where b.id = d.branch_id) as branch_hub_id
          from devices d
@@ -588,6 +591,9 @@ export function createReadModels(sql: Sql): ReadModels {
                       lastStatusAt: iso(seenAt),
                       failedJobs: local.unprintedJobs ?? 0,
                       deadJobs: 0,
+                      waitingJobs: 0,
+                      oldestWaitingAt: null,
+                      connection: (sn(d.connection) ?? 'network_escpos') as 'network_escpos' | 'usb_escpos',
                     }
                   : null,
               via: 'hub' as const,
@@ -619,6 +625,9 @@ export function createReadModels(sql: Sql): ReadModels {
                   lastStatusAt: isoOf(d.last_status_at),
                   failedJobs: num(d.failed_jobs),
                   deadJobs: num(d.dead_jobs),
+                  waitingJobs: num(d.waiting_jobs),
+                  oldestWaitingAt: isoOf(d.oldest_waiting_at),
+                  connection: (sn(d.connection) ?? 'network_escpos') as 'network_escpos' | 'usb_escpos',
                 }
               : null,
             via: null,
@@ -824,7 +833,7 @@ export function createReadModels(sql: Sql): ReadModels {
              from products p where p.deleted_at is null order by p.name`),
         q(`select * from stations order by sort_order, name`),
         q(`select d.id, d.branch_id, d.kind, d.name, d.station_id, d.receipt_printer_id, d.is_active, d.auth_user_id is not null as paired,
-                    pr.address, pr.agent_device_id, pr.paper_width_mm, pr.backup_printer_id
+                    pr.address, pr.agent_device_id, pr.paper_width_mm, pr.backup_printer_id, pr.connection
              from devices d left join printers pr on pr.device_id = d.id order by d.kind, d.name`),
         q(`select * from station_outputs`),
         q(`select r.*, coalesce((select json_agg(device_id) from routing_rule_extra_outputs e where e.routing_rule_id = r.id), '[]') as extra_printer_ids

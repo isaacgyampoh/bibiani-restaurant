@@ -190,13 +190,31 @@ export const ConfigSchemas = {
     isActive: z.boolean().default(true),
     printer: z
       .object({
-        address: z
-          .string()
-          .trim()
-          .regex(/^[A-Za-z0-9.-]+(:\d{2,5})?$/),
+        /** network_escpos: IP[:port] on the restaurant network. usb_escpos: the Windows printer name on
+         *  the PC running MY FOOD Printing (a USB printer plugged into that PC). */
+        connection: z.enum(['network_escpos', 'usb_escpos']).default('network_escpos'),
+        address: z.string().trim().min(1, 'Enter the printer address').max(80),
         agentDeviceId: uuid.nullish(),
         paperWidthMm: z.union([z.literal(58), z.literal(80)]).default(80),
         backupPrinterId: uuid.nullish(),
+      })
+      .superRefine((p, ctx) => {
+        if (p.connection === 'network_escpos' && !/^[A-Za-z0-9.-]+(:\d{2,5})?$/.test(p.address))
+          ctx.addIssue({
+            code: 'custom',
+            path: ['address'],
+            message: 'Enter the printer IP address, e.g. 192.168.1.50 (port 9100 is assumed)',
+          });
+        // Printable characters only, and no quote or backslash.
+        if (
+          p.connection === 'usb_escpos' &&
+          (/["\\]/.test(p.address) || [...p.address].some((c) => c.charCodeAt(0) < 32))
+        )
+          ctx.addIssue({
+            code: 'custom',
+            path: ['address'],
+            message: 'Enter the Windows printer name exactly as shown',
+          });
       })
       .nullish(),
   }),

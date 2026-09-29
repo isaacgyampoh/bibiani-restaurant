@@ -1,0 +1,170 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font:
+    15px / 1.45 "Segoe UI",
+    system-ui,
+    sans-serif;
+  color: #111418;
+  background: #f5f6f8;
+}
+header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 24px;
+  background: #fff;
+  border-bottom: 1px solid #e3e6eb;
+}
+header img {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+h1 {
+  font-size: 20px;
+  margin: 0;
+}
+h2 {
+  font-size: 16px;
+  margin: 0 0 10px;
+}
+.grow {
+  flex: 1;
+}
+.muted {
+  color: #666e7b;
+}
+section {
+  background: #fff;
+  margin: 16px 24px;
+  padding: 16px 20px;
+  border: 1px solid #e3e6eb;
+  border-radius: 10px;
+}
+.pill {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 13px;
+  background: #f1f3f5;
+}
+.pill.ok {
+  background: #e6f4ec;
+  color: #16794a;
+}
+.pill.warn {
+  background: #fdf3e1;
+  color: #9a5b00;
+}
+.pill.bad {
+  background: #fceceb;
+  color: #c4261d;
+}
+.code {
+  font:
+    700 44px / 1.2 Consolas,
+    monospace;
+  letter-spacing: 6px;
+  padding: 12px 18px;
+  border: 2px dashed #e32129;
+  border-radius: 10px;
+  display: inline-block;
+  margin: 6px 0;
+}
+.alert {
+  background: #fceceb;
+  border-color: #f3c3bf;
+  color: #8b1a14;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th,
+td {
+  text-align: left;
+  padding: 8px 6px;
+  border-bottom: 1px solid #eef0f3;
+  font-size: 14px;
+}
+th {
+  color: #666e7b;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+.ok {
+  color: #16794a;
+  font-weight: 600;
+}
+.bad {
+  color: #c4261d;
+  font-weight: 600;
+}
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+button {
+  font: inherit;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid #cfd4dc;
+  background: #fff;
+  cursor: pointer;
+  min-height: 38px;
+}
+button.primary,
+#scan {
+  background: #e32129;
+  border-color: #e32129;
+  color: #fff;
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+button.link {
+  border: 0;
+  background: none;
+  color: #666e7b;
+  text-decoration: underline;
+}
+select {
+  font: inherit;
+  padding: 6px;
+}
+.found-item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #eef0f3;
+}
+.found-item code {
+  font-size: 15px;
+  font-weight: 700;
+}
+.recent {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 200px;
+  overflow: auto;
+}
+.recent li {
+  padding: 4px 0;
+  font-size: 14px;
+}
+footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 24px 20px;
+}

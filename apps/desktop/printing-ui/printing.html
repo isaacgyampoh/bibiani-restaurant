@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'" />
+    <title>MY FOOD Printing</title>
+    <link rel="stylesheet" href="printing.css" />
+  </head>
+  <body>
+    <header>
+      <img src="icon.png" alt="" />
+      <div class="grow">
+        <h1 id="title">MY FOOD Printing</h1>
+        <div id="sub" class="muted">Chefelisha Restaurant</div>
+      </div>
+      <span id="pill" class="pill">Starting…</span>
+    </header>
+
+    <section id="pairing" hidden>
+      <h2>Connect this PC to MY FOOD</h2>
+      <ol>
+        <li>On a phone or computer, open MY FOOD and go to <b>Devices &amp; printing</b>.</li>
+        <li>On the print agent (for example <b>PRINT-AGENT-01</b>), press <b>Enter code from device</b>.</li>
+        <li>Type this code:</li>
+      </ol>
+      <div id="code" class="code">…</div>
+      <p class="muted" id="codeNote">Waiting for the code to be entered…</p>
+    </section>
+
+    <section id="message" class="alert" hidden></section>
+
+    <section id="running" hidden>
+      <h2 id="runningTitle">Printing is on</h2>
+      <p class="muted" id="runningNote"></p>
+      <table>
+        <thead><tr><th>Printer</th><th>Connected by</th><th>Address</th><th>Status</th><th></th></tr></thead>
+        <tbody id="printers"></tbody>
+      </table>
+      <p id="noPrinters" class="muted" hidden>
+        No printers are assigned to this PC yet. In MY FOOD → Devices &amp; printing, edit each printer and choose this PC
+        under "Printed by". Use the search below to find the printer's address.
+      </p>
+    </section>
+
+    <section>
+      <h2>Find printers</h2>
+      <p class="muted">Find the address of a network printer, or the name of a USB printer plugged into this PC, then enter it in MY FOOD → Devices &amp; printing → Edit printer.</p>
+      <div class="row">
+        <button type="button" id="scan">Search the network</button>
+        <button type="button" id="usb">USB printers on this PC</button>
+        <label>Paper <select id="width"><option value="80">80 mm</option><option value="58">58 mm</option></select></label>
+      </div>
+      <div id="found"></div>
+    </section>
+
+    <section>
+      <h2>Recent activity</h2>
+      <ul id="recent" class="recent"><li class="muted">Nothing yet.</li></ul>
+    </section>
+
+    <footer>
+      <span id="version" class="muted"></span>
+      <button type="button" id="forget" class="link">Disconnect this PC</button>
+    </footer>
+    <script src="printing-ui.js"></script>
+  </body>
+</html>
