@@ -2,6 +2,7 @@ import type { MenuView, MeView, OrderSummaryView } from '@rp/contracts';
 import { useEffect, useState } from 'react';
 import { linkTo, navigate } from '../../infra/router';
 import { api, hasPermission, posDevice, signOut, topics } from '../../infra/session';
+import { openTillScreen } from '../../infra/till-screen';
 import { useFeed } from '../../infra/use-feed';
 import { Badge, ConnectionDot, ErrorBox, Money, statusLabel } from '../../ui/components';
 import { Empty, MobileNav, Skeleton } from '../../ui/Shell';
@@ -147,6 +148,14 @@ export function PosScreen({ me }: { me: MeView }) {
           </button>
         </div>
         <span className="spacer" />
+        <button
+          type="button"
+          className="link till-screen-btn"
+          title="Open the customer-facing screen on this till's second monitor"
+          onClick={() => void openTillScreen()}
+        >
+          Customer screen
+        </button>
         {register ? (
           <a
             href="/register"

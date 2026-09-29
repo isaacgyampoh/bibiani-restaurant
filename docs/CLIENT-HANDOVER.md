@@ -224,3 +224,4 @@ For help, changes or new devices, contact your MY FOOD developer: **Isaac Gyampo
 - **Customers** (telephone number required): see [CUSTOMERS.md](CUSTOMERS.md).
 - **Cash registers** (open, count, close, variance): see [CASH-REGISTER.md](CASH-REGISTER.md).
 - **Phones and tablets:** see [MOBILE.md](MOBILE.md).
+- **Dual-screen tills:** the second monitor shows the customer their order, total and change: see [DUAL-SCREEN-TILL.md](DUAL-SCREEN-TILL.md).

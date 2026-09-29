@@ -24,6 +24,7 @@ import { ReportsPage } from './features/reports/ReportsPage';
 import { SetupGuidePage } from './features/setup/SetupGuidePage';
 import { DevicesPage, FloorPage, RoutingPage, SettingsPage } from './features/setup/SetupPages';
 import { StaffPage } from './features/staff/StaffPage';
+import { TillCustomerScreen } from './features/till-screen/TillCustomerScreen';
 import { navigate, useLocation } from './infra/router';
 import { api, currentSession, hasPermission, onHub, supabase } from './infra/session';
 import { ErrorBox } from './ui/components';
@@ -44,6 +45,8 @@ function homeFor(me: MeView): string {
 
 export function App() {
   const { path } = useLocation();
+  // The till's customer-facing second screen: fed by the POS window on the same machine, no sign-in.
+  if (path === '/till-screen') return <TillCustomerScreen />;
   return (
     <>
       {onHub && path !== '/hub' && !path.startsWith('/display') ? <HubBanner /> : null}

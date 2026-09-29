@@ -4973,3 +4973,154 @@ fieldset.seg {
   overflow-x: auto;
   max-width: 100%;
 }
+
+/* ---------------------------------------------------------------- till customer screen (second monitor) */
+.till-screen {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(260px, 32%) 1fr;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: default;
+  user-select: none;
+}
+.ts-brand {
+  background: var(--sidebar, var(--brand));
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 32px;
+  text-align: center;
+}
+.ts-brand img {
+  width: min(220px, 60%);
+  border-radius: 50%;
+  background: #fff;
+}
+.ts-brand strong {
+  font-size: clamp(22px, 2.6vw, 36px);
+}
+.ts-brand span {
+  opacity: 0.9;
+  font-size: clamp(14px, 1.4vw, 20px);
+}
+.ts-main {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(24px, 4vw, 64px);
+  min-width: 0;
+}
+.ts-welcome h1,
+.ts-paid h1 {
+  font-size: clamp(44px, 6vw, 88px);
+  margin: 0;
+}
+.ts-welcome p,
+.ts-sub {
+  font-size: clamp(18px, 2vw, 28px);
+  color: var(--muted);
+}
+.ts-order {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 2 * clamp(24px, 4vw, 64px));
+}
+.ts-order h1 {
+  font-size: clamp(24px, 2.6vw, 36px);
+  margin: 0 0 12px;
+}
+.ts-order ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+.ts-order li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 14px;
+  align-items: baseline;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: clamp(18px, 2vw, 28px);
+}
+.ts-order li .q {
+  font-weight: 800;
+  color: var(--brand);
+}
+.ts-order li small {
+  display: block;
+  font-size: 0.65em;
+  color: var(--muted);
+}
+.ts-order li .a,
+.ts-totals dd,
+.ts-paid dd {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ts-totals,
+.ts-paid dl {
+  margin: 16px 0 0;
+}
+.ts-totals div,
+.ts-paid dl div {
+  display: flex;
+  justify-content: space-between;
+  font-size: clamp(18px, 2vw, 26px);
+  padding: 4px 0;
+}
+.ts-totals dd,
+.ts-paid dd {
+  margin: 0;
+}
+.ts-total {
+  border-top: 3px solid var(--ink);
+  margin-top: 8px;
+  padding-top: 12px !important;
+  font-size: clamp(30px, 4vw, 56px) !important;
+  font-weight: 800;
+}
+.ts-change {
+  color: var(--ok);
+  font-size: clamp(30px, 4vw, 56px) !important;
+  font-weight: 800;
+}
+.ts-note {
+  color: var(--muted);
+  font-size: 15px;
+}
+.ts-hint {
+  position: absolute;
+  bottom: 12px;
+  right: 16px;
+  color: var(--faint);
+  font-size: 13px;
+}
+@media (max-width: 700px) {
+  .till-screen {
+    grid-template-columns: 1fr;
+  }
+  .ts-brand {
+    flex-direction: row;
+    padding: 12px 16px;
+  }
+  .ts-brand img {
+    width: 48px;
+  }
+  .ts-brand span {
+    display: none;
+  }
+}
+@media (max-width: 900px) {
+  .till-screen-btn {
+    display: none;
+  }
+}

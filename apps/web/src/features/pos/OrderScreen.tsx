@@ -1,6 +1,7 @@
 import type { MenuView, MeView, OrderSummaryView, OrderView } from '@rp/contracts';
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { api, hasPermission, topics } from '../../infra/session';
+import { clearTillScreen, showOnTillScreen, type TillScreenState } from '../../infra/till-screen';
 import { useFeed } from '../../infra/use-feed';
 import { Badge, ConnectionDot, ErrorBox, Field, Modal, Money, useToast } from '../../ui/components';
 import { Icon } from '../../ui/icons';
@@ -114,6 +115,61 @@ export function OrderScreen({
   };
   const lineEstimate = (l: CartLine) => unitPrice(l) * l.quantity - promoSaving(l);
   const cartEstimate = cart.reduce((acc, l) => acc + lineEstimate(l), 0);
+
+  // The till's customer-facing screen follows this order: items and total while ringing up, then
+  // "paid" with the change. Back to the welcome screen when the order is closed on the till.
+  const tillScreen: TillScreenState | null = (() => {
+    const currency = menu.currency;
+    if (order && order.balanceDue === 0 && order.paidTotal > 0 && cart.length === 0) {
+      const last = [...order.payments]
+        .reverse()
+        .find((p) => p.direction === 'charge' && p.status === 'recorded');
+      return {
+        kind: 'paid',
+        title: `Order #${order.orderNumber}`,
+        total: order.grandTotal,
+        change: last?.changeAmount ?? 0,
+        currency,
+      };
+    }
+    const lines = [
+      ...(order?.items ?? [])
+        .filter((i) => i.status !== 'voided' && i.status !== 'cancelled')
+        .map((i) => ({
+          name: i.name,
+          quantity: i.quantity,
+          amount: i.lineTotal,
+          detail: i.modifiers.length ? i.modifiers.map((m) => m.name).join(', ') : null,
+        })),
+      ...cart.map((l) => ({
+        name: l.product.name,
+        quantity: l.quantity,
+        amount: lineEstimate(l),
+        detail: null,
+      })),
+    ];
+    if (lines.length === 0) return null;
+    const total = (order?.grandTotal ?? 0) + cartEstimate;
+    const paid = order ? order.paidTotal - order.refundedTotal : 0;
+    return {
+      kind: 'order',
+      title: order ? `Order #${order.orderNumber}` : 'Your order',
+      lines,
+      discount: order?.discount?.amount ?? 0,
+      total,
+      paid,
+      due: Math.max(0, total - paid),
+      currency,
+      estimate: cart.length > 0,
+    };
+  })();
+  const tillScreenJson = JSON.stringify(tillScreen);
+  useEffect(() => {
+    const next = JSON.parse(tillScreenJson) as TillScreenState | null;
+    if (next) showOnTillScreen(next);
+    else clearTillScreen();
+  }, [tillScreenJson]);
+  useEffect(() => () => clearTillScreen(), []);
 
   async function run(label: string, fn: () => Promise<OrderView | unknown>) {
     setBusy(label);
