@@ -322,7 +322,7 @@ MY FOOD has these roles (the same for every restaurant):
 | Role | Meant for |
 |---|---|
 | **Owner** | Everything, including staff and roles |
-| **Manager** | Everything except managing staff |
+| **Manager** | Everything, including adding staff (but cannot give the Owner role or change an Owner) |
 | **Supervisor** | Watching the floor and kitchen, taking orders, serving, discounts, reports, customer list |
 | **Cashier** | Taking orders and payments, own cash register |
 | **Waiter** | Taking and sending orders, serving |
@@ -360,7 +360,7 @@ MY FOOD has these roles (the same for every restaurant):
 | Floor & settings | ✓ | ✓ | | | | | |
 | Devices | ✓ | ✓ | | | | | |
 | Print queue | ✓ | ✓ | | | | | |
-| Staff & roles | ✓ | | | | | | |
+| Staff & roles | ✓ | ✓ | | | | | |
 | Audit history | ✓ | ✓ | | | | | |
 
 > **Changing what a role can do** (custom roles or custom permissions) is **NOT CURRENTLY AVAILABLE** in the screens. The **Roles & permissions** tab is for viewing.
@@ -369,7 +369,7 @@ MY FOOD has these roles (the same for every restaurant):
 
 ### 7.3 Adding a staff member
 
-1. Management → **Staff** → **Add staff member**.
+1. On **your own phone or laptop** (Owner or Manager; not a shared till), Management → **Staff** → **Add staff member**.
 2. Fill in **Full name** (shown on orders, receipts and reports), **Email**, **Role** and **Access** (this branch or all branches).
 3. Either set a **Starting PIN** (4–6 digits), or a **Password (optional)** of at least 10 characters. Staff who only use the tills do not need a password.
 4. Press **Save changes**.

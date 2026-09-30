@@ -7,7 +7,8 @@ import { PERMISSIONS, type Permission } from './enums';
  */
 export const ROLE_TEMPLATES: Record<string, readonly Permission[]> = {
   Owner: PERMISSIONS,
-  Manager: PERMISSIONS.filter((p) => p !== 'staff.manage'),
+  // Managers manage staff too (2026-09-30); only an Owner can give the Owner role or change an owner.
+  Manager: PERMISSIONS,
   Cashier: [
     'order.create',
     'order.send',

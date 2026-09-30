@@ -45,6 +45,32 @@ function authorizeEntity(ctx: RequestContext, entity: ConfigEntity, record: Reco
   else authorizeRestaurantWide(ctx, permission);
 }
 
+/**
+ * Owners are protected from everyone else who may manage staff (managers, 2026-09-30): only an
+ * Owner may give the Owner role, change the Owner role, or change, reset or deactivate an Owner.
+ * Otherwise a manager could make themselves an owner, or reset an owner's PIN and sign in as them.
+ */
+export async function assertMayManageStaff(
+  tx: Repositories,
+  ctx: RequestContext,
+  target: { staffId?: string | null; roleIds?: readonly string[] | null; roleId?: string | null },
+): Promise<void> {
+  const owner = await tx.admin.systemRoleId('Owner');
+  if (!owner) return;
+  const actorIsOwner = ctx.principal.staffId
+    ? (await tx.admin.staffRoleIds(ctx.principal.staffId)).includes(owner)
+    : false;
+  if (actorIsOwner) return;
+  const touchesOwner =
+    target.roleId === owner ||
+    Boolean(target.roleIds?.includes(owner)) ||
+    (target.staffId ? (await tx.admin.staffRoleIds(target.staffId)).includes(owner) : false);
+  if (touchesOwner)
+    throw new DomainError('FORBIDDEN', 'Only an owner can give the Owner role or change an owner', {
+      reason: 'owner_protected',
+    });
+}
+
 export class GetConfiguration {
   constructor(private readonly deps: Dependencies) {}
 
@@ -89,6 +115,7 @@ export class SaveConfig {
     }
     const log = new CommitLog(ctx);
     const id = await this.deps.uow.run(ctx.principal.restaurantId, async (tx) => {
+      if (entity === 'role') await assertMayManageStaff(tx, ctx, { roleId: (record.id as string) ?? null });
       const key =
         entity === 'branchProduct'
           ? `${record.branchId}:${record.productId}`
@@ -127,6 +154,7 @@ export class DeleteConfig {
       const before = await tx.admin.get(entity, id);
       if (!before) throw new DomainError('NOT_FOUND', 'Not found');
       authorizeEntity(ctx, entity, { branchId: before.branch_id ?? null });
+      if (entity === 'role') await assertMayManageStaff(tx, ctx, { roleId: id });
       const deleted = await tx.admin.delete(entity, id);
       await tx.audit.append({
         branchId: (before.branch_id as string | undefined) ?? null,
@@ -152,6 +180,9 @@ export class CreateStaff {
   async execute(ctx: RequestContext, cmd: CreateStaffCommand): Promise<{ staffId: string }> {
     if (cmd.branchId) authorize(ctx.principal, 'staff.manage', cmd.branchId);
     else authorizeRestaurantWide(ctx, 'staff.manage');
+    await this.deps.uow.run(ctx.principal.restaurantId, (tx) =>
+      assertMayManageStaff(tx, ctx, { roleIds: cmd.roleIds }),
+    );
     const auth = required(this.deps.auth, 'auth directory');
     const email = cmd.email.trim().toLowerCase();
     const staffId = this.deps.ids.uuid();
@@ -216,6 +247,7 @@ export class UpdateStaff {
     await this.deps.uow.run(ctx.principal.restaurantId, async (tx) => {
       const before = await tx.admin.staff(staffId);
       if (!before) throw new DomainError('NOT_FOUND', 'Staff member not found');
+      await assertMayManageStaff(tx, ctx, { staffId, roleIds: cmd.roleIds ?? null });
       await tx.admin.updateStaff(staffId, { displayName: cmd.displayName, isActive: cmd.isActive });
       if (cmd.roleIds) await tx.admin.setStaffRoles(staffId, cmd.roleIds, cmd.branchId ?? null);
       if (cmd.password && before.userId)

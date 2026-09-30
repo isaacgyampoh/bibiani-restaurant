@@ -2,7 +2,7 @@ import type { PairDeviceResult } from '@rp/contracts';
 import { assertAcceptablePin, DomainError, PIN_POLICY, pinLockedUntil } from '@rp/domain';
 import type { AuthSession, PinHasher, PinStaff, Repositories } from '../ports';
 import { authorize, type RequestContext } from '../principal';
-import { authorizeRestaurantWide, registerPersonalDevice } from './administration';
+import { assertMayManageStaff, authorizeRestaurantWide, registerPersonalDevice } from './administration';
 import type { Dependencies } from './shared';
 
 /**
@@ -227,7 +227,7 @@ export class ChangePinFromHub {
   }
 }
 
-/** Owner assigns (or resets) a staff member's PIN. The staff member must replace it on next sign-in. */
+/** An owner or manager assigns (or resets) a staff member's PIN (an owner's only by an owner). The staff member must replace it on next sign-in. */
 export class AssignStaffPin {
   constructor(private readonly deps: Dependencies) {}
 
@@ -239,6 +239,7 @@ export class AssignStaffPin {
     await this.deps.uow.run(ctx.principal.restaurantId, async (tx) => {
       const staff = await tx.pins.staffById(staffId);
       if (!staff) throw new DomainError('NOT_FOUND', 'Staff member not found');
+      await assertMayManageStaff(tx, ctx, { staffId });
       const lookup = h.lookup(ctx.principal.restaurantId, pin);
       await assertPinFree(tx, lookup, staffId);
       await tx.pins.setPin(staffId, lookup, true, now);

@@ -317,6 +317,11 @@ export function createAdminRepository(sql: Sql): AdminRepository {
       return r ? (r.id as string) : null;
     },
 
+    async staffRoleIds(staffId) {
+      const rows = await sql.query('select distinct role_id from staff_roles where staff_id = $1', [staffId]);
+      return rows.map((r) => r.role_id as string);
+    },
+
     async staffIdForUser(userId) {
       const [r] = await sql.query('select id from staff where user_id = $1', [userId]);
       return r ? (r.id as string) : null;

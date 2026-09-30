@@ -832,6 +832,8 @@ export interface AdminRepository {
   setStaffRoles(staffId: string, roleIds: readonly string[], branchId: string | null): Promise<void>;
   /** A built-in role of this restaurant by name (e.g. 'Owner'). */
   systemRoleId(name: string): Promise<string | null>;
+  /** The roles a staff member holds (any branch). */
+  staffRoleIds(staffId: string): Promise<string[]>;
   /** This restaurant's staff record for a login, if any. */
   staffIdForUser(userId: string): Promise<string | null>;
   acceptOwnerInvitation(invitationId: string, staffId: string, at: Date): Promise<boolean>;

@@ -54,6 +54,12 @@ const PERMISSION_LABEL: [string, string][] = [
   ['audit.view', 'Audit history'],
 ];
 
+/** Whether this staff member holds the Owner role. */
+function isOwner(config: ConfigurationView, staffId: string | null): boolean {
+  const owner = config.roles.find((r) => r.name === 'Owner')?.id;
+  return Boolean(owner && config.staff.find((s) => s.id === staffId)?.roleIds.includes(owner));
+}
+
 export function StaffPage({ me }: { me: MeView }) {
   const branchId = me.branches[0]?.id ?? '';
   const [config, setConfig] = useState<ConfigurationView | null>(null);
@@ -286,6 +292,7 @@ export function StaffPage({ me }: { me: MeView }) {
       {editing && config ? (
         <StaffDrawer
           self={editing !== 'new' && editing.id === me.staffId}
+          meIsOwner={isOwner(config, me.staffId)}
           config={config}
           branchId={branchId}
           staff={editing === 'new' ? null : editing}
@@ -314,6 +321,7 @@ export function StaffPage({ me }: { me: MeView }) {
 
 function StaffDrawer({
   self,
+  meIsOwner,
   config,
   branchId,
   staff,
@@ -321,13 +329,18 @@ function StaffDrawer({
   onSaved,
 }: {
   self: boolean;
+  meIsOwner: boolean;
   config: ConfigurationView;
   branchId: string;
   staff: Staff | null;
   onClose: () => void;
   onSaved: (message: string) => void;
 }) {
-  const roles = config.roles.filter((r) => r.permissions.length > 0);
+  // Only an owner can give the Owner role (the server refuses it for anyone else).
+  const roles = config.roles.filter(
+    (r) =>
+      r.permissions.length > 0 && (r.name !== 'Owner' || meIsOwner || Boolean(staff?.roleIds.includes(r.id))),
+  );
   const [f, setF] = useState({
     displayName: staff?.displayName ?? '',
     email: staff?.email ?? '',
