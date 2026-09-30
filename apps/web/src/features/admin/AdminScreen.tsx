@@ -247,7 +247,12 @@ export function DevicesTab({
             {notice}
           </p>
         ) : null}
-        <HubSummary devices={feed.data?.devices ?? []} />
+        <HubSummary
+          devices={feed.data?.devices ?? []}
+          hubDeviceId={
+            ((config.branches as Row[]).find((b) => b.id === branchId)?.hubDeviceId as string | null) ?? null
+          }
+        />
         {feed.data ? (
           <PrintingHealth
             devices={feed.data.devices}
@@ -374,7 +379,11 @@ export function DevicesTab({
                       {d.isActive ? 'Turn off' : 'Turn on'}
                     </button>
                   ) : null}
-                  {d.kind === 'hub' && d.paired && d.isActive ? (
+                  {d.kind === 'hub' &&
+                  // The hub that runs the branch can always be released, even when it is unpaired or
+                  // off (otherwise the web POS would stay blocked with no way out).
+                  ((d.paired && d.isActive) ||
+                    (config.branches as Row[]).find((b) => b.id === branchId)?.hubDeviceId === d.id) ? (
                     <button
                       type="button"
                       className="btn sm"
@@ -410,7 +419,9 @@ export function DevicesTab({
                       onClick={() => {
                         if (
                           window.confirm(
-                            `Revoke ${d.name}? It stops working immediately and must be paired again.`,
+                            (config.branches as Row[]).find((b) => b.id === branchId)?.hubDeviceId === d.id
+                              ? `Revoke ${d.name}? It stops working immediately and must be paired again. It runs this branch: the branch goes back to the web POS.`
+                              : `Revoke ${d.name}? It stops working immediately and must be paired again.`,
                           )
                         )
                           void api.revokeDevice(d.id).then(feed.refresh).catch(onError);
@@ -549,9 +560,17 @@ function HubSyncLine({ hub }: { hub: NonNullable<OpsDevice['hub']> }) {
 }
 
 /** For a branch run by an in-store hub: one plain line on how the restaurant is doing. */
-function HubSummary({ devices }: { devices: OpsDevice[] }) {
-  const hub = devices.find((d) => d.kind === 'hub' && d.hub?.runsBranch);
-  if (!hub?.hub) return null;
+function HubSummary({ devices, hubDeviceId }: { devices: OpsDevice[]; hubDeviceId: string | null }) {
+  const hub = devices.find((d) => d.kind === 'hub' && (d.id === hubDeviceId || d.hub?.runsBranch));
+  if (!hub) return null;
+  if (!hub.paired || !hub.isActive)
+    return (
+      <Alert tone="danger">
+        <strong>{hub.name}</strong> runs this branch but is not connected, so orders on the web POS are
+        refused. Press <strong>Stop running branch</strong> on its row to take orders on the web again.
+      </Alert>
+    );
+  if (!hub.hub) return null;
   const offline = hub.status !== 'online';
   const tone = offline || hub.hub.conflicts > 0 ? 'warn' : 'ok';
   return (

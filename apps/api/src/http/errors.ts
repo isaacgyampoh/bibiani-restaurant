@@ -32,7 +32,6 @@ const STATUS: Partial<Record<DomainErrorCode, ContentfulStatusCode>> = {
 const OVERRIDES: Partial<Record<DomainErrorCode, string>> = {
   IDEMPOTENCY_MISMATCH: 'This request conflicts with an earlier one. Refresh and try again.',
   VERSION_CONFLICT: 'Someone else just updated this. The screen has been refreshed.',
-  FORBIDDEN: 'You do not have permission to do this.',
   STALE_PRINT_CLAIM: 'This print job was already handled.',
 };
 
@@ -62,6 +61,40 @@ export const OPERATION_FAILED: Record<string, string> = {
   default: 'Something went wrong. Please try again.',
 };
 
+/** A missing permission, named in staff words (the role can be changed in Staff, Roles & permissions). */
+const PERMISSION_WORDS: Partial<Record<string, string>> = {
+  'order.create': 'take orders',
+  'order.send': 'send orders to the kitchen',
+  'order.view': 'see orders',
+  'order.fulfil': 'hand orders over',
+  'order.cancel': 'cancel orders',
+  'order.void': 'void items',
+  'payment.record': 'take payments',
+  'payment.void': 'void payments',
+  'payment.refund': 'give refunds',
+  'kitchen.operate': 'use the kitchen screen',
+  'discount.apply': 'give discounts',
+  'register.operate': 'use a cash register',
+  'register.manage': 'manage cash registers',
+  'reports.view': 'see reports',
+  'menu.manage': 'change the menu',
+  'config.manage': 'change settings',
+  'device.manage': 'manage devices',
+  'staff.manage': 'manage staff',
+};
+
+/**
+ * Refusals are shown as they are (each is written for staff, e.g. "This branch is run by its
+ * in-store hub..."); a bare permission refusal names the missing permission. Masking them all as
+ * one sentence hid a blocked branch as a "permission" problem (production, 2026-09-30).
+ */
+function forbiddenMessage(error: DomainError): string {
+  const permission = (error.details as { permission?: string } | undefined)?.permission;
+  if (permission && error.message.startsWith('You do not have permission'))
+    return `Your role does not allow you to ${PERMISSION_WORDS[permission] ?? 'do this'}. An owner can change this in Staff, Roles & permissions.`;
+  return error.message.endsWith('.') ? error.message : `${error.message}.`;
+}
+
 export function toHttpError(
   error: unknown,
   operation: string,
@@ -72,7 +105,9 @@ export function toHttpError(
   });
   if (error instanceof DomainError) {
     const status = STATUS[error.code] ?? 422;
-    return { status, body: body(error.code, OVERRIDES[error.code] ?? error.message, false), level: 'info' };
+    const message =
+      error.code === 'FORBIDDEN' ? forbiddenMessage(error) : (OVERRIDES[error.code] ?? error.message);
+    return { status, body: body(error.code, message, false), level: 'info' };
   }
   if (error instanceof InvalidTokenError) {
     return { status: 401, body: body('UNAUTHENTICATED', 'Please sign in again.', false), level: 'warn' };

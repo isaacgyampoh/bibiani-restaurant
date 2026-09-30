@@ -323,7 +323,7 @@ MY FOOD has these roles (the same for every restaurant):
 |---|---|
 | **Owner** | Everything, including staff and roles |
 | **Manager** | Everything except managing staff |
-| **Supervisor** | Watching the floor and kitchen, serving, discounts, reports, customer list |
+| **Supervisor** | Watching the floor and kitchen, taking orders, serving, discounts, reports, customer list |
 | **Cashier** | Taking orders and payments, own cash register |
 | **Waiter** | Taking and sending orders, serving |
 | **Kitchen** | Kitchen screen |
@@ -331,12 +331,12 @@ MY FOOD has these roles (the same for every restaurant):
 
 ### 7.2 What each role can do
 
-(From the system's role definitions; also shown in **Staff → Roles & permissions**.)
+(From the system's role definitions; also shown in **Staff → Roles & permissions**. Every role can take orders and send them to the kitchen.)
 
 | Permission (as shown in MY FOOD) | Owner | Manager | Supervisor | Cashier | Waiter | Kitchen | Inventory Manager |
 |---|---|---|---|---|---|---|---|
-| Take orders | ✓ | ✓ | | ✓ | ✓ | | |
-| Send to kitchen | ✓ | ✓ | | ✓ | ✓ | | |
+| Take orders | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Send to kitchen | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | See orders | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Serve / hand over | ✓ | ✓ | ✓ | ✓ | ✓ | | |
 | Cancel orders | ✓ | ✓ | | | | | |
@@ -348,7 +348,7 @@ MY FOOD has these roles (the same for every restaurant):
 | Manager discounts | ✓ | ✓ | ✓ | | | | |
 | Own cash register | ✓ | ✓ | | ✓ | | | |
 | All registers & reopen | ✓ | ✓ | | | | | |
-| Add customers to orders | ✓ | ✓ | | ✓ | ✓ | | |
+| Add customers to orders | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Customers list & history | ✓ | ✓ | ✓ | | | | |
 | Edit & merge customers | ✓ | ✓ | | | | | |
 | Kitchen screen | ✓ | ✓ | ✓ | | | ✓ | |
@@ -1026,7 +1026,7 @@ Inventory → **Stock**:
 
 ![Stock](images/14-inventory.png)
 
-Stock goes down automatically when a product **with a recipe** (Menu & recipes → product → **Recipe**) is sent to the kitchen. It comes back when those items are voided. Products without a recipe do not change stock. **Low stock** and **Out of stock** are shown on the Dashboard and here. The till also shows **Ingredient low** / **Ingredient out** (the product is still on sale).
+Stock goes down automatically when a product **with a recipe** (Menu & recipes → product → **Recipe**) is sent to the kitchen. It comes back when the whole order is cancelled. Items voided after they were sent do **not** return to stock (the kitchen may already have used the ingredients). Products without a recipe do not change stock. **Low stock** and **Out of stock** are shown on the Dashboard and here. The till also shows **Ingredient low** / **Ingredient out** (the product is still on sale).
 
 ### 25.2 Stock taking
 

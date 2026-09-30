@@ -92,7 +92,7 @@ export function translatePgError(error: unknown): unknown {
     case 'RH001':
       return new DomainError(
         'FORBIDDEN',
-        'This branch is run by its in-store hub. Use the tills at the restaurant, or detach the hub in Devices.',
+        "This branch is run by its MY FOOD Hub: open MY FOOD at the Hub's address on this till, or a manager presses Stop running branch in Devices & printing.",
         { reason: 'branch_run_by_hub' },
       );
     case '42501':

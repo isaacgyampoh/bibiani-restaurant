@@ -10,7 +10,7 @@ import {
   type UpdateStaffCommand,
 } from '@rp/contracts';
 import { assertAcceptablePin, DomainError, type Permission } from '@rp/domain';
-import type { IdentityRegistry } from '../ports';
+import type { IdentityRegistry, Repositories } from '../ports';
 import { authorize, type RequestContext } from '../principal';
 import { CommitLog, type Dependencies } from './shared';
 
@@ -95,6 +95,8 @@ export class SaveConfig {
           : (record.id as string | undefined);
       const before = key ? await tx.admin.get(entity, key) : null;
       const savedId = await tx.admin.save(entity, record);
+      if (entity === 'device' && record.isActive === false && typeof record.branchId === 'string')
+        await releaseBranchFromHub(tx, ctx, record.branchId, savedId, 'The hub was turned off');
       await tx.audit.append({
         branchId: typeof record.branchId === 'string' ? record.branchId : null,
         actorStaffId: ctx.principal.staffId,
@@ -512,6 +514,7 @@ export class RevokeDevice {
       if (!device) throw new DomainError('NOT_FOUND', 'Device not found');
       authorize(ctx.principal, 'device.manage', device.branchId);
       await tx.admin.unbindDeviceIdentity(deviceId);
+      await releaseBranchFromHub(tx, ctx, device.branchId, deviceId, 'The hub was revoked');
       await tx.audit.append({
         branchId: device.branchId,
         actorStaffId: ctx.principal.staffId,
@@ -528,6 +531,34 @@ export class RevokeDevice {
     if (previous && this.deps.auth) await this.deps.auth.deleteUser(previous).catch(() => undefined);
     return { ok: true };
   }
+}
+
+/**
+ * A hub that runs its branch and is revoked or turned off can no longer serve the tills, and while
+ * the branch is attached to it the cloud refuses web POS orders: the branch goes back to the web
+ * POS in the same transaction (audited), instead of staying blocked (production, 2026-09-30).
+ */
+async function releaseBranchFromHub(
+  tx: Repositories,
+  ctx: RequestContext,
+  branchId: string,
+  deviceId: string,
+  reason: string,
+): Promise<void> {
+  if ((await tx.hub.branchHub(branchId)) !== deviceId) return;
+  await tx.hub.setBranchHub(branchId, null);
+  await tx.audit.append({
+    branchId,
+    actorStaffId: ctx.principal.staffId,
+    actorDeviceId: ctx.deviceId,
+    action: 'branch.hub_detached',
+    entityType: 'branch',
+    entityId: branchId,
+    before: { hubDeviceId: deviceId },
+    after: { hubDeviceId: null },
+    reason,
+    correlationId: ctx.correlationId,
+  });
 }
 
 function required<T>(value: T | undefined, name: string): T {
