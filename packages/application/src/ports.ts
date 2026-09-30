@@ -96,6 +96,8 @@ export interface AreaRecord {
   requiresTable: boolean;
   requiresCustomerName: boolean;
   requirePaymentBeforeProduction: boolean;
+  /** Print the order number for the customer on the till's receipt printer at the first send. */
+  printOrderNumber: boolean;
   paymentPolicy: PaymentPolicy;
   isActive: boolean;
 }

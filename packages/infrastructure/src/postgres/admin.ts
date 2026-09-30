@@ -40,6 +40,7 @@ const ENTITIES: Record<ConfigEntity, EntityMap> = {
       paymentPolicy: 'payment_policy',
       requirePaymentBeforeProduction: 'require_payment_before_production',
       showOnCustomerDisplay: 'show_on_customer_display',
+      printOrderNumber: 'print_order_number',
       isActive: 'is_active',
       sortOrder: 'sort_order',
     },

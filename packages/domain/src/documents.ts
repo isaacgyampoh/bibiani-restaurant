@@ -303,6 +303,41 @@ export function receiptDocument(r: ReceiptInput, options: { bill?: { copy: boole
 }
 
 // ---------------------------------------------------------------------------
+// Order number slip: handed to the customer when the order goes to the kitchen
+// ---------------------------------------------------------------------------
+export function orderNumberSlipDocument(o: {
+  orderNumber: number;
+  channel: OrderChannel;
+  areaName: string;
+  tableLabel: string | null;
+  customerName: string | null;
+  createdAt: Date;
+  timeZone: string;
+}): PrintDocument {
+  const where = o.tableLabel
+    ? `${o.areaName} - Table ${o.tableLabel}`
+    : o.channel === 'takeaway'
+      ? `Takeaway${o.customerName ? ` - ${o.customerName}` : ''}`
+      : o.areaName;
+  return {
+    schema: 1,
+    title: `Order number #${o.orderNumber}`,
+    blocks: [
+      { type: 'logo' },
+      { type: 'text', text: 'YOUR ORDER NUMBER', align: 'center', bold: true },
+      { type: 'text', text: `#${o.orderNumber}`, align: 'center', size: 'large', bold: true },
+      { type: 'text', text: where, align: 'center' },
+      { type: 'text', text: localTime(o.createdAt, o.timeZone), align: 'center' },
+      { type: 'divider' },
+      { type: 'text', text: 'Please keep this slip.', align: 'center' },
+      { type: 'text', text: 'We call your number when your order is ready.', align: 'center' },
+      { type: 'feed', lines: 3 },
+      { type: 'cut' },
+    ],
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Void slip: tells a station to stop making something
 // ---------------------------------------------------------------------------
 export function voidSlipDocument(v: {

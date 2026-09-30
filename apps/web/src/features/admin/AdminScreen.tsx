@@ -1086,6 +1086,7 @@ export function FloorTab({
               <th>Channel</th>
               <th>Payment policy</th>
               <th>Pay before cooking</th>
+              <th>Print order number for the customer</th>
             </tr>
           </thead>
           <tbody>
@@ -1114,6 +1115,14 @@ export function FloorTab({
                     onChange={(e) =>
                       void save('area', { ...a, requirePaymentBeforeProduction: e.target.checked })
                     }
+                  />
+                </td>
+                <td>
+                  <input
+                    type="checkbox"
+                    aria-label={`${str(a.name)}: print order number for the customer`}
+                    checked={a.printOrderNumber !== false}
+                    onChange={(e) => void save('area', { ...a, printOrderNumber: e.target.checked })}
                   />
                 </td>
               </tr>

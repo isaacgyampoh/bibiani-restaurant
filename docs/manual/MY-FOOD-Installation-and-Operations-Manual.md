@@ -288,6 +288,7 @@ Menu & setup → **Floor & tables**:
 1. **Operational areas and payment policy**: add each area (e.g. *Hall*, *Takeaway*) with a **Channel**: dine in or takeaway.
    - **Payment policy**: *pay after fulfillment* (normal for tables) or *pay before fulfillment*.
    - **Pay before cooking**: tick it for areas where customers must pay before the kitchen starts (e.g. takeaway counters). The till then shows **Save order, then take payment**.
+   - **Print order number for the customer** (on by default): the first time an order of this area goes to the kitchen, the till's receipt printer prints a slip with **YOUR ORDER NUMBER** and the number, for the customer. Untick it for areas that don't need it (e.g. table service).
 2. **Tables**: add each table with a **Label** (e.g. 1, 2, T1), the number of **Seats** and the **Area**.
 
 ![Floor & tables](images/10-floor-and-tables.png)
@@ -885,7 +886,7 @@ See the checklist in section 32. Then:
 3. Add products: tap them. Use **Search products** or the category buttons. Products with options open a window for them.
 4. Adjust quantities with **−** / **+**. Add a **Note for the kitchen** if needed.
 5. Check the lines and the total.
-6. **Send to kitchen** (or **Save order, then take payment** in pay-before areas). The kitchen screens and printers get the ticket at once.
+6. **Send to kitchen** (or **Save order, then take payment** in pay-before areas). The kitchen screens and printers get the ticket at once, and the till's receipt printer prints the customer's **order number slip** (first send only; see Floor & tables).
 7. Add more items later: open the same order and send again. Only the new items go to the kitchen.
 
 **Other buttons on an open order:**

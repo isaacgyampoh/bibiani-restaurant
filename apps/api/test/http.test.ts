@@ -128,7 +128,8 @@ describe('HTTP API', () => {
       orderId: order.id,
       deviceId: h.f.devices.pos,
     });
-    expect((submitted.fields.printJobIds as string[]).length).toBe(4);
+    // Four kitchen tickets, and the customer's order number slip on the till's receipt printer.
+    expect((submitted.fields.printJobIds as string[]).length).toBe(5);
   });
 
   it('turns failures into operator messages, never raw database errors', async () => {

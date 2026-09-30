@@ -474,6 +474,7 @@ function configurationReader(sql: Sql): ConfigurationReader {
             requiresTable: Boolean(r.requires_table),
             requiresCustomerName: Boolean(r.requires_customer_name),
             requirePaymentBeforeProduction: Boolean(r.require_payment_before_production),
+            printOrderNumber: r.print_order_number !== false,
             paymentPolicy: r.payment_policy as 'pay_after_fulfillment',
             isActive: Boolean(r.is_active),
           }

@@ -50,7 +50,14 @@ export const TICKET_STATUSES = [
 ] as const;
 export type TicketStatus = (typeof TICKET_STATUSES)[number];
 
-export const PRINT_JOB_KINDS = ['kitchen_ticket', 'receipt', 'void_slip', 'test', 'bill'] as const;
+export const PRINT_JOB_KINDS = [
+  'kitchen_ticket',
+  'receipt',
+  'void_slip',
+  'test',
+  'bill',
+  'order_number',
+] as const;
 export type PrintJobKind = (typeof PRINT_JOB_KINDS)[number];
 
 export const PRINT_JOB_STATUSES = ['pending', 'claimed', 'printed', 'failed', 'dead', 'cancelled'] as const;

@@ -105,6 +105,7 @@ export const ConfigSchemas = {
     paymentPolicy: z.enum(PAYMENT_POLICIES).default('pay_after_fulfillment'),
     requirePaymentBeforeProduction: z.boolean().default(false),
     showOnCustomerDisplay: z.boolean().default(true),
+    printOrderNumber: z.boolean().default(true),
     isActive: z.boolean().default(true),
     sortOrder: z.number().int().default(0),
   }),

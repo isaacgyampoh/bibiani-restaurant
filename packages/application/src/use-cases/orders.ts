@@ -11,6 +11,7 @@ import {
   kitchenTicketDocument,
   type NewItemInput,
   type OrderItem,
+  orderNumberSlipDocument,
   planSubmission,
   priceNewItem,
   requirePhone,
@@ -467,6 +468,33 @@ async function sendPendingItems(
         });
       }
     }
+  }
+  // The first time an order goes to the kitchen, the customer gets its number from the till's
+  // receipt printer (per area; dedupe: one slip per order).
+  if (seq === 1 && area.printOrderNumber && ctx.deviceId) {
+    const printerId = await tx.printJobs.receiptPrinterForDevice(ctx.deviceId);
+    if (printerId && (await tx.printJobs.printerInBranch(printerId, h.branchId)))
+      jobs.push({
+        id: deps.ids.uuid(),
+        branchId: h.branchId,
+        printerId,
+        originalPrinterId: printerId,
+        kind: 'order_number',
+        orderId: h.id,
+        productionTicketId: null,
+        copyNo: 1,
+        dedupeKey: `order_number:${h.id}`,
+        document: orderNumberSlipDocument({
+          orderNumber: h.orderNumber,
+          channel: h.channel,
+          areaName: area.name,
+          tableLabel,
+          customerName: h.customerName,
+          createdAt: now,
+          timeZone: branch.timezone,
+        }),
+        createdAt: now,
+      });
   }
   await tx.production.appendEvents(
     tickets.map((ticket) => ({
