@@ -205,7 +205,7 @@ MY FOOD runs a restaurant branch in **one of two ways**. Decide this with the ow
 - ☐ List of staff: full name, role, email (email only for owners/managers or staff who want PIN recovery by email)
 - ☐ Menu: categories, products, prices, options, and which station prepares each product
 - ☐ Tax rates to apply (ask the restaurant's accountant)
-- ☐ Tables and service areas (e.g. Hall, Terrace, Takeaway)
+- ☐ Tables and service areas (e.g. Dining, Terrace, Takeaway)
 
 ---
 
@@ -285,7 +285,7 @@ Press **Save settings**.
 
 Menu & setup → **Floor & tables**:
 
-1. **Operational areas and payment policy**: add each area (e.g. *Hall*, *Takeaway*) with a **Channel**: dine in or takeaway.
+1. **Operational areas and payment policy**: add each area (e.g. *Dining*, *Takeaway*) with a **Channel**: dine in or takeaway.
    - **Payment policy**: *pay after fulfillment* (normal for tables) or *pay before fulfillment*.
    - **Pay before cooking**: tick it for areas where customers must pay before the kitchen starts (e.g. takeaway counters). The till then shows **Save order, then take payment**.
    - **Print order number for the customer** (on by default): the first time an order of this area goes to the kitchen, the till's receipt printer prints a slip with **YOUR ORDER NUMBER** and the number, for the customer. Untick it for areas that don't need it (e.g. table service).
@@ -405,7 +405,7 @@ These are all the device types in MY FOOD (Devices & printing → **Add device**
 | Type (as shown) | What it is | Pairs? |
 |---|---|---|
 | **POS till** | A till for orders and payments. Staff sign in on it with their PIN. | Yes |
-| **Kitchen screen** | Shows one station's tickets (START / READY). | Yes |
+| **Kitchen screen** | Shows one station's tickets (ACCEPT / START / READY / DONE). | Yes |
 | **Customer display** | The public "Preparing / Ready" board. | Yes |
 | **Print agent** | The record for the PC running **MY FOOD Printing**. | Yes (from MY FOOD Printing) |
 | **Printer** | A receipt/ticket printer. | **No**: printers are driven by the print agent (or Hub) |
@@ -573,7 +573,7 @@ These do not use pairing codes. Sign in with **Email** and **PIN** (section 6.3)
 ### 11.2 Test the till
 
 1. Sign in with a staff PIN (a cashier's is best).
-2. The POS shows the service areas as tabs (e.g. **Hall**, **Takeaway**), plus **Bills** and **Completed**.
+2. The POS shows the service areas as tabs (e.g. **Dining**, **Takeaway**), plus **Bills** and **Completed**.
 
    ![POS home](images/25-pos-home.png)
 
@@ -590,7 +590,7 @@ These do not use pairing codes. Sign in with **Email** and **PIN** (section 6.3)
    ![Payment](images/27-payment.png)
 
 9. Press **Print receipt**. The receipt prints on the till's receipt printer. If no printer is connected, it is shown on screen to print from the browser.
-10. On the kitchen screen press **START** then **READY**; on the till press **Picked up** (or **Served** for tables). The order is **Completed**.
+10. On the kitchen screen press **ACCEPT**, then **START**, then **READY**, then **DONE**; on the till press **Picked up** (or **Served** for tables). The order is **Completed**.
 11. Press **Lock**, then sign in again with the PIN to confirm sign-in works.
 
 ### 11.3 After a restart
@@ -786,20 +786,25 @@ Devices & printing → **Print jobs not yet printed** lists every job that did n
 
 | On screen | Meaning / what to do |
 |---|---|
-| Ticket header | Order number and time waiting (turns late after the target time) |
-| Where | Table (e.g. Hall · Table 12) or Takeaway · customer name |
+| Ticket header | Order number and the clock for its current stage: **Waiting** (since it arrived, until accepted), **Accepted**, **Preparing** (since START), **Ready**. The ticket turns late after the station's target time, counted from arrival. |
+| Where | Table (e.g. Dining · Table 12) or Takeaway · customer name |
+| Status | **New order**, **Accepted**, **Preparing**, **Paused**, **Ready** |
 | **Sent by** | Who sent the order and their role |
+| **Accepted by / on** | Who accepted it (when a staff member is signed in) or which kitchen screen, and when |
 | Items | Quantity, kitchen name, options, notes; prices if **Show prices on screen** |
-| **START** | Begin cooking |
+| **ACCEPT** | The kitchen has received the order (it is **not** "start cooking"). The first and only button on a new ticket. |
+| **START** | Begin cooking (after ACCEPT) |
 | **PAUSE** / **RESUME** | Put a ticket on hold and continue it |
-| **READY** | Food is ready: the supervisor, the till and the customer display see it at once |
+| **READY** | Food is ready (after START): the supervisor, the till and the customer display see it at once |
 | **RECALL** | Bring a ready ticket back |
-| **BUMP** | Clear a ready ticket from the screen |
+| **DONE** | Finished: clears the ready ticket from the screen |
 | Station tabs | Switch station (if the person may see several) |
 | **Sound off** / **Alerts** | Sound and alert settings for new tickets |
 | *Kitchen connection lost. Reconnecting…* | Internet or Hub problem; the screen refreshes every 20 s |
 
-Voided items show as struck through (**Do not prepare**). With a kitchen printer, the same ticket also prints.
+The kitchen workflow is always **NEW ORDER → ACCEPT → START → READY → DONE**; no step can be skipped on a kitchen screen.
+
+**Voids.** A voided item is struck through with a red **VOID · STOP PREPARATION** line saying who voided it and why, and an alert sounds. A ticket whose items are all voided stays on the screen for 15 minutes as **VOIDED · STOP PREPARATION** (it does not just disappear). With a kitchen printer, the ticket prints, and a void slip prints when something is voided.
 
 ---
 
@@ -824,9 +829,9 @@ Open **Supervisor** (Operations menu) on any signed-in device of someone with th
 
 ![Supervisor](images/30-supervisor.png)
 
-- Every order in the kitchen, with each station's status and **x/y READY**.
+- Every order in the kitchen, with each station's stage: **New order** (not yet accepted), **Accepted**, **Preparing**, **Paused**, **READY**, **Done**, or **VOIDED** (a station whose items were all voided; not counted in **x/y READY**).
 - Filters at the top, for example **In the kitchen**, **Ready to hand over**, **Late**.
-- **Ready** per station (people with kitchen permission).
+- **Ready** per station (people with kitchen permission): the supervisor's override for a station without a kitchen screen. It marks the station ready directly; no accept or start time is recorded for it.
 - Orders show **RUSH** when rushed, *Sent by* per station, and **Paid**.
 - When food is handed over: **Served** / **Handed to customer**.
 - **Handed over · last hour** lists recent hand-overs.
@@ -880,7 +885,7 @@ See the checklist in section 32. Then:
 ### 20.2 Taking an order
 
 1. Choose the area tab:
-   - **Hall** (tables): tap a free table. The table states are **Available**, **Occupied**, **Ready to serve**, **Awaiting payment** and **Needs cleaning** (**Tap when clean**).
+   - **Dining** (tables): tap a free table. The table states are **Available**, **Occupied**, **Ready to serve**, **Awaiting payment** and **Needs cleaning** (**Tap when clean**).
    - **Takeaway**: **+ New takeaway order**.
 2. **Customer** (optional): on takeaway, type **Phone number** and **Customer name**. A known number shows the customer (**Use** fills the name).
 3. Add products: tap them. Use **Search products** or the category buttons. Products with options open a window for them.

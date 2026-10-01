@@ -68,7 +68,7 @@ describe('Reports', () => {
     const manager = await t.as(f.authUsers.manager);
     const submit = (
       ctx: typeof waiter,
-      area: 'hall' | 'takeaway',
+      area: 'dining' | 'takeaway',
       items: ReturnType<typeof line>[],
       send = true,
     ) =>
@@ -76,7 +76,7 @@ describe('Reports', () => {
         orderId: uuid(),
         branchId: f.branchId,
         areaId: f.areas[area],
-        tableId: area === 'hall' ? f.tables['1'] : null,
+        tableId: area === 'dining' ? f.tables['1'] : null,
         customerName: area === 'takeaway' ? 'Guest' : null,
         items,
         ...(send ? { send: { submissionId: uuid() } } : {}),
@@ -88,7 +88,7 @@ describe('Reports', () => {
         ...(amount ? { amount } : { tendered: 20000 }),
       });
 
-    const a = await submit(waiter, 'hall', [line(f.products.jollof, 2)]);
+    const a = await submit(waiter, 'dining', [line(f.products.jollof, 2)]);
     await pay(a.id, 'cash');
     const b = await submit(waiter, 'takeaway', [line(f.products.chicken, 1), line(f.products.coke, 1)]);
     coke = b.grandTotal - 6000;

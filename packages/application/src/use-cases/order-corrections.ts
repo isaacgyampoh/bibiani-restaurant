@@ -200,7 +200,7 @@ async function cancelTicketsAndPrintSlips(
       .filter((i) => ticket.itemIds.includes(i.id))
       .every((i) => i.status === 'voided' || i.status === 'cancelled');
     if (allGone && ticket.status !== 'cancelled' && ticket.status !== 'completed') {
-      await tx.production.update(ticket.id, { status: 'cancelled' }, ticket.version, now);
+      await tx.production.update(ticket.id, { status: 'cancelled', cancelledAt: now }, ticket.version, now);
       await tx.production.appendEvent({
         ticketId: ticket.id,
         action: wholeOrder ? 'order_cancelled' : 'voided',

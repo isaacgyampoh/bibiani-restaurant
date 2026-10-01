@@ -10,7 +10,7 @@ import {
 import { line, uuid } from './helpers';
 
 // Milestone Scenario A: Table 12, four stations, KDS, printing, payment, completion.
-describe('Scenario A — Hall, Table 12', () => {
+describe('Scenario A — Dining, Table 12', () => {
   let db: TestDatabase;
   let f: RestaurantFixture;
   let t: TestApp;
@@ -28,7 +28,7 @@ describe('Scenario A — Hall, Table 12', () => {
     const order = await t.app.submitOrder.execute(waiter, {
       orderId,
       branchId: f.branchId,
-      areaId: f.areas.hall,
+      areaId: f.areas.dining,
       tableId: f.tables['12']!,
       items: [
         line(f.products.jollof, 2, { modifierIds: [f.modifiers.noPepper] }),
@@ -83,14 +83,18 @@ describe('Scenario A — Hall, Table 12', () => {
     // Stations finish one by one: order goes partially ready, then ready.
     const manager = await t.as(f.authUsers.manager);
     const ticketOf = (station: string) => order.tickets.find((tk) => tk.stationName === station)!.id;
+    await t.app.transitionTicket.execute(kitchenKds, ticketOf('Main Kitchen'), { action: 'accept' });
     await t.app.transitionTicket.execute(kitchenKds, ticketOf('Main Kitchen'), { action: 'start' });
     let view = await t.app.transitionTicket.execute(kitchenKds, ticketOf('Main Kitchen'), {
       action: 'ready',
     });
     expect(view.status).toBe('partially_ready');
-    await t.app.transitionTicket.execute(manager, ticketOf('Grill'), { action: 'ready' });
-    await t.app.transitionTicket.execute(manager, ticketOf('Pastry'), { action: 'ready' });
-    view = await t.app.transitionTicket.execute(manager, ticketOf('Drinks'), { action: 'ready' });
+    await t.app.transitionTicket.execute(manager, ticketOf('Grill'), { action: 'ready', expedite: true });
+    await t.app.transitionTicket.execute(manager, ticketOf('Pastry'), { action: 'ready', expedite: true });
+    view = await t.app.transitionTicket.execute(manager, ticketOf('Drinks'), {
+      action: 'ready',
+      expedite: true,
+    });
     expect(view.status).toBe('ready');
     expect(view.readyAt).not.toBeNull();
 

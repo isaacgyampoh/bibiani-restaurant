@@ -82,7 +82,7 @@ describe('Schema contract', () => {
     const first = await t.app.submitOrder.execute(waiter, {
       orderId: uuid(),
       branchId: f.branchId,
-      areaId: f.areas.hall,
+      areaId: f.areas.dining,
       tableId: f.tables['1']!,
       items: [line(f.products.coke, 1)],
     });
@@ -90,7 +90,7 @@ describe('Schema contract', () => {
       db.query(
         `insert into orders (id, restaurant_id, branch_id, area_id, channel, business_day, order_number, table_id, request_hash, status)
          values ($1, $2, $3, $4, 'dine_in', current_date, 999, $5, 'x', 'submitted')`,
-        [uuid(), f.restaurantId, f.branchId, f.areas.hall, f.tables['1']],
+        [uuid(), f.restaurantId, f.branchId, f.areas.dining, f.tables['1']],
       ),
     ).rejects.toMatchObject({ code: '23505' });
     expect(first.status).toBe('draft');

@@ -57,7 +57,7 @@ describe('Print agent against the real API and TCP printers', () => {
     return h.client(h.f.authUsers.waiter).submitOrder({
       orderId: uuid(),
       branchId: h.f.branchId,
-      areaId: h.f.areas.hall,
+      areaId: h.f.areas.dining,
       tableId: h.f.tables['12'],
       items: [
         { id: uuid(), productId: h.f.products.jollof, quantity: 2, modifierIds: [h.f.modifiers.noPepper] },
@@ -79,7 +79,7 @@ describe('Print agent against the real API and TCP printers', () => {
     expect(kitchen.jobs).toHaveLength(1);
     expect(kitchen.text(0)).toContain('MAIN KITCHEN');
     expect(kitchen.text(0)).toContain(`ORDER #${order.orderNumber}`);
-    expect(kitchen.text(0)).toContain('HALL - TABLE 12');
+    expect(kitchen.text(0)).toContain('DINING - TABLE 12');
     expect(kitchen.text(0)).toContain('2 x JOLLOF');
     expect(kitchen.text(0)).toContain('+ NO PEPPER');
     expect(kitchen.text(0)).not.toContain('GRILLED CHICKEN');

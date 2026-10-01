@@ -24,10 +24,11 @@ async function applyTicketAction(
   action: TicketAction,
   now: Date,
   log: CommitLog,
+  options: { expedite?: boolean } = {},
 ): Promise<void> {
   const items = agg.items.filter((i) => ticket.itemIds.includes(i.id));
   if (action === 'recall') assertRecallAllowed(items.map((i) => i.status));
-  const to = nextTicketStatus(ticket.status, action);
+  const to = nextTicketStatus(ticket.status, action, options);
 
   const updates = items
     .map((i) => ({ item: i, next: itemStatusAfter(action, i.status) }))
@@ -39,7 +40,14 @@ async function applyTicketAction(
   for (const u of updates) u.item.status = u.next;
 
   const patch: TicketPatch = { status: to };
-  if (action === 'accept') patch.acceptedAt = now;
+  // Who acknowledged the ticket, recorded by the server at that moment (name and role are
+  // snapshotted with it), never derived later from whoever is signed in.
+  if (action === 'accept')
+    Object.assign(patch, {
+      acceptedAt: now,
+      acceptedByStaffId: ctx.principal.staffId,
+      acceptedByDeviceId: ctx.deviceId,
+    });
   if (action === 'start') patch.startedAt = now;
   if (to === 'ready') patch.readyAt = now;
   if (to === 'completed') patch.completedAt = now;
@@ -98,7 +106,10 @@ export class TransitionTicket {
         });
       }
       assertNotCancelled(agg);
-      await applyTicketAction(tx, ctx, agg, ticket, cmd.action, now, log);
+      // A paired kitchen screen follows the workflow strictly; the expedite override is for a
+      // signed-in supervisor or manager (same permission as marking a whole order ready).
+      const expedite = cmd.expedite === true && cmd.action === 'ready' && ctx.principal.kind === 'staff';
+      await applyTicketAction(tx, ctx, agg, ticket, cmd.action, now, log, { expedite });
       await settleOrderState(tx, agg, ctx, now, log);
       return (await tx.read.order(agg.header.id))!;
     });
@@ -127,7 +138,7 @@ export class MarkOrderReady {
       );
       for (const ticket of open) {
         const locked = (await tx.production.findForUpdate(ticket.id))!;
-        await applyTicketAction(tx, ctx, agg, locked, 'ready', now, log);
+        await applyTicketAction(tx, ctx, agg, locked, 'ready', now, log, { expedite: true });
       }
       await settleOrderState(tx, agg, ctx, now, log);
       return (await tx.read.order(orderId))!;

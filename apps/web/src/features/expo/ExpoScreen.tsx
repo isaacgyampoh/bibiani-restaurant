@@ -14,12 +14,13 @@ const where = (o: ExpoOrderView) =>
     ? `${o.tableLabel ? `Table ${o.tableLabel}` : o.areaName}`
     : `Takeaway${o.customerName ? ` · ${o.customerName}` : ''}`;
 const STATUS: Record<string, string> = {
-  new: 'Waiting',
+  new: 'New order',
   accepted: 'Accepted',
-  in_preparation: 'Cooking',
-  on_hold: 'On hold',
+  in_preparation: 'Preparing',
+  on_hold: 'Paused',
   ready: 'Ready',
   completed: 'Done',
+  cancelled: 'Voided',
 };
 
 function diff(before: ExpoView, after: ExpoView): Omit<Notice, 'id' | 'at' | 'read'>[] {
@@ -176,22 +177,30 @@ export function ExpoScreen({ me }: { me: MeView }) {
               <ul className="stations">
                 {o.stations.map((s) => {
                   const done = s.status === 'ready' || s.status === 'completed';
+                  const voided = s.status === 'cancelled';
                   return (
-                    <li key={s.ticketId} className={`${done ? 'done' : ''} ${s.delayed ? 'late' : ''}`}>
+                    <li
+                      key={s.ticketId}
+                      className={`${done ? 'done' : ''} ${s.delayed ? 'late' : ''} ${voided ? 'voided' : ''}`}
+                    >
                       <div className="row">
                         <strong className="grow">{s.stationName}</strong>
                         <span className={`st ${done ? 'ok' : s.delayed ? 'late' : ''}`}>
                           {done
                             ? 'READY'
-                            : `${STATUS[s.status] ?? s.status} · ${clock(s.elapsedSeconds + drift)}`}
+                            : voided
+                              ? 'VOIDED'
+                              : `${STATUS[s.status] ?? s.status} · ${clock(s.elapsedSeconds + drift)}`}
                         </span>
-                        {!done && canKitchen ? (
+                        {!done && !voided && canKitchen ? (
                           <button
                             type="button"
                             className="btn small-btn"
                             disabled={!!busy}
                             onClick={() =>
-                              void run(s.ticketId, () => api.ticketAction(s.ticketId, { action: 'ready' }))
+                              void run(s.ticketId, () =>
+                                api.ticketAction(s.ticketId, { action: 'ready', expedite: true }),
+                              )
                             }
                           >
                             Ready

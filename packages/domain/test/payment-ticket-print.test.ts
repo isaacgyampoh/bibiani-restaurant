@@ -89,8 +89,30 @@ describe('payment planning', () => {
 });
 
 describe('ticket state machine', () => {
-  it('allows the kitchen flow and rejects nonsense', () => {
-    expect(nextTicketStatus('new', 'start')).toBe('in_preparation');
+  it('kitchen flow: NEW -> ACCEPT -> START -> READY -> DONE, no step skipped', () => {
+    expect(nextTicketStatus('new', 'accept')).toBe('accepted');
+    expect(nextTicketStatus('accepted', 'start')).toBe('in_preparation');
+    expect(nextTicketStatus('in_preparation', 'ready')).toBe('ready');
+    expect(nextTicketStatus('ready', 'complete')).toBe('completed');
+    // ACCEPT is not START, and READY needs START.
+    expect(() => nextTicketStatus('new', 'start')).toThrow(
+      expect.objectContaining({ message: 'Press ACCEPT first' }),
+    );
+    expect(() => nextTicketStatus('new', 'ready')).toThrow(
+      expect.objectContaining({ message: 'Press ACCEPT first' }),
+    );
+    expect(() => nextTicketStatus('accepted', 'ready')).toThrow(
+      expect.objectContaining({ message: 'Press START first' }),
+    );
+    expect(() => nextTicketStatus('accepted', 'accept')).toThrow(
+      expect.objectContaining({ code: 'INVALID_TRANSITION' }),
+    );
+    // Supervisor override (no kitchen screen): READY from NEW or ACCEPTED, nothing else.
+    expect(nextTicketStatus('new', 'ready', { expedite: true })).toBe('ready');
+    expect(nextTicketStatus('accepted', 'ready', { expedite: true })).toBe('ready');
+    expect(() => nextTicketStatus('new', 'start', { expedite: true })).toThrow();
+  });
+  it('allows the rest of the kitchen flow and rejects nonsense', () => {
     expect(nextTicketStatus('in_preparation', 'pause')).toBe('on_hold');
     expect(nextTicketStatus('ready', 'recall')).toBe('in_preparation');
     expect(nextTicketStatus('ready', 'complete')).toBe('completed');
@@ -161,7 +183,7 @@ describe('kitchen ticket document', () => {
       stationName: 'Grill',
       orderNumber: 5001,
       channel: 'dine_in',
-      areaName: 'Hall',
+      areaName: 'Dining',
       tableLabel: '12',
       customerName: null,
       orderNotes: null,
@@ -173,7 +195,7 @@ describe('kitchen ticket document', () => {
     });
     const text = doc.blocks.flatMap((b) => ('text' in b ? [b.text] : 'left' in b ? [b.left] : []));
     expect(text).toContain('ORDER #5001');
-    expect(text).toContain('HALL - TABLE 12');
+    expect(text).toContain('DINING - TABLE 12');
     expect(text).toContain('2 x GRILLED CHICKEN');
     expect(text).toContain('15:42');
     // No prices unless the station shows them.
@@ -185,7 +207,7 @@ describe('kitchen ticket document', () => {
       stationName: 'Grill',
       orderNumber: 1042,
       channel: 'dine_in',
-      areaName: 'Hall',
+      areaName: 'Dining',
       tableLabel: '8',
       customerName: null,
       orderNotes: null,

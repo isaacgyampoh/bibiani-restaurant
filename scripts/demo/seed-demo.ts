@@ -88,10 +88,10 @@ const branchId = me.branches[0]!.id;
 const save = async (entity: Parameters<ApiClient['saveConfig']>[0], record: Record<string, unknown>) =>
   (await api.saveConfig(entity, record)).id;
 
-// 2. Floor: hall pays after eating, takeaway pays before handover, outdoor terrace.
-const hall = await save('area', {
+// 2. Floor: dining pays after eating, takeaway pays before handover, outdoor terrace.
+const dining = await save('area', {
   branchId,
-  name: 'Main Hall',
+  name: 'Dining',
   channel: 'dine_in',
   requiresTable: true,
   paymentPolicy: 'pay_after_fulfillment',
@@ -117,7 +117,7 @@ const tables: Record<string, string> = {};
 for (let n = 1; n <= 15; n++)
   tables[String(n)] = await save('table', {
     branchId,
-    areaId: hall,
+    areaId: dining,
     label: String(n),
     capacity: n <= 8 ? 4 : n <= 12 ? 6 : 8,
   });
@@ -135,7 +135,7 @@ const kitchen = await station('Main Kitchen', 'KITCHEN', 1, 900);
 const grill = await station('Grill', 'GRILL', 2, 1200);
 const pastry = await station('Pastry', 'PASTRY', 3, 600);
 const drinks = await station('Drinks', 'DRINKS', 4, 300);
-for (const name of ['POS-01 Main Hall', 'POS-02 Reception', 'POS-03 Takeaway'])
+for (const name of ['POS-01 Dining', 'POS-02 Reception', 'POS-03 Takeaway'])
   await save('device', { branchId, kind: 'pos', name });
 await save('device', { branchId, kind: 'customer_display', name: 'CUSTOMER-DISPLAY-01' });
 
@@ -286,7 +286,7 @@ const pay = (o: OrderView, method: 'cash' | 'momo' | 'card', amount: number, ref
   } as Parameters<ApiClient['recordPayment']>[1]);
 
 // Completed and paid (sales for the dashboard and reports).
-const done1 = await order(hall, [item('Jollof Rice', 2, ['Extra chicken']), item('Coke', 2)], {
+const done1 = await order(dining, [item('Jollof Rice', 2, ['Extra chicken']), item('Coke', 2)], {
   tableId: tables['3'],
 });
 await api.markReady(done1.id);
@@ -319,14 +319,14 @@ const ready1 = await order(takeaway, [item('Meat Pie', 3), item('Fresh Pineapple
 });
 await pay(ready1, 'momo', ready1.grandTotal, 'VODA-0503-117733');
 await api.markReady(ready1.id);
-const ready2 = await order(hall, [item('Fried Fish', 1, ['Kelewele']), item('Coke')], {
+const ready2 = await order(dining, [item('Fried Fish', 1, ['Kelewele']), item('Coke')], {
   tableId: tables['7'],
 });
 await api.markReady(ready2.id);
 
 // Partly ready: the supervisor's "3/4 ready" situation.
 const partial = await order(
-  hall,
+  dining,
   [
     item('Jollof Rice', 1, ['Medium']),
     item('Grilled Chicken', 1, ['Plain rice']),
@@ -351,7 +351,7 @@ const cooking = await order(
 await act(cooking, 'start');
 
 // Just sent (new tickets).
-await order(hall, [item('Waakye', 2, ['Fried fish']), item('Sobolo', 2)], { tableId: tables['5'] });
+await order(dining, [item('Waakye', 2, ['Fried fish']), item('Sobolo', 2)], { tableId: tables['5'] });
 await order(takeaway, [item('Jollof Rice', 1, ['Extra spicy', 'Extra chicken']), item('Coke')], {
   customerName: 'Yaa',
 });

@@ -63,7 +63,7 @@ Device opens **/pair** → its code → **that device's row** → **Enter code f
 - ☐ **Print bill** → **BILL - NOT PAID** printed
 - ☐ Cash payment with change; MoMo and card recorded (with reference)
 - ☐ **Print receipt** printed on the till's receipt printer
-- ☐ Kitchen **START → READY** → customer display shows it under **Ready**
+- ☐ Kitchen **ACCEPT → START → READY → DONE** → customer display shows it under **Ready**
 - ☐ **Picked up / Served** → order **Completed**
 - ☐ Dual-screen till: **Customer screen** opens on the second monitor (if fitted)
 - ☐ Product with a recipe sold → stock went down

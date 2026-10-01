@@ -104,7 +104,7 @@ describe('HTTP API', () => {
       body: JSON.stringify({
         orderId: uuid(),
         branchId: h.f.branchId,
-        areaId: h.f.areas.hall,
+        areaId: h.f.areas.dining,
         tableId: h.f.tables['12'],
         items: [
           { id: uuid(), productId: h.f.products.jollof, quantity: 2 },
@@ -138,7 +138,7 @@ describe('HTTP API', () => {
       .submitOrder({
         orderId: uuid(),
         branchId: h.f.branchId,
-        areaId: h.f.areas.hall,
+        areaId: h.f.areas.dining,
         tableId: h.f.tables['12'],
         items: [],
       })

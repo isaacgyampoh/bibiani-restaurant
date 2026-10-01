@@ -49,7 +49,7 @@ describe('Bill request and settlement', () => {
     const order = await t.app.submitOrder.execute(waiter, {
       orderId: uuid(),
       branchId: f.branchId,
-      areaId: f.areas.hall,
+      areaId: f.areas.dining,
       tableId: tables[nextTable++],
       items: [line(f.products.jollof, 2), line(f.products.coke, 1)],
       send: { submissionId: uuid() },

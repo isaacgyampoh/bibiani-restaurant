@@ -150,7 +150,7 @@ describe('Manual payments (V1: cash, MoMo, card; split = several records)', () =
     const paymentId = uuid();
     await t.app.recordPayment.execute(cashier, order.id, { paymentId, method: 'cash', amount: 15000 });
     const manager = await t.as(f.authUsers.manager);
-    await t.app.transitionTicket.execute(manager, order.tickets[0]!.id, { action: 'ready' });
+    await t.app.transitionTicket.execute(manager, order.tickets[0]!.id, { action: 'ready', expedite: true });
     let view = await t.app.fulfilOrder.execute(cashier, order.id, {});
     expect(view.status).toBe('completed');
 

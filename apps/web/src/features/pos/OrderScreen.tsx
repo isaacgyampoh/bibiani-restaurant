@@ -23,7 +23,7 @@ const uuid = () => crypto.randomUUID();
 const CLOSED = ['completed', 'cancelled', 'voided'];
 
 /**
- * One screen for hall and takeaway: the same order domain, different area configuration. Totals
+ * One screen for dining and takeaway: the same order domain, different area configuration. Totals
  * shown after sending come from the server; the cart shows an estimate only.
  */
 export function OrderScreen({

@@ -117,18 +117,18 @@ test.describe
       browser,
     }) => {
       const pos = await signIn(browser, 'waiter');
-      await pos.getByRole('tab', { name: 'Hall' }).click();
+      await pos.getByRole('tab', { name: 'Dining' }).click();
       await pos.locator('.table-card', { hasText: /^3/ }).click();
       await pos.getByRole('button', { name: /^Coke/ }).click();
       await pos.reload();
-      await pos.getByRole('tab', { name: 'Hall' }).click();
+      await pos.getByRole('tab', { name: 'Dining' }).click();
       await expect(pos.locator('.table-card', { hasText: /^3/ })).toContainText('Available'); // cart not persisted
       await pos.locator('.table-card', { hasText: /^3/ }).click();
       await pos.getByRole('button', { name: /^Coke/ }).click();
       await pos.getByRole('button', { name: 'Send to kitchen' }).click();
       await expect(pos.locator('.cart strong').first()).toContainText(/Order #\d+ · Table 3/);
       await pos.reload();
-      await pos.getByRole('tab', { name: 'Hall' }).click();
+      await pos.getByRole('tab', { name: 'Dining' }).click();
       await expect(pos.locator('.table-card', { hasText: /^3/ })).toContainText(/Sent|Preparing|Occupied/);
       await pos.locator('.table-card', { hasText: /^3/ }).click();
       await expect(pos.locator('.line')).toContainText('1 × Coke');
@@ -197,7 +197,7 @@ test.describe
       });
       dev.accounts.temp = { email, password };
       const pos = await signIn(browser, 'temp');
-      await pos.getByRole('tab', { name: 'Hall' }).click();
+      await pos.getByRole('tab', { name: 'Dining' }).click();
       await expect(pos.locator('.table-card').first()).toBeVisible();
       await api(`/v1/admin/staff/${created.json.staffId}`, 'POST', { isActive: false });
       await pos.reload();

@@ -31,14 +31,14 @@ const item = (productId: string, categoryId: string) => ({ itemId: `i-${productI
 
 describe('routing precedence', () => {
   it('uses the nearest category rule, walking up the tree', () => {
-    expect(resolveRoute(item('chicken', 'grills'), 'hall', config(base)).stationId).toBe('GRL');
-    expect(resolveRoute(item('sandwich', 'sandwiches'), 'hall', config(base)).stationId).toBe('KIT');
-    expect(resolveRoute(item('cake', 'cakes'), 'hall', config(base)).stationId).toBe('PAS');
+    expect(resolveRoute(item('chicken', 'grills'), 'dining', config(base)).stationId).toBe('GRL');
+    expect(resolveRoute(item('sandwich', 'sandwiches'), 'dining', config(base)).stationId).toBe('KIT');
+    expect(resolveRoute(item('cake', 'cakes'), 'dining', config(base)).stationId).toBe('PAS');
   });
 
   it('a product rule beats any category rule', () => {
     const rules = [...base, rule({ id: 'r-p', match: 'product', productId: 'chicken', stationId: 'KIT' })];
-    expect(resolveRoute(item('chicken', 'grills'), 'hall', config(rules))).toMatchObject({
+    expect(resolveRoute(item('chicken', 'grills'), 'dining', config(rules))).toMatchObject({
       stationId: 'KIT',
       match: 'product',
     });
@@ -50,7 +50,7 @@ describe('routing precedence', () => {
       rule({ id: 'r-bar', match: 'category', categoryId: 'grills', areaId: 'takeaway', stationId: 'BAR' }),
     ];
     expect(resolveRoute(item('chicken', 'grills'), 'takeaway', config(rules)).stationId).toBe('BAR');
-    expect(resolveRoute(item('chicken', 'grills'), 'hall', config(rules)).stationId).toBe('GRL');
+    expect(resolveRoute(item('chicken', 'grills'), 'dining', config(rules)).stationId).toBe('GRL');
   });
 
   it('higher priority wins within a level; ties break deterministically by id', () => {
@@ -59,16 +59,18 @@ describe('routing precedence', () => {
       rule({ id: 'a', match: 'category', categoryId: 'grills', stationId: 'KIT' }),
       rule({ id: 'c', match: 'category', categoryId: 'grills', stationId: 'BAR', priority: 5 }),
     ];
-    expect(resolveRoute(item('chicken', 'grills'), 'hall', config(rules)).stationId).toBe('BAR');
-    expect(resolveRoute(item('chicken', 'grills'), 'hall', config(rules.slice(0, 2))).stationId).toBe('KIT');
+    expect(resolveRoute(item('chicken', 'grills'), 'dining', config(rules)).stationId).toBe('BAR');
+    expect(resolveRoute(item('chicken', 'grills'), 'dining', config(rules.slice(0, 2))).stationId).toBe(
+      'KIT',
+    );
   });
 
   it('skips rules whose station cannot receive work and falls back', () => {
-    expect(resolveRoute(item('chicken', 'grills'), 'hall', config(base, ['KIT'])).stationId).toBe('KIT');
+    expect(resolveRoute(item('chicken', 'grills'), 'dining', config(base, ['KIT'])).stationId).toBe('KIT');
   });
 
   it('refuses to route when nothing is reachable', () => {
-    expect(() => resolveRoute(item('chicken', 'grills'), 'hall', config(base, []))).toThrow(
+    expect(() => resolveRoute(item('chicken', 'grills'), 'dining', config(base, []))).toThrow(
       expect.objectContaining({ code: 'NO_ROUTE' }),
     );
   });
@@ -76,7 +78,7 @@ describe('routing precedence', () => {
   it('survives a category cycle in bad data', () => {
     const cfg = config([rule({ id: 'd', match: 'default', stationId: 'KIT' })]);
     (cfg.categoryParents as Map<string, string | null>).set('x', 'y').set('y', 'x');
-    expect(resolveRoute(item('p', 'x'), 'hall', cfg).stationId).toBe('KIT');
+    expect(resolveRoute(item('p', 'x'), 'dining', cfg).stationId).toBe('KIT');
   });
 
   it('groups decisions by station preserving order', () => {

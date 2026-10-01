@@ -49,7 +49,7 @@ export class GetStationBoard {
       throw new DomainError('FORBIDDEN', 'This screen belongs to another station');
     }
     const board = await this.deps.uow.run(ctx.principal.restaurantId, (tx) =>
-      tx.read.stationBoard(stationId),
+      tx.read.stationBoard(stationId, this.deps.clock.now()),
     );
     if (!board) throw new DomainError('NOT_FOUND', 'Station not found', { stationId });
     const branchId = board.station.branchId;

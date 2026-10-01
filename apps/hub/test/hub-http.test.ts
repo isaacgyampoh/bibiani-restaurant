@@ -249,7 +249,9 @@ describe('MY FOOD Hub over HTTP', () => {
     expect(logLines.length).toBeGreaterThan(0);
     const logs = logLines.join('\n');
     for (const secret of [JWT_SECRET, PIN_PEPPER, ...issuedTokens]) expect(logs).not.toContain(secret);
-    for (const pin of ['4827', '9153']) expect(logs).not.toMatch(new RegExp(`\\b${pin}\\b`));
+    // The PIN on its own, not inside an id such as a UUID segment ("…-4827-…" is not a PIN).
+    for (const pin of ['4827', '9153'])
+      expect(logs).not.toMatch(new RegExp(`(?<![0-9A-Za-z-])${pin}(?![0-9A-Za-z-])`));
 
     // Every file the hub keeps (database, image cache, print journal): no secret or token in the clear.
     const files: string[] = [];

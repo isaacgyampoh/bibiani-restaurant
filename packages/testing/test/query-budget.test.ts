@@ -57,7 +57,7 @@ describe.skipIf(HOSTED)('Query budget per operation', () => {
         t.app.submitOrder.execute(waiter, {
           orderId,
           branchId: f.branchId,
-          areaId: f.areas.hall,
+          areaId: f.areas.dining,
           tableId: f.tables['12']!,
           items: [
             line(f.products.jollof, 2),
@@ -73,7 +73,7 @@ describe.skipIf(HOSTED)('Query budget per operation', () => {
     const manager = await t.as(f.authUsers.manager);
     results.push(
       await measure('KDS ticket ready', () =>
-        t.app.transitionTicket.execute(manager, order.tickets[0]!.id, { action: 'ready' }),
+        t.app.transitionTicket.execute(manager, order.tickets[0]!.id, { action: 'ready', expedite: true }),
       ),
     );
     results.push(

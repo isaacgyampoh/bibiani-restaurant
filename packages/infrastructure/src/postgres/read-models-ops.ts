@@ -275,7 +275,10 @@ export function createOpsReadModels(sql: Sql): OpsModels {
           ),
           sql.query(
             `select st.name, count(t.id)::int as tickets,
-                  avg(extract(epoch from t.ready_at - t.created_at)) filter (where t.ready_at is not null) as avg_prep
+                  avg(extract(epoch from t.ready_at - t.created_at)) filter (where t.ready_at is not null) as avg_prep,
+                  -- Stages, only for tickets that went through them (older tickets have no accept time).
+                  avg(extract(epoch from t.accepted_at - t.created_at)) filter (where t.accepted_at is not null) as avg_accept,
+                  avg(extract(epoch from t.ready_at - t.started_at)) filter (where t.started_at is not null and t.ready_at is not null) as avg_cook
            from production_tickets t join orders o on o.id = t.order_id join stations st on st.id = t.station_id
            where ${SOLD} and t.status <> 'cancelled' group by st.name, st.sort_order order by st.sort_order`,
             range,
@@ -373,6 +376,8 @@ export function createOpsReadModels(sql: Sql): OpsModels {
           name: s(st.name),
           tickets: num(st.tickets),
           averagePrepSeconds: st.avg_prep === null ? null : Math.round(Number(st.avg_prep)),
+          averageAcceptSeconds: st.avg_accept === null ? null : Math.round(Number(st.avg_accept)),
+          averageCookSeconds: st.avg_cook === null ? null : Math.round(Number(st.avg_cook)),
         })),
       };
     },
@@ -411,7 +416,7 @@ export function createOpsReadModels(sql: Sql): OpsModels {
                   sub.submitted_by_name as sent_by_name, sub.submitted_by_role as sent_by_role
            from production_tickets t join stations st on st.id = t.station_id
            left join order_submissions sub on sub.id = t.submission_id
-           where t.order_id = any($1::uuid[]) and t.status <> 'cancelled'
+           where t.order_id = any($1::uuid[])
            order by st.sort_order, st.name, t.created_at`,
           [ids],
         ),
@@ -453,7 +458,10 @@ export function createOpsReadModels(sql: Sql): OpsModels {
               })),
           };
         });
-        const ready = stations.filter((st) => st.status === 'ready' || st.status === 'completed').length;
+        // A station ended by a void stays listed ("Voided") but is not part of the order any more.
+        const live = stations.filter((st) => st.status !== 'cancelled');
+        for (const st of stations) if (st.status === 'cancelled') st.delayed = false;
+        const ready = live.filter((st) => st.status === 'ready' || st.status === 'completed').length;
         const late = stations
           .filter((st) => st.delayed)
           .sort(
@@ -479,10 +487,10 @@ export function createOpsReadModels(sql: Sql): OpsModels {
           firstSubmittedAt: isoOf(o.first_submitted_at),
           elapsedSeconds: secondsSince(o.first_submitted_at ?? o.created_at, now),
           stationsReady: ready,
-          stationsTotal: stations.length,
+          stationsTotal: live.length,
           delayed: late.length > 0,
           holdingStation: late[0]?.stationName ?? null,
-          canHandOver: stations.length > 0 && ready === stations.length,
+          canHandOver: live.length > 0 && ready === live.length,
           stations,
         };
       });

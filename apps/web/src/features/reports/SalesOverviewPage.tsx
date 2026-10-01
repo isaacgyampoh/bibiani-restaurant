@@ -307,6 +307,8 @@ export function SalesOverviewPage({ me }: { me: MeView }) {
                   <tr>
                     <th>Station</th>
                     <th className="num">Tickets</th>
+                    <th className="num">Avg wait to accept</th>
+                    <th className="num">Avg preparation</th>
                     <th className="num">Avg time to ready</th>
                   </tr>
                 </thead>
@@ -315,9 +317,9 @@ export function SalesOverviewPage({ me }: { me: MeView }) {
                     <tr key={s.name}>
                       <td>{s.name}</td>
                       <td className="num">{s.tickets}</td>
-                      <td className="num">
-                        {s.averagePrepSeconds === null ? '—' : `${Math.round(s.averagePrepSeconds / 60)} min`}
-                      </td>
+                      <td className="num">{minutes(s.averageAcceptSeconds)}</td>
+                      <td className="num">{minutes(s.averageCookSeconds)}</td>
+                      <td className="num">{minutes(s.averagePrepSeconds)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -352,4 +354,10 @@ export function SalesOverviewPage({ me }: { me: MeView }) {
       )}
     </Shell>
   );
+}
+
+/** Seconds as minutes for the kitchen table ("—" when no ticket had that stage). */
+function minutes(seconds: number | null): string {
+  if (seconds === null) return '—';
+  return seconds < 60 ? `${seconds} s` : `${Math.round(seconds / 60)} min`;
 }

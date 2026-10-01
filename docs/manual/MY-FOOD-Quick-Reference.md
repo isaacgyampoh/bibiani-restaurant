@@ -6,7 +6,7 @@
 |---|---|
 | **Sign in** | Till shows **Enter your staff PIN** → type your PIN → **Sign in**. Leaving the till: **Lock**. |
 | **Open register** (cashier) | **Open register** → count the float → **Opening cash (GHS)** → **Open register with GHS …** |
-| **Table order** | Area tab (e.g. **Hall**) → tap the table → tap products → **Send to kitchen** |
+| **Table order** | Area tab (e.g. **Dining**) → tap the table → tap products → **Send to kitchen** |
 | **Takeaway order** | **Takeaway** → **+ New takeaway order** → **Customer name** (+ phone) → products → **Send to kitchen** |
 | **Add more items** | Open the order → tap products → **Send to kitchen** (only the new items go) |
 | **Bill** | **Print bill** → prints **BILL - NOT PAID**. A bill is **not** a receipt. |
@@ -16,7 +16,7 @@
 | **Split** | **SPLIT** → method + **Amount for this payment** → **Record this payment** → repeat |
 | **Receipt** | **Print receipt** |
 | **Food handed over** | **Served** (table) or **Picked up** (takeaway) |
-| **Kitchen screen** | **START** → **READY** → **BUMP** (clear). **RECALL** brings a ticket back. |
+| **Kitchen screen** | **ACCEPT** (we have it) → **START** (cooking) → **READY** → **DONE**. **RECALL** brings a ticket back. **VOIDED · STOP PREPARATION** = do not make it. |
 | **Close register** | **Close register** → **Count the cash** → **Actual cash counted** → **Review** → **Close register** → **Export** → **PDF** |
 | **No internet** (online mode) | Keep the order open; press **Retry send** when it's back. Nothing is sent twice. |
 | **Restart a device** | Just restart. It stays paired. |

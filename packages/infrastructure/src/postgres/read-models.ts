@@ -23,6 +23,11 @@ const sn = (v: unknown) => (v ?? null) as string | null;
 const isoOf = (v: unknown) => iso(dateOrNull(v));
 
 const CLOSED = `('completed', 'cancelled', 'voided')`;
+/**
+ * A station's board: open tickets, plus tickets ended by a void in the last 15 minutes (shown as
+ * VOIDED, STOP PREPARATION, so the kitchen sees it instead of the ticket silently disappearing).
+ */
+const ON_BOARD = `t.status not in ('completed', 'cancelled') or (t.status = 'cancelled' and t.cancelled_at > $2::timestamptz - interval '15 minutes')`;
 
 export function createReadModels(sql: Sql): ReadModels {
   return {
@@ -247,7 +252,7 @@ export function createReadModels(sql: Sql): ReadModels {
       }));
     },
 
-    async stationBoard(stationId): Promise<StationBoardView | null> {
+    async stationBoard(stationId, now): Promise<StationBoardView | null> {
       const [station] = await sql.query(
         `select s.id, s.name, s.branch_id, s.target_prep_seconds, s.show_prices, r.currency
          from stations s join restaurants r on r.id = s.restaurant_id where s.id = $1`,
@@ -257,26 +262,30 @@ export function createReadModels(sql: Sql): ReadModels {
       const [tickets, items, alerts] = await Promise.all([
         sql.query(
           `select t.*, o.channel, o.customer_name, o.notes as order_notes, o.is_rush, a.name as area_name, dt.label as table_label,
-                  sub.submitted_by_name as sent_by_name, sub.submitted_by_role as sent_by_role, sub.submitted_at as sent_at
+                  sub.submitted_by_name as sent_by_name, sub.submitted_by_role as sent_by_role, sub.submitted_at as sent_at,
+                  ad.name as accepted_on
            from production_tickets t
            join orders o on o.id = t.order_id
            left join order_submissions sub on sub.id = t.submission_id
            join operational_areas a on a.id = o.area_id
            left join dining_tables dt on dt.id = o.table_id
-           where t.station_id = $1 and t.status not in ('completed', 'cancelled')
+           left join devices ad on ad.id = t.accepted_by_device_id
+           where t.station_id = $1 and (${ON_BOARD})
            order by o.is_rush desc, t.created_at, t.id`,
-          [stationId],
+          [stationId, now.toISOString()],
         ),
         sql.query(
           `select pti.ticket_id, i.id, i.quantity, coalesce(i.kitchen_name, i.name) as name, i.notes, i.status, i.line_total,
                   i.unit_price, i.gross_total, i.promotion_name, i.promotion_discount, i.manual_discount,
+                  i.void_reason, i.status_changed_at, vs.display_name as voided_by,
              coalesce((select json_agg(m.name order by m.name) from order_item_modifiers m where m.order_item_id = i.id), '[]'::json) as modifiers
            from production_ticket_items pti
            join production_tickets t on t.id = pti.ticket_id
            join order_items i on i.id = pti.order_item_id
-           where t.station_id = $1 and t.status not in ('completed', 'cancelled')
+           left join staff vs on vs.id = i.voided_by_staff_id
+           where t.station_id = $1 and (${ON_BOARD})
            order by i.position`,
-          [stationId],
+          [stationId, now.toISOString()],
         ),
         sql.query(
           `select p.device_id as printer_id, d.name as printer_name, p.last_error,
@@ -315,6 +324,12 @@ export function createReadModels(sql: Sql): ReadModels {
             createdAt: isoOf(t.created_at)!,
             startedAt: isoOf(t.started_at),
             readyAt: isoOf(t.ready_at),
+            acceptedAt: isoOf(t.accepted_at),
+            acceptedBy: t.accepted_by_name
+              ? { name: s(t.accepted_by_name), role: sn(t.accepted_by_role) }
+              : null,
+            acceptedOn: sn(t.accepted_on),
+            cancelledAt: isoOf(t.cancelled_at),
             isRush: Boolean(t.is_rush),
             sentBy: t.sent_by_name ? { name: s(t.sent_by_name), role: sn(t.sent_by_role) } : null,
             sentAt: isoOf(t.sent_at),
@@ -327,6 +342,13 @@ export function createReadModels(sql: Sql): ReadModels {
                 modifiers: i.modifiers as string[],
                 notes: sn(i.notes),
                 status: i.status as StationTicketView['items'][number]['status'],
+                ...(i.status === 'voided' || i.status === 'cancelled'
+                  ? {
+                      voidReason: sn(i.void_reason),
+                      voidedBy: sn(i.voided_by),
+                      voidedAt: isoOf(i.status_changed_at),
+                    }
+                  : { voidReason: null, voidedBy: null, voidedAt: null }),
                 ...(station.show_prices
                   ? {
                       unitPrice: num(i.unit_price),

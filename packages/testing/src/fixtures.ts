@@ -24,7 +24,7 @@ import { HOSTED } from './database';
 export interface RestaurantFixture {
   restaurantId: string;
   branchId: string;
-  areas: { hall: string; takeaway: string };
+  areas: { dining: string; takeaway: string };
   tables: Record<string, string>;
   stations: { kitchen: string; grill: string; pastry: string; drinks: string };
   printers: {
@@ -144,8 +144,8 @@ export async function seedRestaurant(
   const waiter = await staffMember('Esi Waiter', waiterRole);
 
   // Areas & tables -----------------------------------------------------------
-  const hall = await one(
-    `insert into operational_areas (restaurant_id, branch_id, name, channel, requires_table) values ($1, $2, 'Hall', 'dine_in', true) returning id`,
+  const dining = await one(
+    `insert into operational_areas (restaurant_id, branch_id, name, channel, requires_table) values ($1, $2, 'Dining', 'dine_in', true) returning id`,
     [restaurantId, branchId],
   );
   const takeaway = await one(
@@ -156,7 +156,7 @@ export async function seedRestaurant(
   for (const label of ['1', '2', '12']) {
     tables[label] = await one(
       `insert into dining_tables (restaurant_id, branch_id, area_id, label) values ($1, $2, $3, $4) returning id`,
-      [restaurantId, branchId, hall, label],
+      [restaurantId, branchId, dining, label],
     );
   }
 
@@ -318,7 +318,7 @@ export async function seedRestaurant(
   return {
     restaurantId,
     branchId,
-    areas: { hall, takeaway },
+    areas: { dining, takeaway },
     tables,
     stations,
     printers: { ...printers, receipt: receiptPrinter },

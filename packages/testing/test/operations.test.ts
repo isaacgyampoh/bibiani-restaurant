@@ -27,7 +27,7 @@ describe('Dashboard and expediter (supervisor) board', () => {
     const order = await t.app.submitOrder.execute(waiter, {
       orderId: uuid(),
       branchId: f.branchId,
-      areaId: f.areas.hall,
+      areaId: f.areas.dining,
       tableId: f.tables['12'],
       items: [
         line(f.products.jollof, 1),
@@ -59,7 +59,7 @@ describe('Dashboard and expediter (supervisor) board', () => {
 
     const ticket = (name: string) => o.stations.find((s) => s.stationName === name)!.ticketId;
     for (const name of ['Main Kitchen', 'Drinks', 'Pastry'])
-      await t.app.transitionTicket.execute(manager, ticket(name), { action: 'ready' });
+      await t.app.transitionTicket.execute(manager, ticket(name), { action: 'ready', expedite: true });
     t.clock.advance(16 * 60); // grill target is 15 minutes
     o = await board();
     expect(o).toMatchObject({
@@ -79,7 +79,7 @@ describe('Dashboard and expediter (supervisor) board', () => {
       delayedTickets: 1,
     });
 
-    await t.app.transitionTicket.execute(manager, ticket('Grill'), { action: 'ready' });
+    await t.app.transitionTicket.execute(manager, ticket('Grill'), { action: 'ready', expedite: true });
     o = await board();
     expect(o).toMatchObject({ stationsReady: 4, canHandOver: true, delayed: false, status: 'ready' });
 

@@ -630,7 +630,7 @@ export function createHttpApp(deps: HttpDependencies) {
     );
   });
 
-  // Session, menu, hall
+  // Session, menu, dining
   v1.get('/me', async (c) => c.json(await deps.app.getMe.execute(c.var.ctx, c.var.displayName)));
   v1.get('/branches/:branchId/menu', async (c) =>
     c.json(await deps.app.getMenu.execute(c.var.ctx, id(c, 'branchId'))),

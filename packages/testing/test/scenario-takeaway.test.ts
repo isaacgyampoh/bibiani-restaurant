@@ -19,12 +19,12 @@ describe('Scenario B — Takeaway #5002', () => {
     db = await createTestDatabase();
     f = await seedRestaurant(db, { slug: 'takeaway', orderNumberStart: 5001 });
     t = createTestApp(db);
-    // #5001 is the hall order of the day; the takeaway becomes #5002.
+    // #5001 is the dining order of the day; the takeaway becomes #5002.
     const waiter = await t.as(f.authUsers.waiter);
     await t.app.submitOrder.execute(waiter, {
       orderId: uuid(),
       branchId: f.branchId,
-      areaId: f.areas.hall,
+      areaId: f.areas.dining,
       tableId: f.tables['12']!,
       items: [line(f.products.jollof, 2)],
       send: { submissionId: uuid() },
@@ -83,7 +83,7 @@ describe('Scenario B — Takeaway #5002', () => {
 
     const manager = await t.as(f.authUsers.manager);
     for (const tk of view.tickets)
-      view = await t.app.transitionTicket.execute(manager, tk.id, { action: 'ready' });
+      view = await t.app.transitionTicket.execute(manager, tk.id, { action: 'ready', expedite: true });
     expect(view.status).toBe('ready');
     board = await t.app.getCustomerBoard.execute(display, f.branchId);
     expect(board.ready).toContainEqual({ orderNumber: 5002, channel: 'takeaway' });
@@ -105,7 +105,7 @@ describe('Scenario B — Takeaway #5002', () => {
       send: { submissionId: uuid() },
     });
     const manager = await t.as(f.authUsers.manager);
-    await t.app.transitionTicket.execute(manager, order.tickets[0]!.id, { action: 'ready' });
+    await t.app.transitionTicket.execute(manager, order.tickets[0]!.id, { action: 'ready', expedite: true });
     const view = await t.app.fulfilOrder.execute(cashier, order.id, {});
     expect(view.status).toBe('picked_up');
     expect(view.paymentStatus).toBe('unpaid');

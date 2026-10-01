@@ -37,10 +37,10 @@ const branchId = me.branches[0]!.id;
 const save = async (entity: Parameters<ApiClient['saveConfig']>[0], record: Record<string, unknown>) =>
   (await api.saveConfig(entity, record)).id;
 
-// Operational areas: hall pays after eating; takeaway pays before handover.
-const hall = await save('area', {
+// Operational areas: dining pays after eating; takeaway pays before handover.
+const dining = await save('area', {
   branchId,
-  name: 'Hall',
+  name: 'Dining',
   channel: 'dine_in',
   requiresTable: true,
   paymentPolicy: 'pay_after_fulfillment',
@@ -54,7 +54,7 @@ await save('area', {
   sortOrder: 2,
 });
 for (let n = 1; n <= 12; n++)
-  await save('table', { branchId, areaId: hall, label: String(n), capacity: n <= 6 ? 4 : 6 });
+  await save('table', { branchId, areaId: dining, label: String(n), capacity: n <= 6 ? 4 : 6 });
 
 // Stations
 const station = (name: string, code: string, sortOrder: number) =>

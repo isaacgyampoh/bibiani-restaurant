@@ -158,6 +158,14 @@ export interface StationTicketView {
   createdAt: string;
   startedAt: string | null;
   readyAt: string | null;
+  /** NEW -> ACCEPT: when, and who acknowledged the ticket (null on tickets from before ACCEPT existed). */
+  acceptedAt: string | null;
+  /** The person, when a signed-in staff member accepted (a paired kitchen screen has no person). */
+  acceptedBy: SentByView | null;
+  /** The screen it was accepted on (e.g. KITCHEN-01). */
+  acceptedOn: string | null;
+  /** Set when a void or cancellation ended the ticket: the screen shows VOIDED, STOP PREPARATION. */
+  cancelledAt: string | null;
   isRush: boolean;
   /** Who sent this round to the kitchen and when. */
   sentBy: SentByView | null;
@@ -169,6 +177,10 @@ export interface StationTicketView {
     modifiers: string[];
     notes: string | null;
     status: OrderItemStatus;
+    /** For a voided line: why, who, when (the kitchen must stop making it). */
+    voidReason: string | null;
+    voidedBy: string | null;
+    voidedAt: string | null;
     // Price snapshot from the order line; all null when the station hides prices.
     unitPrice: number | null;
     grossTotal: number | null;
@@ -671,7 +683,17 @@ export interface SalesReportView {
   }[];
   byCategory: { name: string; quantity: number; sales: number }[];
   byArea: { name: string; orders: number; sales: number }[];
-  stations: { name: string; tickets: number; averagePrepSeconds: number | null }[];
+  /**
+   * Kitchen speed per station. averagePrepSeconds: received -> ready (all tickets). Stages, only for
+   * tickets that had them: averageAcceptSeconds received -> accepted, averageCookSeconds started -> ready.
+   */
+  stations: {
+    name: string;
+    tickets: number;
+    averagePrepSeconds: number | null;
+    averageAcceptSeconds: number | null;
+    averageCookSeconds: number | null;
+  }[];
 }
 
 export type PromotionPhase = 'live' | 'scheduled' | 'upcoming' | 'paused' | 'ended';

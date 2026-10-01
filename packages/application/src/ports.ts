@@ -268,9 +268,14 @@ export interface TicketRecord {
 export type TicketPatch = Partial<{
   status: TicketStatus;
   acceptedAt: Date;
+  /** Set with acceptedAt; the repository snapshots the person's name and role with it. */
+  acceptedByStaffId: string | null;
+  acceptedByDeviceId: string | null;
   startedAt: Date;
   readyAt: Date | null;
   completedAt: Date | null;
+  /** When a void or cancellation ended the ticket (the kitchen screen keeps showing it a while). */
+  cancelledAt: Date;
 }>;
 
 export interface TicketEvent {
@@ -613,7 +618,8 @@ export interface ReadModels {
   activeOrders(branchId: string): Promise<OrderSummaryView[]>;
   /** Closed orders (completed, cancelled, voided) of the current and previous business day, newest first. */
   recentClosedOrders(branchId: string): Promise<OrderSummaryView[]>;
-  stationBoard(stationId: string): Promise<StationBoardView | null>;
+  /** `now`: the application clock (a voided ticket stays on the board for 15 minutes after it). */
+  stationBoard(stationId: string, now: Date): Promise<StationBoardView | null>;
   customerBoard(branchId: string, now: Date): Promise<CustomerBoardView>;
   printQueue(branchId: string): Promise<PrintQueueView>;
   menu(branchId: string): Promise<MenuData>;

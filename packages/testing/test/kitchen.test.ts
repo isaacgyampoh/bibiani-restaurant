@@ -48,7 +48,8 @@ describe('Kitchen operations', () => {
     expect(v.status).toBe('partially_ready');
 
     const pastryKds = await t.as(f.authUsers.pastryKds);
-    v = await t.app.transitionTicket.execute(pastryKds, pastry.id, { action: 'ready' });
+    for (const action of ['accept', 'start', 'ready'] as const)
+      v = await t.app.transitionTicket.execute(pastryKds, pastry.id, { action });
     expect(v.status).toBe('ready');
 
     // Recall: kitchen found a problem, order is no longer fully ready.
@@ -78,12 +79,21 @@ describe('Kitchen operations', () => {
     await expect(t.app.transitionTicket.execute(kds, ticket.id, { action: 'resume' })).rejects.toMatchObject({
       code: 'INVALID_TRANSITION',
     });
+    // NEW -> ACCEPT -> START -> READY: no step can be skipped on a kitchen screen.
+    await expect(t.app.transitionTicket.execute(kds, ticket.id, { action: 'start' })).rejects.toMatchObject({
+      code: 'INVALID_TRANSITION',
+      message: 'Press ACCEPT first',
+    });
+    await expect(t.app.transitionTicket.execute(kds, ticket.id, { action: 'ready' })).rejects.toMatchObject({
+      code: 'INVALID_TRANSITION',
+      message: 'Press ACCEPT first',
+    });
     await t.app.transitionTicket.execute(kds, ticket.id, {
-      action: 'start',
+      action: 'accept',
       expectedVersion: ticket.version,
     });
     await expect(
-      t.app.transitionTicket.execute(kds, ticket.id, { action: 'ready', expectedVersion: ticket.version }),
+      t.app.transitionTicket.execute(kds, ticket.id, { action: 'start', expectedVersion: ticket.version }),
     ).rejects.toMatchObject({ code: 'VERSION_CONFLICT' });
   });
 

@@ -79,10 +79,10 @@ try {
   const save = async (entity: Parameters<ApiClient['saveConfig']>[0], record: Record<string, unknown>) =>
     (await api.saveConfig(entity, record)).id;
 
-  // Areas: the hall pays after eating; takeaway pays before handover. Owner can change both.
-  const hall = await save('area', {
+  // Areas: dining pays after eating; takeaway pays before handover. Owner can change both.
+  const dining = await save('area', {
     branchId,
-    name: 'Hall',
+    name: 'Dining',
     channel: 'dine_in',
     requiresTable: true,
     paymentPolicy: 'pay_after_fulfillment',
@@ -97,7 +97,7 @@ try {
   });
   const tables = Number(values.tables);
   for (let n = 1; n <= tables; n++)
-    await save('table', { branchId, areaId: hall, label: String(n), capacity: 4 });
+    await save('table', { branchId, areaId: dining, label: String(n), capacity: 4 });
 
   // Stations, each shown on its own kitchen screen. Printers are added once their LAN addresses are known.
   const kitchen = await save('station', {
@@ -127,7 +127,7 @@ try {
   Object.assign(summary, {
     restaurant: restaurant.name,
     branchId,
-    areas: ['Hall (pay after)', 'Takeaway (pay before)'],
+    areas: ['Dining (pay after)', 'Takeaway (pay before)'],
     tables,
     stations: ['Kitchen', 'Drinks'],
     devices: ['POS-01', 'KITCHEN-01', 'DRINKS-01', 'CUSTOMER-DISPLAY-01', 'PRINT-AGENT-01'],

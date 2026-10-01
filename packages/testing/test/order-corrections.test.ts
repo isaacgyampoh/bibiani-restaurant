@@ -43,7 +43,7 @@ describe('Cancellation, voids, receipts, payment policy', () => {
     const order = await t.app.submitOrder.execute(waiter, {
       orderId: uuid(),
       branchId: f.branchId,
-      areaId: f.areas.hall,
+      areaId: f.areas.dining,
       tableId: f.tables['2']!,
       items: [line(f.products.jollof, 1), line(f.products.coke, 1)],
       send: { submissionId: uuid() },
@@ -77,6 +77,7 @@ describe('Cancellation, voids, receipts, payment policy', () => {
   it('cancelling is refused once cooking started or money is held (void or refund instead)', async () => {
     const manager = await t.as(f.authUsers.manager);
     const started = await takeaway();
+    await t.app.transitionTicket.execute(manager, started.tickets[0]!.id, { action: 'accept' });
     await t.app.transitionTicket.execute(manager, started.tickets[0]!.id, { action: 'start' });
     await expect(
       t.app.cancelOrder.execute(manager, started.id, { reason: 'x changed mind' }),
@@ -96,6 +97,7 @@ describe('Cancellation, voids, receipts, payment policy', () => {
     const manager = await t.as(f.authUsers.manager);
     const order = await takeaway();
     const pie = order.items.find((i) => i.name === 'Meat Pie')!;
+    await t.app.transitionTicket.execute(manager, pie.ticketId!, { action: 'accept' });
     await t.app.transitionTicket.execute(manager, pie.ticketId!, { action: 'start' });
     const cashier = await t.as(f.authUsers.cashier);
     const requestId = uuid();
@@ -272,13 +274,13 @@ describe('Cancellation, voids, receipts, payment policy', () => {
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
   });
 
-  it('hall floor shows occupied, ready to serve and awaiting payment from real order state', async () => {
+  it('dining floor shows occupied, ready to serve and awaiting payment from real order state', async () => {
     const waiter = await t.as(f.authUsers.waiter);
     const manager = await t.as(f.authUsers.manager);
     const order = await t.app.submitOrder.execute(waiter, {
       orderId: uuid(),
       branchId: f.branchId,
-      areaId: f.areas.hall,
+      areaId: f.areas.dining,
       tableId: f.tables['1']!,
       items: [line(f.products.coke, 1)],
       send: { submissionId: uuid() },

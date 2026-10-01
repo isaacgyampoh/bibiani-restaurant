@@ -81,7 +81,7 @@ test.describe
       await expect(card).toContainText('0/4 READY');
       for (const station of ['Main Kitchen', 'Drinks', 'Pastry']) {
         const t = order.tickets.find((x) => x.stationName === station)!;
-        await call(`/v1/tickets/${t.id}/actions`, 'POST', { action: 'ready' });
+        await call(`/v1/tickets/${t.id}/actions`, 'POST', { action: 'ready', expedite: true });
       }
       await expect(card).toContainText('3/4 READY', { timeout: 15_000 });
       await expect(card.getByRole('listitem').filter({ hasText: 'Grill' })).not.toContainText('READY');

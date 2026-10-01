@@ -217,7 +217,7 @@ export function PosScreen({ me }: { me: MeView }) {
           onOpen={(o) => setView({ kind: 'order', areaId: o.areaId, tableId: o.tableId, orderId: o.id })}
         />
       ) : area.channel === 'dine_in' ? (
-        <HallView
+        <DiningView
           branchId={branchId}
           areaId={area.id}
           currency={menu.currency}
@@ -253,7 +253,7 @@ const LEGEND: [string, string][] = [
   ['cleaning', 'var(--faint)'],
 ];
 
-function HallView({
+function DiningView({
   branchId,
   areaId,
   currency,

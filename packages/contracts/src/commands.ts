@@ -37,6 +37,8 @@ export type SendToKitchenCommand = z.infer<typeof SendToKitchenCommand>;
 export const TicketActionCommand = z.object({
   action: z.enum(TICKET_ACTIONS),
   expectedVersion: z.number().int().positive().nullish(),
+  /** Supervisor override (no kitchen screen at that station): READY straight from NEW / ACCEPTED. */
+  expedite: z.boolean().optional(),
 });
 export type TicketActionCommand = z.infer<typeof TicketActionCommand>;
 

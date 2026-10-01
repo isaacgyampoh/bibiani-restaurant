@@ -69,7 +69,7 @@ describe('Idempotency: the client retries because it never saw the response', ()
   it('a second round on the same table gets new tickets only for the new items', async () => {
     const waiter = await t.as(f.authUsers.waiter);
     const orderId = uuid();
-    const base = { orderId, branchId: f.branchId, areaId: f.areas.hall, tableId: f.tables['1']! };
+    const base = { orderId, branchId: f.branchId, areaId: f.areas.dining, tableId: f.tables['1']! };
     const round1 = await t.app.submitOrder.execute(waiter, {
       ...base,
       items: [line(f.products.jollof, 1)],

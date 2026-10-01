@@ -272,7 +272,7 @@ describe.skipIf(!HOSTED)('Concurrency on hosted Postgres (multiple connections)'
     const cashier = await t.as(f.authUsers.cashier);
     const manager = await t.as(f.authUsers.manager);
     const orderId = uuid();
-    const base = { orderId, branchId: f.branchId, areaId: f.areas.hall, tableId: f.tables['12']! };
+    const base = { orderId, branchId: f.branchId, areaId: f.areas.dining, tableId: f.tables['12']! };
     const first = await t.app.submitOrder.execute(waiter, {
       ...base,
       items: [line(f.products.jollof, 2), line(f.products.coke, 2)],

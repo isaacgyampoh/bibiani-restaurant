@@ -242,7 +242,7 @@ describe('Staff PINs, floor operations, stock reversal, kitchen prices, branded 
       t.app.submitOrder.execute(await t.as(f.authUsers.waiter, f.devices.pos), {
         orderId: uuid(),
         branchId: f.branchId,
-        areaId: f.areas.hall,
+        areaId: f.areas.dining,
         tableId: f.tables[tableLabel],
         items,
         send: { submissionId: uuid() },
@@ -251,13 +251,13 @@ describe('Staff PINs, floor operations, stock reversal, kitchen prices, branded 
     it('transfer to a free table; refused onto an occupied one; convert to takeaway', async () => {
       const a = await dineIn('1');
       const moved = await t.app.transferOrder.execute(await owner(), a.id, {
-        areaId: f.areas.hall,
+        areaId: f.areas.dining,
         tableId: f.tables['2'],
       });
       expect(moved.table?.label).toBe('2');
       const b = await dineIn('1');
       await expect(
-        t.app.transferOrder.execute(await owner(), b.id, { areaId: f.areas.hall, tableId: f.tables['2'] }),
+        t.app.transferOrder.execute(await owner(), b.id, { areaId: f.areas.dining, tableId: f.tables['2'] }),
       ).rejects.toMatchObject({ code: 'TABLE_UNAVAILABLE' });
       const takeaway = await t.app.transferOrder.execute(await owner(), b.id, {
         areaId: f.areas.takeaway,

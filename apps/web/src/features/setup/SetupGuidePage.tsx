@@ -158,7 +158,7 @@ function buildSteps(config: ConfigurationView, branchId: string, stockItems: num
     },
     {
       title: 'Dining areas and tables',
-      why: 'Hall, terrace, takeaway, and the tables the POS shows.',
+      why: 'Dining room, terrace, takeaway, and the tables the POS shows.',
       href: '/floor',
       action: 'Set up floor',
       done: inBranch(config.areas).length > 0 && inBranch(config.tables as unknown[]).length > 0,

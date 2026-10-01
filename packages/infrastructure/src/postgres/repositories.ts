@@ -743,6 +743,18 @@ function productionRepository(sql: Sql): ProductionRepository {
           ticketId,
         });
       }
+      if (patch.acceptedByStaffId)
+        // Who accepted, as they were at that moment (history must not follow later renames).
+        await sql.query(
+          `update production_tickets set
+             accepted_by_name = (select display_name from staff where id = $2::uuid),
+             accepted_by_role = (select r.name from staff_roles sr join roles r on r.id = sr.role_id
+                                  where sr.staff_id = $2::uuid
+                                  order by array_position(array['Owner','Manager','Supervisor','Cashier','Waiter','Kitchen'], r.name) nulls last, r.name
+                                  limit 1)
+           where id = $1`,
+          [ticketId, patch.acceptedByStaffId],
+        );
       return num(rows[0]!.version);
     },
 

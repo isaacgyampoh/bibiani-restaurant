@@ -99,7 +99,7 @@ test.describe
 
     test('Scenario A — Table 12, four stations, split payment, served, completed', async ({ browser }) => {
       const pos = await signedInPage(browser, 'waiter');
-      await pos.getByRole('tab', { name: 'Hall' }).click();
+      await pos.getByRole('tab', { name: 'Dining' }).click();
       await pos.locator('.table-card', { hasText: /^12/ }).click();
       await addProduct(pos, 'Jollof Rice', 2);
       await addProduct(pos, 'Grilled Chicken', 2);
@@ -122,9 +122,10 @@ test.describe
       await expect(ticket(kds.grill!)).toContainText('Table 12');
 
       await expect(display.getByRole('region', { name: 'Order received' })).toContainText(orderNumber);
-      await ticket(kds.kitchen!).getByRole('button', { name: 'START' }).click();
+      // Kitchen workflow: NEW -> ACCEPT -> START -> READY on every station.
       for (const station of ['kitchen', 'grill', 'pastry', 'drinks'] as const) {
-        await ticket(kds[station]!).getByRole('button', { name: 'READY' }).click();
+        for (const step of ['ACCEPT', 'START', 'READY'])
+          await ticket(kds[station]!).getByRole('button', { name: step }).click();
       }
       await expect(display.getByRole('region', { name: 'Ready' })).toContainText(orderNumber);
       await expect(pos.locator('.cart .badge').first()).toHaveText('Ready');
@@ -135,7 +136,7 @@ test.describe
 
       // Cashier takes a split payment: cash 150.00, then MoMo for the rest.
       const cashier = await tillPage(browser, 'cashier');
-      await cashier.getByRole('tab', { name: 'Hall' }).click();
+      await cashier.getByRole('tab', { name: 'Dining' }).click();
       await cashier.locator('.table-card', { hasText: /^12/ }).click();
       await cashier.getByRole('button', { name: 'Take payment' }).click();
       await cashier.getByRole('button', { name: 'SPLIT' }).click();
@@ -233,7 +234,8 @@ test.describe
       await expect(pos.locator('.cart .badge').nth(1)).toHaveText('Paid');
 
       for (const station of ['pastry', 'kitchen', 'drinks'] as const) {
-        await ticket(kds[station]!).getByRole('button', { name: 'READY' }).click();
+        for (const step of ['ACCEPT', 'START', 'READY'])
+          await ticket(kds[station]!).getByRole('button', { name: step }).click();
       }
       await expect(display.getByRole('region', { name: 'Ready' })).toContainText(orderNumber);
       await pos.getByRole('button', { name: 'Picked up' }).click();
@@ -296,7 +298,7 @@ test.describe
       await expect(owner.getByRole('row', { name: /Takeaway/ }).locator('select')).toHaveValue(
         'pay_before_fulfillment',
       );
-      await expect(owner.getByRole('row', { name: /Hall/ }).locator('select')).toHaveValue(
+      await expect(owner.getByRole('row', { name: /Dining/ }).locator('select')).toHaveValue(
         'pay_after_fulfillment',
       );
       await owner.getByRole('link', { name: 'Staff', exact: true }).click();

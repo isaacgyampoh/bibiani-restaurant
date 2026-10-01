@@ -2070,6 +2070,9 @@ input.needs {
   text-transform: uppercase;
   color: var(--muted);
 }
+.ticket.accepted header {
+  background: #2c3440;
+}
 .ticket.in_preparation header {
   background: #7a4a00;
 }
@@ -2139,8 +2142,62 @@ input.needs {
   padding-left: 34px;
 }
 .ticket li.voided {
-  text-decoration: line-through;
   color: var(--muted);
+}
+.ticket li.voided .iname {
+  text-decoration: line-through;
+}
+/* A voided line: the food is struck through, the instruction is not. */
+.ticket li .void-tag {
+  display: block;
+  margin-top: 4px;
+  padding: 4px 8px;
+  border-radius: var(--r-sm);
+  background: var(--danger);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+/* A ticket ended by a void: kept on screen a while, unmistakable, no actions. */
+.ticket.cancelled {
+  border-color: var(--danger);
+}
+.ticket.cancelled header {
+  background: var(--danger);
+}
+.ticket.cancelled ul {
+  opacity: 0.75;
+}
+.ticket .void-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  background: var(--danger-soft, #fde8e8);
+  color: var(--danger);
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+  font-weight: 600;
+}
+.ticket .void-banner strong {
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+.ticket .void-foot {
+  padding: 10px 14px 14px;
+  margin-top: auto;
+  font-size: 13px;
+  color: var(--muted);
+}
+.ticket header .elapsed small {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.8;
+  margin-right: 4px;
 }
 .ticket .order-note {
   margin: 0 14px 10px;
@@ -2169,6 +2226,10 @@ input.needs {
 }
 .ticket .actions button:disabled {
   opacity: 0.5;
+}
+.kbtn-accept {
+  background: var(--brand);
+  color: #fff;
 }
 .kbtn-start {
   background: #1f252c;
@@ -2361,6 +2422,13 @@ input.needs {
 }
 .expo-card .st.ok {
   color: var(--ok);
+}
+.expo-card li.voided .st {
+  color: var(--danger);
+}
+.expo-card li.voided strong {
+  text-decoration: line-through;
+  color: var(--muted);
 }
 .expo-card .small-btn {
   height: 36px;

@@ -242,6 +242,22 @@ test('installer guide pictures', async ({ browser }) => {
   ]);
   await pos.getByRole('button', { name: 'Send to kitchen' }).click();
   await expect(pos.locator('.cart strong').first()).toContainText(/Takeaway #\d+/);
+  // The kitchen screen: a NEW ORDER whose first and only action is ACCEPT.
+  const orderNo = ((await pos.locator('.cart strong').first().innerText()).match(/#(\d+)/) ?? [])[1];
+  await owner.goto('/kds');
+  await owner
+    .getByRole('button', { name: /Main Kitchen/ })
+    .first()
+    .click();
+  const kticket = owner.getByRole('article', { name: `Order ${orderNo}` });
+  await expect(kticket.getByRole('button', { name: 'ACCEPT' })).toBeVisible({ timeout: 20_000 });
+  await annotate(owner, 'c2-kitchen-accept', [
+    {
+      target: kticket.getByRole('button', { name: 'ACCEPT' }),
+      label: 'NEW ORDER: press ACCEPT (“we have it”), then START, READY, DONE',
+      side: 'right',
+    },
+  ]);
   await pos.getByRole('button', { name: 'Take payment' }).click();
   await pos.getByRole('button', { name: 'CASH' }).click();
   await pos.getByLabel('Cash received').fill('100');

@@ -4,18 +4,37 @@ import { DomainError } from './errors';
 export const TICKET_ACTIONS = ['accept', 'start', 'pause', 'resume', 'ready', 'recall', 'complete'] as const;
 export type TicketAction = (typeof TICKET_ACTIONS)[number];
 
+/**
+ * Kitchen workflow: NEW -> ACCEPT -> START -> READY -> DONE (complete). ACCEPT means "the kitchen
+ * has received this order"; it is not START ("cooking has begun"). Each is a separate step.
+ */
 const TRANSITIONS: Record<TicketAction, { from: readonly TicketStatus[]; to: TicketStatus }> = {
   accept: { from: ['new'], to: 'accepted' },
-  start: { from: ['new', 'accepted'], to: 'in_preparation' },
+  start: { from: ['accepted'], to: 'in_preparation' },
   pause: { from: ['accepted', 'in_preparation'], to: 'on_hold' },
   resume: { from: ['on_hold'], to: 'in_preparation' },
-  ready: { from: ['new', 'accepted', 'in_preparation', 'on_hold'], to: 'ready' },
+  ready: { from: ['in_preparation', 'on_hold'], to: 'ready' },
   recall: { from: ['ready', 'completed'], to: 'in_preparation' },
   complete: { from: ['ready'], to: 'completed' },
 };
 
-export function nextTicketStatus(current: TicketStatus, action: TicketAction): TicketStatus {
+/** What the kitchen must press first, when an action comes too early. */
+const FIRST: Partial<Record<TicketStatus, string>> = { new: 'ACCEPT', accepted: 'START' };
+
+/**
+ * `expedite`: a supervisor marks a whole order ready (counters without a kitchen screen): READY is
+ * then allowed from NEW or ACCEPTED, and no accept/start time is invented.
+ */
+export function nextTicketStatus(
+  current: TicketStatus,
+  action: TicketAction,
+  options: { expedite?: boolean } = {},
+): TicketStatus {
+  if (options.expedite && action === 'ready' && (current === 'new' || current === 'accepted')) return 'ready';
   const rule = TRANSITIONS[action];
+  if ((action === 'start' || action === 'ready') && FIRST[current] && !rule.from.includes(current)) {
+    throw new DomainError('INVALID_TRANSITION', `Press ${FIRST[current]} first`, { current, action });
+  }
   if (!rule.from.includes(current)) {
     throw new DomainError(
       'INVALID_TRANSITION',

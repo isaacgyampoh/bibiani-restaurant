@@ -29,7 +29,7 @@ describe('Cash registers', () => {
 
   async function paidOrder(
     method: 'cash' | 'momo' | 'card',
-    area: 'takeaway' | 'hall' = 'takeaway',
+    area: 'takeaway' | 'dining' = 'takeaway',
     by = cashier,
   ) {
     const ctx = await by();
@@ -37,7 +37,7 @@ describe('Cash registers', () => {
       orderId: uuid(),
       branchId: f.branchId,
       areaId: f.areas[area],
-      tableId: area === 'hall' ? f.tables['12'] : null,
+      tableId: area === 'dining' ? f.tables['12'] : null,
       customerName: 'Guest',
       items: [line(f.products.jollof, 2)], // 90.00
       send: { submissionId: uuid() },
@@ -103,7 +103,7 @@ describe('Cash registers', () => {
 
   it('payments the cashier takes are counted in the register; voided ones are not', async () => {
     await paidOrder('cash'); // 90.00 cash (100 tendered, 10 change)
-    await paidOrder('cash', 'hall');
+    await paidOrder('cash', 'dining');
     await paidOrder('momo');
     const card = await paidOrder('card');
     // A payment by someone else does not go into this register.

@@ -37,7 +37,7 @@ describe('TEST 6 — atomic order submission', () => {
   const cmd = (): SubmitOrderCommand => ({
     orderId: uuid(),
     branchId: f.branchId,
-    areaId: f.areas.hall,
+    areaId: f.areas.dining,
     tableId: f.tables['2']!,
     items: [line(f.products.jollof, 1), line(f.products.chicken, 1)],
     send: { submissionId: uuid() },

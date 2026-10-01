@@ -16,14 +16,37 @@ const whereOf = (t: StationTicketView) =>
       : t.areaName
     : `Takeaway${t.customerName ? ` · ${t.customerName}` : ''}`;
 const STATE: Record<string, string> = {
-  new: 'New',
+  new: 'New order',
   accepted: 'Accepted',
-  in_preparation: 'Cooking',
+  in_preparation: 'Preparing',
   on_hold: 'Paused',
   ready: 'Ready',
+  cancelled: 'Voided',
 };
 
+/**
+ * The ticket's clock: how long it has been in its current stage. NEW: waiting to be accepted (since
+ * it arrived). ACCEPTED: since accepted. PREPARING / PAUSED: since START. READY: since ready.
+ * "Late" (target time) still counts from arrival, as before.
+ */
+function stageClock(t: StationTicketView): { label: string; since: string } {
+  if (t.status === 'accepted' && t.acceptedAt) return { label: 'Accepted', since: t.acceptedAt };
+  if ((t.status === 'in_preparation' || t.status === 'on_hold') && t.startedAt)
+    return { label: 'Preparing', since: t.startedAt };
+  if (t.status === 'ready' && t.readyAt) return { label: 'Ready', since: t.readyAt };
+  return { label: 'Waiting', since: t.createdAt };
+}
+
+const clock = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
 /** What changed on this station since the last authoritative reload. */
+/** Who voided a whole ticket and why (from its voided lines). */
+function voidSummary(t: StationTicketView): string {
+  const line = t.items.find((i) => i.voidedBy || i.voidReason);
+  if (!line) return 'Cancelled';
+  return [line.voidedBy ? `Voided by ${line.voidedBy}` : null, line.voidReason].filter(Boolean).join(' · ');
+}
+
 function kitchenDiff(
   before: StationBoardView,
   after: StationBoardView,
@@ -34,6 +57,11 @@ function kitchenDiff(
   for (const t of after.tickets) {
     const p = prev.get(t.id);
     const items = t.items.map((i) => `${i.quantity}× ${i.name}`).join(', ');
+    if (!p && t.status === 'cancelled') {
+      // Ended by a void before this screen saw it: say so, never "new order".
+      out.push({ kind: 'voided', title: `#${t.orderNumber} · VOIDED`, detail: 'Stop preparation' });
+      continue;
+    }
     if (!p) {
       out.push({
         kind: knownOrders.has(t.orderNumber) ? 'added' : 'new',
@@ -52,8 +80,8 @@ function kitchenDiff(
       )
         out.push({
           kind: 'voided',
-          title: `#${t.orderNumber} · ${i.quantity}× ${i.name}`,
-          detail: 'Do not prepare',
+          title: `VOID #${t.orderNumber} · ${i.quantity}× ${i.name}`,
+          detail: `Stop preparation${i.voidReason ? ` · ${i.voidReason}` : ''}`,
         });
     }
     if (p.status === 'ready' && t.status !== 'ready' && t.status !== 'completed')
@@ -207,7 +235,8 @@ function Board({
               ? { ...t, status: mine.status, version: mine.version }
               : t;
           })
-          .filter((t) => t.status !== 'completed' && t.status !== 'cancelled'),
+          // Voided (cancelled) tickets stay: the server keeps them 15 minutes as VOIDED, STOP PREPARATION.
+          .filter((t) => t.status !== 'completed'),
       }
     : null;
   const target = board?.station.targetPrepSeconds ?? null;
@@ -265,18 +294,26 @@ function Board({
       ) : null}
       <div className="tickets">
         {board?.tickets.map((t) => {
-          const since = t.startedAt ?? t.createdAt;
+          const stage = stageClock(t);
+          const voided = t.status === 'cancelled';
           const late =
-            target !== null && t.status !== 'ready' && now - new Date(t.createdAt).getTime() > target * 1000;
+            target !== null &&
+            t.status !== 'ready' &&
+            !voided &&
+            now - new Date(t.createdAt).getTime() > target * 1000;
           return (
             <article
               key={t.id}
               className={`ticket ${t.status} ${late ? 'late' : ''} ${t.isRush ? 'rush' : ''}`}
-              aria-label={`Order ${t.orderNumber}`}
+              aria-label={`Order ${t.orderNumber}${voided ? ', voided' : ''}`}
             >
               <header>
                 <span className="num">#{t.orderNumber}</span>
-                <span className="elapsed">{elapsed(since, now)}</span>
+                {voided ? null : (
+                  <span className="elapsed" title={`${stage.label} for ${elapsed(stage.since, now)}`}>
+                    <small>{stage.label}</small> {elapsed(stage.since, now)}
+                  </span>
+                )}
               </header>
               <div className="where">
                 {t.channel === 'dine_in'
@@ -284,17 +321,31 @@ function Board({
                   : `Takeaway${t.customerName ? ` · ${t.customerName}` : ''}`}
                 <span className="t-status">
                   {late ? 'Late · ' : ''}
-                  {STATE[t.status] ?? t.status} ·{' '}
-                  {new Date(t.sentAt ?? t.createdAt).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                  {STATE[t.status] ?? t.status} · {clock(t.sentAt ?? t.createdAt)}
                 </span>
               </div>
+              {voided ? (
+                <div className="void-banner" role="alert">
+                  <strong>VOIDED · STOP PREPARATION</strong>
+                  <span>
+                    {voidSummary(t)}
+                    {t.cancelledAt ? ` · ${clock(t.cancelledAt)}` : ''}
+                  </span>
+                </div>
+              ) : null}
               {t.sentBy ? (
                 <div className="sent-by">
                   Sent by <strong>{t.sentBy.name}</strong>
                   {t.sentBy.role ? ` • ${t.sentBy.role}` : ''}
+                </div>
+              ) : null}
+              {t.acceptedAt ? (
+                <div className="sent-by">
+                  Accepted{t.acceptedBy ? ' by ' : ''}
+                  {t.acceptedBy ? <strong>{t.acceptedBy.name}</strong> : null}
+                  {t.acceptedBy?.role ? ` • ${t.acceptedBy.role}` : ''}
+                  {t.acceptedOn ? ' on ' : ''}
+                  {t.acceptedOn ? <strong>{t.acceptedOn}</strong> : null} · {clock(t.acceptedAt)}
                 </div>
               ) : null}
               <ul>
@@ -303,7 +354,15 @@ function Board({
                     key={i.id}
                     className={i.status === 'voided' || i.status === 'cancelled' ? 'voided' : ''}
                   >
-                    <span className="qtyx">{i.quantity} ×</span> {i.name}
+                    <span className="qtyx">{i.quantity} ×</span> <span className="iname">{i.name}</span>
+                    {i.status === 'voided' || i.status === 'cancelled' ? (
+                      <span className="void-tag">
+                        VOID · STOP PREPARATION
+                        {i.voidedBy || i.voidReason
+                          ? ` · ${[i.voidedBy, i.voidReason].filter(Boolean).join(' · ')}`
+                          : ''}
+                      </span>
+                    ) : null}
                     {i.lineTotal !== null ? <span className="price">{money(i.lineTotal)}</span> : null}
                     {i.modifiers.map((m) => (
                       <span key={m} className="mod">
@@ -340,67 +399,82 @@ function Board({
                 </div>
               ) : null}
               {t.orderNotes ? <div className="order-note">Note: {t.orderNotes}</div> : null}
-              <div className="actions">
-                {t.status === 'new' || t.status === 'accepted' ? (
-                  <button
-                    type="button"
-                    className="kbtn-start"
-                    disabled={busy === t.id}
-                    onClick={() => void act(t, 'start')}
-                  >
-                    START
-                  </button>
-                ) : null}
-                {t.status === 'on_hold' ? (
-                  <button
-                    type="button"
-                    className="kbtn-start"
-                    disabled={busy === t.id}
-                    onClick={() => void act(t, 'resume')}
-                  >
-                    RESUME
-                  </button>
-                ) : null}
-                {t.status === 'in_preparation' ? (
-                  <button
-                    type="button"
-                    className="kbtn-minor"
-                    disabled={busy === t.id}
-                    onClick={() => void act(t, 'pause')}
-                  >
-                    PAUSE
-                  </button>
-                ) : null}
-                {t.status !== 'ready' ? (
-                  <button
-                    type="button"
-                    className="kbtn-ready"
-                    disabled={busy === t.id}
-                    onClick={() => void act(t, 'ready')}
-                  >
-                    READY
-                  </button>
-                ) : (
-                  <>
+              {voided ? (
+                <div className="void-foot">Leaves this screen 15 minutes after the void.</div>
+              ) : (
+                <div className="actions">
+                  {t.status === 'new' ? (
+                    <button
+                      type="button"
+                      className="kbtn-accept"
+                      disabled={busy === t.id}
+                      onClick={() => void act(t, 'accept')}
+                    >
+                      ACCEPT
+                    </button>
+                  ) : null}
+                  {t.status === 'accepted' ? (
+                    <button
+                      type="button"
+                      className="kbtn-start"
+                      disabled={busy === t.id}
+                      onClick={() => void act(t, 'start')}
+                    >
+                      START
+                    </button>
+                  ) : null}
+                  {t.status === 'on_hold' ? (
+                    <button
+                      type="button"
+                      className="kbtn-start"
+                      disabled={busy === t.id}
+                      onClick={() => void act(t, 'resume')}
+                    >
+                      RESUME
+                    </button>
+                  ) : null}
+                  {t.status === 'in_preparation' ? (
                     <button
                       type="button"
                       className="kbtn-minor"
                       disabled={busy === t.id}
-                      onClick={() => void act(t, 'recall')}
+                      onClick={() => void act(t, 'pause')}
                     >
-                      RECALL
+                      PAUSE
                     </button>
+                  ) : null}
+                  {t.status === 'in_preparation' || t.status === 'on_hold' ? (
                     <button
                       type="button"
-                      className="kbtn-bump"
+                      className="kbtn-ready"
                       disabled={busy === t.id}
-                      onClick={() => void act(t, 'complete')}
+                      onClick={() => void act(t, 'ready')}
                     >
-                      BUMP
+                      READY
                     </button>
-                  </>
-                )}
-              </div>
+                  ) : null}
+                  {t.status === 'ready' ? (
+                    <>
+                      <button
+                        type="button"
+                        className="kbtn-minor"
+                        disabled={busy === t.id}
+                        onClick={() => void act(t, 'recall')}
+                      >
+                        RECALL
+                      </button>
+                      <button
+                        type="button"
+                        className="kbtn-bump"
+                        disabled={busy === t.id}
+                        onClick={() => void act(t, 'complete')}
+                      >
+                        DONE
+                      </button>
+                    </>
+                  ) : null}
+                </div>
+              )}
             </article>
           );
         })}

@@ -319,7 +319,7 @@ describe('in-store hub: offline operation and sync', () => {
     const order = await hub.app.submitOrder.execute(waiter, {
       orderId: uuid(),
       branchId: f.branchId,
-      areaId: f.areas.hall,
+      areaId: f.areas.dining,
       tableId: f.tables['2'],
       items: [line(f.products.coke, 2)],
       send: { submissionId: uuid() },
@@ -422,6 +422,42 @@ describe('in-store hub: offline operation and sync', () => {
       [order.id],
     );
     expect(still!.merged_into_id).toBe(known.id);
+  });
+
+  it('kitchen ACCEPT offline on the hub: recorded with who and when, reaches the cloud exactly once', async () => {
+    online = false;
+    const order = await sellOnHub(f.products.jollof, 1);
+    const ticket = order.tickets[0]!;
+    const manager = await hub.as(f.authUsers.manager);
+    await hub.app.transitionTicket.execute(manager, ticket.id, { action: 'accept' });
+    const [onHub] = (await hubDb.query<{ accepted_at: Date; accepted_by_name: string | null }>(
+      'select accepted_at, accepted_by_name from production_tickets where id = $1',
+      [ticket.id],
+    )) as [{ accepted_at: Date; accepted_by_name: string | null }];
+    expect(onHub.accepted_at).not.toBeNull();
+    expect(onHub.accepted_by_name).toBeTruthy();
+
+    online = true;
+    await engine.syncOnce();
+    await engine.syncOnce(); // a second sync (or a replay) must not add anything
+    const [inCloud] = (await cloudDb.query<{
+      status: string;
+      accepted_at: Date;
+      started_at: Date | null;
+      accepted_by_name: string | null;
+    }>('select status, accepted_at, started_at, accepted_by_name from production_tickets where id = $1', [
+      ticket.id,
+    ])) as [{ status: string; accepted_at: Date; started_at: Date | null; accepted_by_name: string | null }];
+    expect(inCloud.status).toBe('accepted');
+    expect(inCloud.started_at).toBeNull();
+    expect(new Date(inCloud.accepted_at).getTime()).toBe(new Date(onHub.accepted_at).getTime());
+    expect(inCloud.accepted_by_name).toBe(onHub.accepted_by_name);
+    expect(
+      await count(cloudDb, `production_ticket_events where ticket_id = $1 and action = 'accept'`, [
+        ticket.id,
+      ]),
+    ).toBe(1);
+    expect((await engine.status()).outbox.conflicts).toBe(0);
   });
 
   it('a staff member deactivated in the back office can no longer act on the hub after the next sync', async () => {
