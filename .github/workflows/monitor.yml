@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      BASE_URL: ${{ vars.PRODUCTION_URL || 'https://bibiani-restaurant.vercel.app' }}
+      BASE_URL: ${{ vars.PRODUCTION_URL || 'https://www.chefelisha.cc' }}
       MONITOR_TOKEN: ${{ secrets.MONITOR_TOKEN }}
       # Alert thresholds (per 15 minutes unless stated)
       MAX_5XX: 5

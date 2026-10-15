@@ -10,7 +10,7 @@ import { autoUpdater } from 'electron-updater';
  * running in the tray: tills depend on it. It starts with Windows.
  */
 const PORT = Number(process.env.MYFOOD_HUB_PORT ?? 8080);
-const CLOUD_URL = process.env.MYFOOD_CLOUD_URL ?? 'https://bibiani-restaurant.vercel.app';
+const CLOUD_URL = process.env.MYFOOD_CLOUD_URL ?? 'https://www.chefelisha.cc';
 const SUPABASE_URL = process.env.MYFOOD_SUPABASE_URL ?? '';
 const SUPABASE_ANON_KEY = process.env.MYFOOD_SUPABASE_ANON_KEY ?? '';
 /** 'production', or 'test' for a hub built against staging (named "MY FOOD Hub (TEST)"). */

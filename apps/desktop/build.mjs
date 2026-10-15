@@ -2,7 +2,7 @@
 /**
  * Builds the MY FOOD Hub desktop app into ./app and writes the installer settings for its channel.
  *   node build.mjs --channel production          (public values from production.public.json)
- *   node build.mjs --channel test --env .env.staging --cloud https://restaurant-management-staging.vercel.app
+ *   node build.mjs --channel test --env .env.staging --cloud https://my-food-staging.nanagyams99.workers.dev
  *
  * production: must use the production Supabase project, and the cloud address must report itself as
  *   production (checked over the network). Installer: "MY-FOOD-Hub-Setup-<version>-production.exe".
