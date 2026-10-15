@@ -22,7 +22,7 @@ const env = Object.fromEntries(
 );
 const SETTINGS = {
   production: { worker: 'my-food-production', appUrl: 'https://www.chefelisha.cc' },
-  staging: { worker: 'my-food-staging', appUrl: 'https://my-food-staging.workers.dev' },
+  staging: { worker: 'my-food-staging', appUrl: 'https://my-food-staging.nanagyams99.workers.dev' },
 }[envName];
 if (!SETTINGS) throw new Error(`unknown environment ${envName}`);
 const release =
@@ -32,7 +32,7 @@ const run = (cmd, args, extraEnv = {}) =>
   execFileSync(cmd, args, { stdio: 'inherit', env: { ...process.env, ...extraEnv } });
 
 // 1. Schema version the API requires.
-run('node', ['scripts/deploy/stamp-schema-version.mjs']);
+run('node', ['scripts/cloudflare/stamp-schema-version.mjs']);
 
 // 2. Web app with a sealed env dir: only this environment's public values.
 const envDir = mkdtempSync(join(tmpdir(), `web-env-${envName}-`));
