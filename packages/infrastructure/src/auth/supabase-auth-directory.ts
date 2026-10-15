@@ -13,7 +13,8 @@ export class SupabaseAuthDirectory implements AuthDirectory {
     supabaseUrl: string,
     private readonly secretKey: string,
     private readonly anonKey: string,
-    private readonly fetchImpl: typeof fetch = fetch,
+    // Called through a wrapper: a detached `fetch` throws "Illegal invocation" on Cloudflare Workers.
+    private readonly fetchImpl: typeof fetch = (input, init) => fetch(input, init),
   ) {
     this.base = `${supabaseUrl.replace(/\/+$/, '')}/auth/v1`;
   }

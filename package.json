@@ -44,7 +44,9 @@
     "release:check": "node scripts/deploy/require-ci-green.mjs",
     "hardware:printer-check": "pnpm --filter @rp/print-agent printer-check",
     "platform:remove-restaurant": "bash -c 'eval \"$(grep -E \"^PROD_(DB_PASSWORD|POOLER_HOST)=\" .env.production)\"; export PLATFORM_DATABASE_URL=\"postgresql://postgres.lgoirbfyspuflqekrcgp:$(python3 -c \"import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1],safe=\\\"\\\"))\" \"$PROD_DB_PASSWORD\")@$PROD_POOLER_HOST:5432/postgres\"; tsx --env-file=.env.production scripts/platform/remove-restaurant.ts \"$@\"' --",
-    "platform:invite-owner:prod": "bash -c 'eval \"$(grep -E \"^PROD_(DB_PASSWORD|POOLER_HOST)=\" .env.production)\"; export PLATFORM_DATABASE_URL=\"postgresql://postgres.lgoirbfyspuflqekrcgp:$(python3 -c \"import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1],safe=\\\"\\\"))\" \"$PROD_DB_PASSWORD\")@$PROD_POOLER_HOST:5432/postgres\"; tsx --env-file=.env.production scripts/platform/invite-owner.ts \"$@\"' --"
+    "platform:invite-owner:prod": "bash -c 'eval \"$(grep -E \"^PROD_(DB_PASSWORD|POOLER_HOST)=\" .env.production)\"; export PLATFORM_DATABASE_URL=\"postgresql://postgres.lgoirbfyspuflqekrcgp:$(python3 -c \"import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1],safe=\\\"\\\"))\" \"$PROD_DB_PASSWORD\")@$PROD_POOLER_HOST:5432/postgres\"; tsx --env-file=.env.production scripts/platform/invite-owner.ts \"$@\"' --",
+    "cf:deploy:staging": "node scripts/cloudflare/deploy.mjs staging .env.staging",
+    "cf:deploy:production": "node scripts/cloudflare/deploy.mjs production .env.production"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
@@ -60,7 +62,8 @@
     "postgres": "3.4.9",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
-    "vitest": "5.0.2"
+    "vitest": "5.0.2",
+    "wrangler": "4.151.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

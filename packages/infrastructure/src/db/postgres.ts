@@ -26,7 +26,7 @@ export function createPostgresDatabase(
             event: 'db.notice',
             message: n.message,
           };
-          process.stderr.write(`${JSON.stringify(line)}\n`);
+          console.warn(JSON.stringify(line));
         }
       }),
   });

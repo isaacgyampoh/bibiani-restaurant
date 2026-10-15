@@ -25,3 +25,5 @@ apps/desktop/app-printing/
 apps/desktop/release-printing/
 apps/desktop/electron-builder.printing.generated.json
 .production-archives/
+.cloudflare/
+.dev.vars

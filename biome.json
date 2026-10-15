@@ -10,6 +10,8 @@
       "!**/playwright-report",
       "!**/test-results",
       "!deploy",
+      "!.cloudflare",
+      "!**/.wrangler",
       "!perf-results",
       "!apps/desktop/app",
       "!apps/desktop/release",

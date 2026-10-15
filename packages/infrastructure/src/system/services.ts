@@ -22,11 +22,18 @@ export function canonicalJson(value: unknown): string {
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(',')}}`;
 }
 
+/** stdout/stderr where they exist (Node); the console elsewhere (Cloudflare Workers logs). */
+function writeLine(line: string, level: string): void {
+  const stream = level === 'error' ? globalThis.process?.stderr : globalThis.process?.stdout;
+  if (stream?.write) stream.write(`${line}\n`);
+  else if (level === 'error') console.error(line);
+  else console.log(line);
+}
+
 /** Structured JSON lines on stdout/stderr: one event per line, correlation ids included by callers. */
 export function createJsonLogger(
   base: LogFields = {},
-  write: (line: string, level: string) => void = (line, level) =>
-    level === 'error' ? process.stderr.write(`${line}\n`) : process.stdout.write(`${line}\n`),
+  write: (line: string, level: string) => void = writeLine,
 ): Logger {
   const emit = (level: string, event: string, fields?: LogFields) =>
     write(
