@@ -49,6 +49,8 @@ mkdirSync(`${out}/assets/manual`, { recursive: true });
 cpSync('apps/web/dist', `${out}/assets`, { recursive: true });
 for (const f of readdirSync('docs/manual').filter((f) => /\.(pdf|xlsx)$/.test(f)))
   cpSync(`docs/manual/${f}`, `${out}/assets/manual/${f}`);
+// no-transform: Cloudflare must not inject scripts (e.g. the Web Analytics beacon) into pages; the
+// policy below would block them anyway, leaving console errors on every screen.
 // Content-Security-Policy as on Vercel: this app, this environment's Supabase project (API,
 // realtime, product photos) and Google Fonts. No inline scripts, no framing, no plugins.
 const supabaseOrigin = new URL(env.VITE_SUPABASE_URL).origin;
@@ -74,6 +76,7 @@ writeFileSync(
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), geolocation=()
   Strict-Transport-Security: max-age=31536000
+  Cache-Control: no-transform
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 `,
