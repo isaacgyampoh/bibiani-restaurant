@@ -1,0 +1,92 @@
+# ===========================================================================
+# MY FOOD (Chefelisha Restaurant) — project manifest for the central server.
+# Supabase project: lgoirbfyspuflqekrcgp (restaurant-management-prod).
+# Every fact below was MEASURED (production inventory, read-only, 2026-11-11),
+# not assumed. Nothing secret lives here.
+# ===========================================================================
+
+project:
+  name: myfood                       # -> database `myfood`, roles myfood_*
+  display_name: MY FOOD — Chefelisha Restaurant
+  repository: github.com/isaacgyampoh/bibiani-restaurant
+  supabase_ref: lgoirbfyspuflqekrcgp
+  web_hosts: [www.chefelisha.cc, chefelisha.cc]   # served today by Cloudflare Workers
+  supabase_host: supabase.chefelisha.cc           # proposed; no DNS record exists or is created
+  timezone: Africa/Accra
+
+architecture: >
+  Unlike Everytinroom and Bedtime, MY FOOD has its OWN API server (Hono, apps/api) that
+  connects to Postgres as `rp_api` and enforces every permission. The browser never queries
+  tables: zero supabase.from()/rpc() calls. Supabase is used for Auth, Storage and Realtime
+  only. On the server: the platform runs those three; MY FOOD runs `myfood-api` and
+  `myfood-web` (migration-package/compose/myfood.compose.yml).
+
+services:                            # decided by measurement (see "evidence")
+  postgrest: unused                  # the platform starts it; nothing calls it. anon/authenticated
+                                     # have no table grants (rebuild-and-compare: GRANTS IDENTICAL)
+  auth: true                         # 22 logins (8 staff, 14 paired devices), bcrypt $2a$10$,
+                                     # 19 live sessions; same GoTrue version as production (v2.197.0)
+  storage: true                      # 330 photos, 5.1 MB, bucket product-images (public) -> R2
+  realtime: true                     # 1 private broadcast channel per screen (kitchen, supervisor,
+                                     # tills, display); every screen ALSO polls, so Realtime is speed,
+                                     # not correctness
+  functions: false                   # no Edge Functions exist
+  api: own container                 # myfood-api (Node 24, same code as production)
+
+database:
+  engine: PostgreSQL 17.6 (supabase/postgres:17.6.1.136 on the platform; production 17.6)
+  size: 55 MB
+  migrations_dir: supabase/migrations       # 39 files; production at 20261001000100
+  extensions: [pgcrypto, uuid-ossp, pg_cron] # production also: pg_stat_statements, supabase_vault (unused)
+  rebuild_from_migrations: identical          # structure 2,012 lines, grants 93 (rebuild-and-compare.sh)
+
+scheduled_jobs:
+  - name: myfood-sweep-offline-devices
+    cron: "* * * * *"
+    sql: select app.sweep_offline_devices()
+    registered_by: deploy.sh (cron.schedule_in_database from `postgres`)
+
+secrets_required:                    # NAMES ONLY
+  generated_on_server: [RP_API_PASSWORD, MONITOR_TOKEN]
+  carried_from_production: [PIN_PEPPER]       # REQUIRED: staff PINs are HMAC'd with it; a new value
+                                              # would make every PIN fail. Passed with --pin-pepper-file.
+  from_platform: [JWT_SECRET, ANON_KEY, SERVICE_ROLE_KEY]
+  external: [R2_BUCKET, R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, SMTP_*]
+
+reference_counts:                    # NOT targets: the restaurant trades continuously
+  measured_at: 2026-11-11T16:07Z
+  orders: 2615
+  order_items: 3145
+  payments: 2587
+  payments_received_ghs: "321400.00"
+  staff: 9
+  devices: 21
+  logins: 22
+  photos: 330
+
+media:
+  source_bucket: product-images      # public
+  target: cloudflare-r2 (through the platform's Storage container, same paths)
+  backup: migration-package/scripts/backup-photos.mjs     # 330/330 verified 2026-11-11
+  upload: migration-package/scripts/upload-photos.mjs     # verifies by retrieval (SHA-256)
+
+auth_migration:
+  strategy: restore auth.users/identities/sessions/refresh_tokens as rows into the platform's
+            GoTrue (same version). Passwords carry over (bcrypt). Paired devices keep their
+            refresh tokens. Access tokens are re-issued by the new Auth (HS256, per-app secret);
+            the API verifies them with AUTH_JWT_SECRET.
+  test: migration-package/scripts/auth-carryover-test.mjs (staging runner)
+  email: production sends no reliable email today (SMTP not configured); same on the server
+         until SMTP_* are set.
+
+acceptance:
+  unit: pnpm test                                   # 330 tests
+  rebuild: migration-package/scripts/rebuild-and-compare.sh
+  backup_restore: migration-package/scripts/restore-and-reconcile.sh
+  server: .github/workflows/vps-staging.yml          # throwaway Ubuntu + the real platform
+  browser: e2e/ (39 tests) against the server
+
+cutover:
+  plan: migration-package/CUTOVER.md
+  requires_delta_sync: true          # orders are taken every service; a freeze window is used
+  rollback: point www.chefelisha.cc back at the Cloudflare Worker (DNS); Supabase untouched

@@ -114,6 +114,11 @@ echo "  $ENVF ready (keys: $(cut -d= -f1 "$ENVF" | tr '\n' ' '))"
 
 # ── 3. migrations ──────────────────────────────────────────────────────────
 say "3. Database migrations (committed history only)"
+# On the platform the Auth service owns auth.users and `postgres` is not a superuser (supabase_admin
+# is). MY FOOD's tables reference logins (staff.user_id, devices.auth_user_id), as on Supabase, where
+# postgres holds these rights by default.
+sa () { docker exec -i central-postgres psql -v ON_ERROR_STOP=1 -q -U supabase_admin "$@"; }
+sa -d "$APP_DB" -c "grant usage on schema auth, storage to postgres; grant references, select on auth.users to postgres;"
 psqlc -d "$APP_DB" -q <<'SQL'
 create schema if not exists supabase_migrations;
 create table if not exists supabase_migrations.schema_migrations (version text primary key, statements text[], name text);

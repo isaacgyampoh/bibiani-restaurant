@@ -20,6 +20,11 @@ on:
       - 'migration-package/**'
       - '.github/workflows/vps-staging.yml'
 
+# bash -eo pipefail for every step: a failure inside `cmd | tee log` must fail the step.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   staging:
     runs-on: ubuntu-24.04
@@ -92,6 +97,23 @@ jobs:
 
       - name: 4. Logins carried over as rows work on the self-hosted Auth
         run: node --env-file=.env.vps migration-package/scripts/auth-carryover-test.mjs
+
+      - name: Photos round trip into Storage (R2 stand-in), verified by retrieval
+        run: |
+          D=$(mktemp -d); mkdir -p "$D/product-images/test"
+          for i in 1 2 3; do head -c $((20000 + i)) /dev/urandom > "$D/product-images/test/photo-$i.webp"; done
+          node -e '
+            const fs=require("fs"),c=require("crypto"),d=process.argv[1];
+            const m=[1,2,3].map(i=>{const n=`test/photo-${i}.webp`,b=fs.readFileSync(`${d}/product-images/${n}`);
+              return {name:n,size:b.length,type:"image/webp",sha256:c.createHash("sha256").update(b).digest("hex")}});
+            fs.writeFileSync(`${d}/manifest.json`,JSON.stringify(m));' "$D"
+          set -a; . ./.env.vps; set +a
+          STORAGE_URL="http://$SUPA/storage/v1" SERVICE_KEY="$SUPABASE_SECRET_KEY" node migration-package/scripts/upload-photos.mjs "$D"
+          node -e 'const f=process.argv[1]+"/manifest.json",m=JSON.parse(require("fs").readFileSync(f));m[0].sha256="0".repeat(64);require("fs").writeFileSync(f,JSON.stringify(m))' "$D"
+          if STORAGE_URL="http://$SUPA/storage/v1" SERVICE_KEY="$SUPABASE_SECRET_KEY" node migration-package/scripts/upload-photos.mjs "$D"; then
+            echo "::error::a wrong checksum was not detected"; exit 1
+          fi
+          echo "control: a wrong checksum is detected"
 
       - name: Postgres 18 client (backups are written by pg_dump 18)
         run: |

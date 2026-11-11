@@ -48,16 +48,20 @@ pg18 pg_restore -l "/dump/$F" \
 tables="$(awk '{print $(NF-2)"."$(NF-1)}' "$WORK/restore.list" | sort -u)"
 echo "  $(echo "$tables" | wc -l) tables to load"
 
-# Empty them (migrations seed reference rows that production also has), then load.
+# Empty them (migrations seed reference rows that production also has), then load. As supabase_admin
+# (the image's superuser; auth/storage tables belong to their services): the pg_dump 18 archive is
+# turned into SQL by the postgres:18 client and applied with triggers suspended (replica role), the
+# equivalent of pg_restore --disable-triggers.
+sa () { docker exec -i central-postgres psql -v ON_ERROR_STOP=1 -q -U supabase_admin -d "$DB" "$@"; }
 list="$(echo "$tables" | sed -E 's/^([a-z_]+)\.([a-z0-9_]+)$/"\1"."\2"/' | paste -sd, -)"
-docker exec -i central-postgres psql -v ON_ERROR_STOP=1 -U postgres -d "$DB" -q -c "truncate $list cascade"
-pg18 pg_restore --data-only --disable-triggers --no-owner -h 127.0.0.1 -U postgres -d "$DB" -L /work/restore.list "/dump/$F" \
-  > "$WORK/restore.log" 2>&1 || true
-if grep -q 'ERROR:' "$WORK/restore.log"; then
-  grep 'ERROR:' "$WORK/restore.log" | sort | uniq -c | head -20; echo "RESTORE HAD ERRORS" >&2; exit 1
-fi
+sa -c "truncate $list cascade"
+{ echo "set session_replication_role = replica;"
+  pg18 pg_restore --data-only --no-owner -L /work/restore.list -f - "/dump/$F"
+  echo "set session_replication_role = origin;"; } | sa > "$WORK/restore.log" 2>&1 \
+  || { grep -E 'ERROR' "$WORK/restore.log" | sort | uniq -c | head -20; echo "RESTORE FAILED" >&2; exit 1; }
+sa -c "grant select on all tables in schema auth, storage to postgres"
 # Sequences follow the data (identity columns: audit_logs, events, ...).
-docker exec -i central-postgres psql -v ON_ERROR_STOP=1 -U postgres -d "$DB" -q <<'SQL'
+sa <<'SQL'
 do $$ declare r record; begin
   for r in select s.relname seq, n.nspname sch, t.relname tbl, a.attname col
     from pg_class s join pg_depend d on d.objid = s.oid and d.deptype in ('a','i')
