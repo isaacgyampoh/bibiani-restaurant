@@ -44,7 +44,11 @@ test('a recovery link lets the person set their own password, then sign in with 
   try {
     const link = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
       method: 'POST',
-      headers: { apikey: process.env.SUPABASE_SECRET_KEY!, 'content-type': 'application/json' },
+      headers: {
+        apikey: process.env.SUPABASE_SECRET_KEY!,
+        authorization: `Bearer ${process.env.SUPABASE_SECRET_KEY}`,
+        'content-type': 'application/json',
+      },
       body: JSON.stringify({ type: 'recovery', email, redirect_to: `${BASE}/set-password` }),
     });
     const { action_link } = (await link.json()) as { action_link: string };

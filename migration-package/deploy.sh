@@ -106,8 +106,9 @@ elif [ -z "$(get "$ENVF" PIN_PEPPER 2>/dev/null)" ]; then
 fi
 SCHEME=https; [ "$PLAIN" = 1 ] && SCHEME=http
 RELEASE="$(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || date -u +%Y%m%d%H%M)"
-put "$ENVF" MYFOOD_SUPABASE_URL "$SCHEME://$SUPA_HOST"
+put "$ENVF" MYFOOD_SUPABASE_URL "$SCHEME://${WEB_HOSTS[0]}"   # same origin: Auth/Storage/Realtime under the web address
 put "$ENVF" MYFOOD_APP_URL "$SCHEME://${WEB_HOSTS[0]}"
+put "$ENVF" MYFOOD_WEB_HOST "${WEB_HOSTS[0]}"
 put "$ENVF" MYFOOD_RELEASE "$RELEASE"
 put "$ENVF" MYFOOD_APP_ENV "$([ $STAGING = 1 ] && echo staging || echo production)"
 echo "  $ENVF ready (keys: $(cut -d= -f1 "$ENVF" | tr '\n' ' '))"
@@ -174,9 +175,9 @@ fi
 say "6. Building MY FOOD $RELEASE and starting it"
 ANON="$(get "$APP_ENV" ANON_KEY)"
 docker build -q -f "$REPO/migration-package/docker/api.Dockerfile" -t "myfood-api:$RELEASE" "$REPO" >/dev/null
-WS_ORIGIN="$([ $PLAIN = 1 ] && echo ws || echo wss)://$SUPA_HOST"
+WS_ORIGIN="$([ $PLAIN = 1 ] && echo ws || echo wss)://${WEB_HOSTS[0]}"
 docker build -q -f "$REPO/migration-package/docker/web.Dockerfile" -t "myfood-web:$RELEASE" \
-  --build-arg SUPABASE_URL="$SCHEME://$SUPA_HOST" --build-arg SUPABASE_ANON_KEY="$ANON" \
+  --build-arg SUPABASE_URL="$SCHEME://${WEB_HOSTS[0]}" --build-arg SUPABASE_ANON_KEY="$ANON" \
   --build-arg SUPABASE_WS_ORIGIN="$WS_ORIGIN" "$REPO" >/dev/null
 # The API reaches the Supabase-compatible host through the platform's Caddy on the private network.
 CADDY_IP="$(docker inspect -f '{{with index .NetworkSettings.Networks "central_edge"}}{{.IPAddress}}{{end}}' central-caddy)"
@@ -190,7 +191,7 @@ say "7. Routing ${WEB_HOSTS[*]} and health"
 SITE="$ROOT_DIR/compose/caddy-sites/myfood-web.caddy"
 hosts="$(printf '%s, ' "${WEB_HOSTS[@]}" | sed 's/, $//')"
 [ "$PLAIN" = 1 ] && hosts="$(printf 'http://%s, ' "${WEB_HOSTS[@]}" | sed 's/, $//')"
-sed "s|__WEB_HOSTS__|$hosts|" "$REPO/migration-package/compose/myfood-web.caddy.tmpl" > "$SITE"
+sed "s|__WEB_HOSTS__|$hosts|; s|__APP_DNS__|$APP_DNS|g" "$REPO/migration-package/compose/myfood-web.caddy.tmpl" > "$SITE"
 if [ "$PLAIN" = 1 ]; then
   # Staging runner only: a .test name cannot get a certificate, so the platform's site for the
   # Supabase-compatible host is served over plain HTTP too (a real server keeps HTTPS).

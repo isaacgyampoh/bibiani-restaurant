@@ -77,7 +77,7 @@ jobs:
           get() { sudo sed -n "s/^$2=//p" "$1" | tail -1; }
           A=/srv/central/apps/myfood/.env; M=/srv/central/apps/myfood/myfood.env
           {
-            echo "SUPABASE_URL=http://$SUPA"
+            echo "SUPABASE_URL=http://$WEB"
             echo "SUPABASE_ANON_KEY=$(get $A ANON_KEY)"
             echo "SUPABASE_SECRET_KEY=$(get $A SERVICE_ROLE_KEY)"
             echo "PLATFORM_DATABASE_URL=postgresql://postgres:$(get /srv/central/.env POSTGRES_PASSWORD)@127.0.0.1:5432/myfood"
@@ -108,12 +108,15 @@ jobs:
             -H "Authorization: Bearer $SUPABASE_SECRET_KEY" -H 'content-type: application/json' \
             -d "{\"type\":\"recovery\",\"email\":\"$EMAIL\",\"redirect_to\":\"http://$WEB/set-password\"}" \
             | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);console.log("keys:",Object.keys(j).join(","),"error:",j.msg||j.error||"none",j.code||"")})'
-          grep -qi '^access-control-allow-origin' /tmp/cors.txt || { echo "::error::the Auth host answers no CORS for the web origin: browsers cannot sign in"; exit 1; }
+          # Same origin now: the browser signs in at http://$WEB/auth/v1, so no CORS is needed. Require that.
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST "http://$WEB/auth/v1/token?grant_type=password" \
+            -H "apikey: $SUPABASE_ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\"}")
+          echo "sign-in at the web address: HTTP $code"; test "$code" = 200
 
       - name: 3. Test restaurant, then the full browser suite
         run: |
           npx playwright install --with-deps chromium >/dev/null
-          E2E_BASE_URL="http://$WEB" E2E_INSECURE_ORIGIN="http://$WEB,http://$SUPA" ACCOUNTS_FILE=.vps-accounts.json \
+          E2E_BASE_URL="http://$WEB" E2E_INSECURE_ORIGIN="http://$WEB" ACCOUNTS_FILE=.vps-accounts.json \
             node --env-file=.env.vps node_modules/@playwright/test/cli.js test 2>&1 | tee /tmp/e2e-1.log
           test "${PIPESTATUS[0]}" = 0
 
@@ -130,9 +133,9 @@ jobs:
               return {name:n,size:b.length,type:"image/webp",sha256:c.createHash("sha256").update(b).digest("hex")}});
             fs.writeFileSync(`${d}/manifest.json`,JSON.stringify(m));' "$D"
           set -a; . ./.env.vps; set +a
-          STORAGE_URL="http://$SUPA/storage/v1" SERVICE_KEY="$SUPABASE_SECRET_KEY" node migration-package/scripts/upload-photos.mjs "$D"
+          STORAGE_URL="http://$WEB/storage/v1" SERVICE_KEY="$SUPABASE_SECRET_KEY" node migration-package/scripts/upload-photos.mjs "$D"
           node -e 'const f=process.argv[1]+"/manifest.json",m=JSON.parse(require("fs").readFileSync(f));m[0].sha256="0".repeat(64);require("fs").writeFileSync(f,JSON.stringify(m))' "$D"
-          if STORAGE_URL="http://$SUPA/storage/v1" SERVICE_KEY="$SUPABASE_SECRET_KEY" node migration-package/scripts/upload-photos.mjs "$D"; then
+          if STORAGE_URL="http://$WEB/storage/v1" SERVICE_KEY="$SUPABASE_SECRET_KEY" node migration-package/scripts/upload-photos.mjs "$D"; then
             echo "::error::a wrong checksum was not detected"; exit 1
           fi
           echo "control: a wrong checksum is detected"
@@ -161,7 +164,7 @@ jobs:
             --restore "/root/$(basename "$D")" --pin-pepper-file /tmp/pepper 2>&1 | tee /tmp/deploy-2.log
           test "${PIPESTATUS[0]}" = 0
           node --env-file=.env.vps migration-package/scripts/auth-carryover-test.mjs --after
-          E2E_BASE_URL="http://$WEB" E2E_INSECURE_ORIGIN="http://$WEB,http://$SUPA" ACCOUNTS_FILE=.vps-accounts.json \
+          E2E_BASE_URL="http://$WEB" E2E_INSECURE_ORIGIN="http://$WEB" ACCOUNTS_FILE=.vps-accounts.json \
             node --env-file=.env.vps node_modules/@playwright/test/cli.js test e2e/pin.spec.ts e2e/milestone.spec.ts
 
       - name: 6. Running deploy.sh again changes nothing
@@ -173,7 +176,7 @@ jobs:
       - name: Negative control — the suite must fail when the API is down
         run: |
           sudo docker stop myfood-api >/dev/null
-          if E2E_BASE_URL="http://$WEB" E2E_INSECURE_ORIGIN="http://$WEB,http://$SUPA" ACCOUNTS_FILE=.vps-accounts.json \
+          if E2E_BASE_URL="http://$WEB" E2E_INSECURE_ORIGIN="http://$WEB" ACCOUNTS_FILE=.vps-accounts.json \
                node --env-file=.env.vps node_modules/@playwright/test/cli.js test e2e/zz-qa-prod-readonly.spec.ts >/tmp/neg.log 2>&1; then
             echo "::error::the readiness test passed with the API stopped"; exit 1
           fi

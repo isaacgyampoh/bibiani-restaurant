@@ -1,11 +1,37 @@
-# MY FOOD web host(s) -> the restaurant's own containers. Rendered by deploy.sh into the platform's
-# caddy-sites directory (the platform's own site for the Supabase-compatible host is separate).
+# MY FOOD web host(s), rendered by deploy.sh into the platform's caddy-sites directory.
+#
+# Everything the browser needs is SAME-ORIGIN under the restaurant's own address: the API (/v1,
+# /health), Supabase-compatible Auth, Storage and Realtime (same paths and rewriting as the
+# platform's caddy-site.template), and the web app. No CORS is involved, so none is configured;
+# the platform's Auth sends none (on hosted Supabase its gateway did), which made browser sign-in
+# impossible across two hostnames (found on the staging runner, 2026-11-11).
 __WEB_HOSTS__ {
 	import security_headers
 	encode zstd gzip
+
 	@api path /v1/* /health /health/*
 	handle @api {
 		reverse_proxy myfood-api:8787
+	}
+	handle_path /auth/v1/* {
+		reverse_proxy __APP_DNS__-auth:9999
+	}
+	handle_path /storage/v1/* {
+		reverse_proxy __APP_DNS__-storage:5000 {
+			header_up X-Forwarded-Path /storage/v1
+		}
+	}
+	handle_path /realtime/v1/api/* {
+		rewrite * /api{uri}
+		reverse_proxy __APP_DNS__.realtime:4000 {
+			header_up Host __APP_DNS__.realtime
+		}
+	}
+	handle_path /realtime/v1/* {
+		rewrite * /socket{uri}
+		reverse_proxy __APP_DNS__.realtime:4000 {
+			header_up Host __APP_DNS__.realtime
+		}
 	}
 	handle {
 		reverse_proxy myfood-web:80
