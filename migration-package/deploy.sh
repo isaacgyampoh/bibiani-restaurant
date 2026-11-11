@@ -125,7 +125,7 @@ sa -d "$APP_DB" <<'SQL'
 create schema if not exists extensions;
 do $$ declare e text; begin
   for e in select x.extname from pg_extension x join pg_namespace n on n.oid = x.extnamespace
-            where n.nspname = 'public' and x.extname <> 'plpgsql' loop
+            where n.nspname = 'public' and x.extname <> 'plpgsql' and x.extrelocatable loop
     execute format('alter extension %I set schema extensions', e);
     raise notice 'moved extension % to schema extensions', e;
   end loop; end $$;
