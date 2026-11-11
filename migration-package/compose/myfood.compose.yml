@@ -28,10 +28,10 @@ services:
       APP_URL: ${MYFOOD_APP_URL:?}
       DEVICE_ACCOUNT_DOMAIN: devices.example.com
       ALLOWED_ORIGINS: ${MYFOOD_APP_URL}
-    # The API calls the Supabase-compatible host by its public name. On a real server that resolves
-    # to this machine; on a staging runner the name is mapped to the host here.
+    # The API calls the Supabase-compatible host by its public name, mapped to the platform's Caddy
+    # on the private network (deploy.sh), so it never depends on DNS or hairpin routing.
     extra_hosts:
-      - "${APP_DOMAIN}:${MYFOOD_HOST_IP:-host-gateway}"
+      - "${APP_DOMAIN}:${MYFOOD_HOST_IP:?}"
     deploy:
       resources:
         limits: { memory: 384M }

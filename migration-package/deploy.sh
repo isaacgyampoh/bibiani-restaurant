@@ -178,6 +178,10 @@ WS_ORIGIN="$([ $PLAIN = 1 ] && echo ws || echo wss)://$SUPA_HOST"
 docker build -q -f "$REPO/migration-package/docker/web.Dockerfile" -t "myfood-web:$RELEASE" \
   --build-arg SUPABASE_URL="$SCHEME://$SUPA_HOST" --build-arg SUPABASE_ANON_KEY="$ANON" \
   --build-arg SUPABASE_WS_ORIGIN="$WS_ORIGIN" "$REPO" >/dev/null
+# The API reaches the Supabase-compatible host through the platform's Caddy on the private network.
+CADDY_IP="$(docker inspect -f '{{with index .NetworkSettings.Networks "central_edge"}}{{.IPAddress}}{{end}}' central-caddy)"
+[ -n "$CADDY_IP" ] || die "central-caddy has no address on central_edge"
+put "$ENVF" MYFOOD_HOST_IP "$CADDY_IP"
 docker compose -p myfood_app --env-file "$APP_ENV" --env-file "$ENVF" \
   -f "$REPO/migration-package/compose/myfood.compose.yml" up -d --remove-orphans
 
