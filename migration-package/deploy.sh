@@ -191,6 +191,13 @@ SITE="$ROOT_DIR/compose/caddy-sites/myfood-web.caddy"
 hosts="$(printf '%s, ' "${WEB_HOSTS[@]}" | sed 's/, $//')"
 [ "$PLAIN" = 1 ] && hosts="$(printf 'http://%s, ' "${WEB_HOSTS[@]}" | sed 's/, $//')"
 sed "s|__WEB_HOSTS__|$hosts|" "$REPO/migration-package/compose/myfood-web.caddy.tmpl" > "$SITE"
+if [ "$PLAIN" = 1 ]; then
+  # Staging runner only: a .test name cannot get a certificate, so the platform's site for the
+  # Supabase-compatible host is served over plain HTTP too (a real server keeps HTTPS).
+  for f in $(grep -l "^$SUPA_HOST {" "$ROOT_DIR"/compose/caddy-sites/*.caddy 2>/dev/null); do
+    sed -i "s|^$SUPA_HOST {|http://$SUPA_HOST {|" "$f"
+  done
+fi
 docker exec central-caddy caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || docker restart central-caddy >/dev/null
 for _ in $(seq 1 40); do
   [ "$(docker inspect -f '{{.State.Health.Status}}' myfood-api 2>/dev/null)" = healthy ] && break; sleep 3
