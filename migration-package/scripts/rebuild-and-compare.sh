@@ -23,7 +23,8 @@ WORK="$HOME/restaurant-migration/rebuild-$(date -u +%Y%m%dT%H%M%SZ)"
 mkdir -p "$WORK/evidence"
 EVID="$WORK/evidence"
 initdb -D "$WORK/pgdata" -U postgres --auth=trust >/dev/null
-pg_ctl -D "$WORK/pgdata" -o "-p $PORT -k $WORK -c listen_addresses=127.0.0.1" -l "$WORK/postgres.log" start >/dev/null
+pg_ctl -D "$WORK/pgdata" -o "-p $PORT -k $WORK -c listen_addresses=127.0.0.1" -l "$WORK/postgres.log" start >/dev/null \
+  || { echo "Could not start the disposable cluster (port $PORT in use? an earlier --keep run is still up)" >&2; exit 1; }
 trap 'pg_ctl -D "$WORK/pgdata" stop -m fast >/dev/null 2>&1' EXIT
 U="postgresql://postgres@127.0.0.1:$PORT"
 fail=0
