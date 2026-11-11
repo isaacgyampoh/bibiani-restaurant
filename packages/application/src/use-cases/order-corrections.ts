@@ -8,6 +8,7 @@ import type {
 } from '@rp/contracts';
 import {
   DomainError,
+  formatMinor,
   planCancellation,
   planVoid,
   receiptDocument,
@@ -164,7 +165,18 @@ export class VoidItems {
         printJobIds: slipJobs,
       });
       await settleOrderState(tx, agg, ctx, now, log);
-      return (await tx.read.order(orderId))!;
+      const after = (await tx.read.order(orderId))!;
+      // Money held must never exceed what the order is now worth: voiding paid items needs the
+      // refund recorded first (production had two fully-paid orders voided to GHS 0 with the
+      // money still recorded and no refund). Throwing rolls the whole void back.
+      const held = after.paidTotal - after.refundedTotal;
+      if (held > after.grandTotal)
+        throw new DomainError(
+          'PAYMENTS_RECORDED',
+          `This order is paid. Record a refund of ${formatMinor(held - after.grandTotal, after.currency)} first, then void the items`,
+          { refundNeeded: held - after.grandTotal },
+        );
+      return after;
     });
     log.flush(this.deps.logger);
     return view;
