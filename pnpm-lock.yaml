@@ -322,6 +322,10 @@ importers:
       '@rp/infrastructure':
         specifier: workspace:*
         version: link:../infrastructure
+    devDependencies:
+      jose:
+        specifier: 6.2.12
+        version: 6.2.12
 
 packages:
 

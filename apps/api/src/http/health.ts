@@ -18,6 +18,8 @@ export interface ReadinessReport {
 export function createReadiness(o: {
   db: Database;
   supabaseUrl: string;
+  /** Self-hosted Auth signs with a shared secret and publishes no keys: check its /health instead. */
+  sharedSecretAuth?: boolean;
   release: string;
   environment: string;
 }) {
@@ -40,6 +42,11 @@ export function createReadiness(o: {
           (await o.db.query<{ v: string | null }>('select app.schema_version() as v'))[0]?.v ?? null,
       ),
       timed(async () => {
+        if (o.sharedSecretAuth) {
+          const res = await fetch(`${o.supabaseUrl}/auth/v1/health`, { signal: AbortSignal.timeout(5000) });
+          if (!res.ok) throw new Error(`auth health ${res.status}`);
+          return 1; // reachable; tokens are checked with the shared secret
+        }
         const res = await fetch(`${o.supabaseUrl}/auth/v1/.well-known/jwks.json`, {
           signal: AbortSignal.timeout(5000),
         });

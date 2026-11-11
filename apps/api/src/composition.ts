@@ -57,7 +57,11 @@ export function compose(env: Record<string, string | undefined> = process.env) {
   });
   const http = createHttpApp({
     app,
-    verifier: new JwksTokenVerifier(supabaseUrl),
+    // Self-hosted Auth (VPS) signs with a per-application secret; hosted Supabase publishes keys.
+    verifier: new JwksTokenVerifier(supabaseUrl, undefined, {
+      jwtSecret: env.AUTH_JWT_SECRET || undefined,
+      issuer: env.AUTH_JWT_ISSUER || undefined,
+    }),
     resolver: new PgPrincipalResolver(db),
     logger,
     allowedOrigins: (env.ALLOWED_ORIGINS ?? '')
@@ -75,6 +79,7 @@ export function compose(env: Record<string, string | undefined> = process.env) {
     readiness: createReadiness({
       db,
       supabaseUrl,
+      sharedSecretAuth: Boolean(env.AUTH_JWT_SECRET),
       release: env.RELEASE ?? 'local',
       environment: env.APP_ENV ?? 'development',
     }),

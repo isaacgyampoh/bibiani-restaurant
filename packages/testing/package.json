@@ -11,11 +11,14 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "0.5.8",
-    "@rp/infrastructure": "workspace:*",
     "@rp/application": "workspace:*",
-    "@rp/domain": "workspace:*",
     "@rp/contracts": "workspace:*",
+    "@rp/domain": "workspace:*",
     "@rp/escpos": "workspace:*",
-    "@rp/hub": "workspace:*"
+    "@rp/hub": "workspace:*",
+    "@rp/infrastructure": "workspace:*"
+  },
+  "devDependencies": {
+    "jose": "6.2.12"
   }
 }

@@ -1,0 +1,27 @@
+# Nothing secret or local may enter an image: env files, tokens, account files, backups.
+.env
+.env.*
+!.env.example
+.cloudflare
+deploy
+**/.dev.vars
+*.json.bak
+.dev-accounts.json
+.staging-accounts.json
+.staging-failures-accounts.json
+.prod-smoke-accounts.json
+.demo-credentials.json
+.production-archives
+# Bulky and not needed to build
+**/node_modules
+**/dist
+test-results
+playwright-report
+perf-results
+apps/desktop/app
+apps/desktop/app-printing
+apps/desktop/release
+apps/desktop/release-printing
+docs/manual/images
+docs/manual/guide-images
+.git

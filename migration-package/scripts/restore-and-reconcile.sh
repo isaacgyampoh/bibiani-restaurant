@@ -94,6 +94,8 @@ print("invariants", d["invariants"])
 PY
 cat "$EVID/summary.txt"
 cp "$DUMP.sha256" "$EVID/backup.sha256"; basename "$DUMP" > "$EVID/backup.name"
+# The backup's fingerprint, for reconciling a server restore against it (restore-to-server.sh).
+cp "$EVID/a.json" "$DUMP.fingerprint.json" && chmod 600 "$DUMP.fingerprint.json"
 echo "Evidence: $EVID"
 $KEEP && echo "Cluster kept running: $U/myfood_a (stop: pg_ctl -D $WORK/pgdata stop)"
 exit 0

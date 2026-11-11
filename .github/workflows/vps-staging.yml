@@ -1,0 +1,157 @@
+name: VPS staging (throwaway server)
+
+# Deploys MY FOOD onto the shared central platform (isaacgyampoh/everytinroom-pos, deploy/) on a
+# disposable Ubuntu runner, exactly as on the future Contabo server, and tests it end to end.
+# NO production credential or data is used: every secret is generated here and dies with the
+# runner; the restaurant is a synthetic test tenant.
+#
+#  1 the platform's bootstrap.sh installs Docker and the shared stack from scratch
+#  2 migration-package/deploy.sh provisions Auth + Storage + Realtime and starts MY FOOD
+#  3 a test restaurant is created, and the full browser suite runs against it
+#  4 logins migrated as rows (bcrypt hash, refresh token) work on the self-hosted Auth
+#  5 backup -> restore -> reconcile with the real cutover scripts; the app still works
+#  6 deploy.sh run a second time changes nothing (idempotent)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'migration-package/**'
+      - '.github/workflows/vps-staging.yml'
+
+jobs:
+  staging:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    env:
+      SUPA: supabase-myfood.staging.test
+      WEB: www-myfood.staging.test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: isaacgyampoh/everytinroom-pos
+          path: platform
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: 1. Platform bootstrap (Docker + shared stack, from scratch)
+        run: |
+          chmod +x platform/deploy/*.sh platform/deploy/scripts/*.sh
+          sudo platform/deploy/bootstrap.sh --acme-email staging@example.invalid --yes --no-firewall
+          echo "127.0.0.1 $SUPA $WEB" | sudo tee -a /etc/hosts
+
+      - name: S3 stand-in for Cloudflare R2 (SeaweedFS, as the platform's own test)
+        run: |
+          sudo docker run -d --name staging-s3 --network central_edge chrislusf/seaweedfs:4.52 \
+            server -s3 -dir=/data -ip.bind=0.0.0.0 -master.volumeSizeLimitMB=64
+          for i in $(seq 1 40); do
+            c=$(sudo docker run --rm --network central_edge curlimages/curl:8.11.1 -s -o /dev/null -w '%{http_code}' http://staging-s3:8333/ || true)
+            case "$c" in 200|403|404) break ;; esac; sleep 3
+          done
+          sudo docker run --rm --network central_edge curlimages/curl:8.11.1 -s -X PUT http://staging-s3:8333/myfood-images
+
+      - name: 2. Deploy MY FOOD
+        env:
+          MYFOOD_R2_BUCKET: myfood-images
+          MYFOOD_R2_ENDPOINT: http://staging-s3:8333
+          MYFOOD_R2_ACCESS_KEY_ID: staging
+          MYFOOD_R2_SECRET_ACCESS_KEY: staging-secret
+          MYFOOD_R2_REGION: us-east-1
+        run: |
+          sudo -E migration-package/deploy.sh --supabase-host "$SUPA" --web-host "$WEB" \
+            --staging --plain-http --realtime 2>&1 | tee /tmp/deploy-1.log
+
+      - name: Test values (generated on this runner only)
+        run: |
+          get() { sudo sed -n "s/^$2=//p" "$1" | tail -1; }
+          A=/srv/central/apps/myfood/.env; M=/srv/central/apps/myfood/myfood.env
+          {
+            echo "SUPABASE_URL=http://$SUPA"
+            echo "SUPABASE_ANON_KEY=$(get $A ANON_KEY)"
+            echo "SUPABASE_SECRET_KEY=$(get $A SERVICE_ROLE_KEY)"
+            echo "PLATFORM_DATABASE_URL=postgresql://postgres:$(get /srv/central/.env POSTGRES_PASSWORD)@127.0.0.1:5432/myfood"
+            echo "STAGING_JWT_SECRET=$(get $A JWT_SECRET)"
+            echo "STAGING_PIN_PEPPER=$(get $M PIN_PEPPER)"
+          } > .env.vps
+          chmod 600 .env.vps
+          while IFS= read -r line; do echo "::add-mask::${line#*=}"; done < .env.vps
+
+      - name: 3. Test restaurant, then the full browser suite
+        run: |
+          npx playwright install --with-deps chromium >/dev/null
+          bash scripts/env/fresh-restaurant.sh .env.vps "http://$WEB" .vps-accounts.json
+          E2E_BASE_URL="http://$WEB" E2E_INSECURE_ORIGIN="http://$WEB" ACCOUNTS_FILE=.vps-accounts.json \
+            node --env-file=.env.vps node_modules/@playwright/test/cli.js test 2>&1 | tee /tmp/e2e-1.log
+          test "${PIPESTATUS[0]}" = 0
+
+      - name: 4. Logins carried over as rows work on the self-hosted Auth
+        run: node --env-file=.env.vps migration-package/scripts/auth-carryover-test.mjs
+
+      - name: Postgres 18 client (backups are written by pg_dump 18)
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-18 >/dev/null
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+
+      - name: 5. Backup -> double restore -> reconcile -> restore to the server -> app still works
+        run: |
+          mkdir -p ~/restaurant-migration/backups && chmod 700 ~/restaurant-migration ~/restaurant-migration/backups
+          D=~/restaurant-migration/backups/myfood-staging-$(date -u +%Y%m%dT%H%M%SZ).dump
+          set -a; . ./.env.vps; set +a
+          node --env-file=.env.vps migration-package/scripts/auth-carryover-test.mjs --before
+          pg_dump "$PLATFORM_DATABASE_URL" -Fc --no-owner --no-acl -f "$D"
+          sha256sum "$D" | awk '{print $1}' > "$D.sha256"
+          bash migration-package/scripts/restore-and-reconcile.sh "$D"
+          printf '%s' "$STAGING_PIN_PEPPER" > /tmp/pepper && chmod 600 /tmp/pepper
+          sudo cp "$D" "$D.sha256" "$D.fingerprint.json" /root/
+          sudo -E migration-package/deploy.sh --supabase-host "$SUPA" --web-host "$WEB" \
+            --staging --plain-http --realtime \
+            --restore "/root/$(basename "$D")" --pin-pepper-file /tmp/pepper 2>&1 | tee /tmp/deploy-2.log
+          test "${PIPESTATUS[0]}" = 0
+          node --env-file=.env.vps migration-package/scripts/auth-carryover-test.mjs --after
+          E2E_BASE_URL="http://$WEB" E2E_INSECURE_ORIGIN="http://$WEB" ACCOUNTS_FILE=.vps-accounts.json \
+            node --env-file=.env.vps node_modules/@playwright/test/cli.js test e2e/pin.spec.ts e2e/milestone.spec.ts
+
+      - name: 6. Running deploy.sh again changes nothing
+        run: |
+          sudo -E migration-package/deploy.sh --supabase-host "$SUPA" --web-host "$WEB" \
+            --staging --plain-http --realtime 2>&1 | tee /tmp/deploy-3.log
+          grep -q "applied 0, already present" /tmp/deploy-3.log
+
+      - name: Negative control — the suite must fail when the API is down
+        run: |
+          sudo docker stop myfood-api >/dev/null
+          if E2E_BASE_URL="http://$WEB" E2E_INSECURE_ORIGIN="http://$WEB" ACCOUNTS_FILE=.vps-accounts.json \
+               node --env-file=.env.vps node_modules/@playwright/test/cli.js test e2e/zz-qa-prod-readonly.spec.ts >/tmp/neg.log 2>&1; then
+            echo "::error::the readiness test passed with the API stopped"; exit 1
+          fi
+          echo "failed as expected with the API stopped"
+          sudo docker start myfood-api >/dev/null
+
+      - name: Logs from anything unhealthy
+        if: always()
+        run: |
+          sudo docker ps -a --format 'table {{.Names}}\t{{.Status}}' || true
+          for c in myfood-api myfood-web myfood-auth myfood-storage myfood.realtime central-caddy; do
+            echo "===== $c ====="; sudo docker logs "$c" --tail=40 2>&1 || true
+          done
+
+      - name: Evidence
+        if: always()
+        run: |
+          mkdir -p evidence && cp /tmp/deploy-*.log /tmp/e2e-*.log evidence/ 2>/dev/null || true
+          find ~/restaurant-migration -path '*evidence/*' \( -name '*.txt' -o -name '*.log' \) -exec cp {} evidence/ \; 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vps-staging-evidence
+          path: evidence/
+          retention-days: 30

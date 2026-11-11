@@ -1,0 +1,52 @@
+# MY FOOD's own containers on the central server, beside the platform's per-app services
+# (Auth, Storage, Realtime, provisioned by the platform's provision-app.sh). Started by deploy.sh:
+#   docker compose -p myfood_app --env-file /srv/central/apps/myfood/myfood.env -f this-file up -d
+# Values come from that mode-600 env file; nothing secret is written here.
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
+services:
+  api:
+    image: myfood-api:${MYFOOD_RELEASE:?}
+    container_name: myfood-api
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      APP_ENV: ${MYFOOD_APP_ENV:-production}
+      RELEASE: ${MYFOOD_RELEASE}
+      PORT: "8787"
+      DATABASE_URL: postgres://rp_api:${RP_API_PASSWORD:?}@postgres:5432/${APP_DB:?}
+      DB_POOL_MAX: "10"
+      SUPABASE_URL: ${MYFOOD_SUPABASE_URL:?}
+      SUPABASE_ANON_KEY: ${ANON_KEY:?}
+      SUPABASE_SECRET_KEY: ${SERVICE_ROLE_KEY:?}
+      AUTH_JWT_SECRET: ${JWT_SECRET:?}
+      AUTH_JWT_ISSUER: https://${APP_DOMAIN:?}/auth/v1
+      PIN_PEPPER: ${PIN_PEPPER:?}
+      MONITOR_TOKEN: ${MONITOR_TOKEN:?}
+      APP_URL: ${MYFOOD_APP_URL:?}
+      DEVICE_ACCOUNT_DOMAIN: devices.example.com
+      ALLOWED_ORIGINS: ${MYFOOD_APP_URL}
+    # The API calls the Supabase-compatible host by its public name. On a real server that resolves
+    # to this machine; on a staging runner the name is mapped to the host here.
+    extra_hosts:
+      - "${APP_DOMAIN}:${MYFOOD_HOST_IP:-host-gateway}"
+    deploy:
+      resources:
+        limits: { memory: 384M }
+    networks: [central_db, central_edge]
+
+  web:
+    image: myfood-web:${MYFOOD_RELEASE:?}
+    container_name: myfood-web
+    restart: unless-stopped
+    logging: *logging
+    deploy:
+      resources:
+        limits: { memory: 64M }
+    networks: [central_edge]
+
+networks:
+  central_db: { external: true, name: central_db }
+  central_edge: { external: true, name: central_edge }

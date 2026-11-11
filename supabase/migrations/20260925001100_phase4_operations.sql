@@ -141,7 +141,11 @@ grant execute on function app.on_printer_status_changed() to app_api;
 
 do $$
 begin
-  if exists (select 1 from pg_available_extensions where name = 'pg_cron') then
+  -- pg_cron can only be created in its own database (cron.database_name). On Supabase that is this
+  -- database; on the shared server it is `postgres`, and the deployment registers the job there with
+  -- cron.schedule_in_database (migration-package/deploy.sh).
+  if exists (select 1 from pg_available_extensions where name = 'pg_cron')
+     and current_database() = coalesce(current_setting('cron.database_name', true), current_database()) then
     create extension if not exists pg_cron with schema pg_catalog;
     perform cron.schedule('rp-sweep-offline-devices', '* * * * *', 'select app.sweep_offline_devices()');
   else

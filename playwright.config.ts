@@ -14,6 +14,15 @@ export default defineConfig({
     baseURL: remote ?? 'http://127.0.0.1:5173',
     viewport: { width: 1366, height: 900 },
     trace: 'retain-on-failure',
+    // A plain-HTTP staging host (the throwaway server test) is not a secure context by default;
+    // the app needs one (crypto.randomUUID, service worker). Only for an explicitly named test origin.
+    ...(process.env.E2E_INSECURE_ORIGIN
+      ? {
+          launchOptions: {
+            args: [`--unsafely-treat-insecure-origin-as-secure=${process.env.E2E_INSECURE_ORIGIN}`],
+          },
+        }
+      : {}),
   },
   webServer: remote
     ? undefined

@@ -175,9 +175,15 @@ async function fingerprint(url) {
   }
 }
 
+// RECONCILE_SCOPE=restored (server restore): each service keeps its own migration history, and a
+// service may have tables the backup's version did not; only the loaded tables are compared.
+const NOT_LOADED = /^(auth\.schema_migrations|storage\.migrations|supabase_migrations\..+)$/;
+
 function compare(a, b) {
   const diffs = [];
-  const keys = new Set([...Object.keys(a.tables), ...Object.keys(b.tables)]);
+  const restored = process.env.RECONCILE_SCOPE === 'restored';
+  let keys = new Set([...Object.keys(a.tables), ...Object.keys(b.tables)]);
+  if (restored) keys = new Set([...keys].filter((k) => !NOT_LOADED.test(k) && k in a.tables));
   for (const k of keys) {
     const x = a.tables[k];
     const y = b.tables[k];
