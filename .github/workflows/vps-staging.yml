@@ -87,10 +87,32 @@ jobs:
           chmod 600 .env.vps
           while IFS= read -r line; do echo "::add-mask::${line#*=}"; done < .env.vps
 
+      - name: Browser path preflight (CORS, sign-in, recovery link) — stops early if broken
+        run: |
+          bash scripts/env/fresh-restaurant.sh .env.vps "http://$WEB" .vps-accounts.json
+          set -a; . ./.env.vps; set +a
+          EMAIL=$(node -p "require('./.vps-accounts.json').accounts.owner.email")
+          PASS=$(node -p "require('./.vps-accounts.json').accounts.owner.password"); echo "::add-mask::$PASS"
+          echo "--- CORS preflight from the web origin to the Auth host"
+          curl -s -o /dev/null -D - -X OPTIONS "http://$SUPA/auth/v1/token?grant_type=password" \
+            -H "Origin: http://$WEB" -H 'Access-Control-Request-Method: POST' \
+            -H 'Access-Control-Request-Headers: apikey,authorization,content-type,x-client-info,x-supabase-api-version' | tee /tmp/cors.txt
+          echo "--- password sign-in as the browser sends it"
+          curl -s -o /tmp/token.json -w '%{http_code}\n' -D /tmp/token-headers.txt -X POST "http://$SUPA/auth/v1/token?grant_type=password" \
+            -H "Origin: http://$WEB" -H "apikey: $SUPABASE_ANON_KEY" -H 'content-type: application/json' \
+            -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\"}"
+          grep -i '^access-control' /tmp/token-headers.txt || echo "(no CORS headers on the sign-in response)"
+          node -e 'const j=require("/tmp/token.json");console.log("token keys:",Object.keys(j).join(","),"error:",j.error||j.msg||j.error_description||"none")'
+          echo "--- recovery link (admin)"
+          curl -s -X POST "http://$SUPA/auth/v1/admin/generate_link" -H "apikey: $SUPABASE_SECRET_KEY" \
+            -H "Authorization: Bearer $SUPABASE_SECRET_KEY" -H 'content-type: application/json' \
+            -d "{\"type\":\"recovery\",\"email\":\"$EMAIL\",\"redirect_to\":\"http://$WEB/set-password\"}" \
+            | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);console.log("keys:",Object.keys(j).join(","),"error:",j.msg||j.error||"none",j.code||"")})'
+          grep -qi '^access-control-allow-origin' /tmp/cors.txt || { echo "::error::the Auth host answers no CORS for the web origin: browsers cannot sign in"; exit 1; }
+
       - name: 3. Test restaurant, then the full browser suite
         run: |
           npx playwright install --with-deps chromium >/dev/null
-          bash scripts/env/fresh-restaurant.sh .env.vps "http://$WEB" .vps-accounts.json
           E2E_BASE_URL="http://$WEB" E2E_INSECURE_ORIGIN="http://$WEB,http://$SUPA" ACCOUNTS_FILE=.vps-accounts.json \
             node --env-file=.env.vps node_modules/@playwright/test/cli.js test 2>&1 | tee /tmp/e2e-1.log
           test "${PIPESTATUS[0]}" = 0
@@ -169,7 +191,8 @@ jobs:
       - name: Evidence
         if: always()
         run: |
-          mkdir -p evidence && cp /tmp/deploy-*.log /tmp/e2e-*.log evidence/ 2>/dev/null || true
+          mkdir -p evidence && cp /tmp/deploy-*.log /tmp/e2e-*.log /tmp/cors.txt evidence/ 2>/dev/null || true
+          find test-results -name error-context.md 2>/dev/null | head -20 | while read f; do cp "$f" "evidence/$(basename "$(dirname "$f")").md"; done
           find ~/restaurant-migration -path '*evidence/*' \( -name '*.txt' -o -name '*.log' \) -exec cp {} evidence/ \; 2>/dev/null || true
       - uses: actions/upload-artifact@v4
         if: always()
