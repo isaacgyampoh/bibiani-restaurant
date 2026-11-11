@@ -119,6 +119,17 @@ say "3. Database migrations (committed history only)"
 # postgres holds these rights by default.
 sa () { docker exec -i central-postgres psql -v ON_ERROR_STOP=1 -q -U supabase_admin "$@"; }
 sa -d "$APP_DB" -c "grant usage on schema auth, storage to postgres; grant references, select on auth.users to postgres;"
+# Same extension layout as Supabase (and production): extensions live in `extensions`, not `public`.
+# The migrations lock `public` down function by function and cannot touch an extension's functions.
+sa -d "$APP_DB" <<'SQL'
+create schema if not exists extensions;
+do $$ declare e text; begin
+  for e in select x.extname from pg_extension x join pg_namespace n on n.oid = x.extnamespace
+            where n.nspname = 'public' and x.extname <> 'plpgsql' loop
+    execute format('alter extension %I set schema extensions', e);
+    raise notice 'moved extension % to schema extensions', e;
+  end loop; end $$;
+SQL
 psqlc -d "$APP_DB" -q <<'SQL'
 create schema if not exists supabase_migrations;
 create table if not exists supabase_migrations.schema_migrations (version text primary key, statements text[], name text);
