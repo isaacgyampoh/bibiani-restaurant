@@ -91,7 +91,7 @@ jobs:
         run: |
           npx playwright install --with-deps chromium >/dev/null
           bash scripts/env/fresh-restaurant.sh .env.vps "http://$WEB" .vps-accounts.json
-          E2E_BASE_URL="http://$WEB" E2E_INSECURE_ORIGIN="http://$WEB" ACCOUNTS_FILE=.vps-accounts.json \
+          E2E_BASE_URL="http://$WEB" E2E_INSECURE_ORIGIN="http://$WEB,http://$SUPA" ACCOUNTS_FILE=.vps-accounts.json \
             node --env-file=.env.vps node_modules/@playwright/test/cli.js test 2>&1 | tee /tmp/e2e-1.log
           test "${PIPESTATUS[0]}" = 0
 
@@ -139,7 +139,7 @@ jobs:
             --restore "/root/$(basename "$D")" --pin-pepper-file /tmp/pepper 2>&1 | tee /tmp/deploy-2.log
           test "${PIPESTATUS[0]}" = 0
           node --env-file=.env.vps migration-package/scripts/auth-carryover-test.mjs --after
-          E2E_BASE_URL="http://$WEB" E2E_INSECURE_ORIGIN="http://$WEB" ACCOUNTS_FILE=.vps-accounts.json \
+          E2E_BASE_URL="http://$WEB" E2E_INSECURE_ORIGIN="http://$WEB,http://$SUPA" ACCOUNTS_FILE=.vps-accounts.json \
             node --env-file=.env.vps node_modules/@playwright/test/cli.js test e2e/pin.spec.ts e2e/milestone.spec.ts
 
       - name: 6. Running deploy.sh again changes nothing
@@ -151,7 +151,7 @@ jobs:
       - name: Negative control — the suite must fail when the API is down
         run: |
           sudo docker stop myfood-api >/dev/null
-          if E2E_BASE_URL="http://$WEB" E2E_INSECURE_ORIGIN="http://$WEB" ACCOUNTS_FILE=.vps-accounts.json \
+          if E2E_BASE_URL="http://$WEB" E2E_INSECURE_ORIGIN="http://$WEB,http://$SUPA" ACCOUNTS_FILE=.vps-accounts.json \
                node --env-file=.env.vps node_modules/@playwright/test/cli.js test e2e/zz-qa-prod-readonly.spec.ts >/tmp/neg.log 2>&1; then
             echo "::error::the readiness test passed with the API stopped"; exit 1
           fi
