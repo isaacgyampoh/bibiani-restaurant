@@ -36,7 +36,7 @@ SUPA_HOST=""; WEB_HOSTS=(); RESTORE=""; PEPPER_FILE=""; REALTIME=0; STAGING=0; P
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --supabase-host) SUPA_HOST="$2"; shift 2 ;;
+    --supabase-host) SUPA_HOST="$2"; shift 2 ;;   # accepted for compatibility; unused (same-origin)
     --web-host) WEB_HOSTS+=("$2"); shift 2 ;;
     --restore) RESTORE="$2"; shift 2 ;;
     --pin-pepper-file) PEPPER_FILE="$2"; shift 2 ;;
@@ -51,7 +51,7 @@ done
 say () { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 die () { printf '\033[31mFAILED: %s\033[0m\n' "$*" >&2; exit 1; }
 [ "$(id -u)" = 0 ] || die "run as root"
-[ -n "$SUPA_HOST" ] && [ "${#WEB_HOSTS[@]}" -gt 0 ] || die "--supabase-host and at least one --web-host are required"
+[ "${#WEB_HOSTS[@]}" -gt 0 ] || die "at least one --web-host is required"
 [ -x "$ROOT_DIR/provision-app.sh" ] || die "the platform is not installed at $ROOT_DIR (run bootstrap.sh first)"
 docker inspect -f '{{.State.Health.Status}}' central-postgres 2>/dev/null | grep -q healthy || die "central-postgres is not healthy"
 if [ -n "$RESTORE" ]; then
@@ -67,8 +67,10 @@ put () { # KEY VALUE into the mode-600 file, never echoed
 }
 
 # ── 1. platform services ───────────────────────────────────────────────────
-say "1. Provisioning Auth and Storage$([ $REALTIME = 1 ] && echo ' and Realtime') for $NAME at $SUPA_HOST"
-PROV=(--name "$NAME" --domain "$SUPA_HOST" --auth --storage)
+say "1. Provisioning Auth and Storage$([ $REALTIME = 1 ] && echo ' and Realtime') for $NAME at ${WEB_HOSTS[0]}"
+# Provisioned under the restaurant's OWN address: Auth builds email links (recovery, invitations)
+# and token issuers from it, and the browser reaches Auth/Storage/Realtime same-origin there.
+PROV=(--name "$NAME" --domain "${WEB_HOSTS[0]}" --auth --storage)
 [ "$REALTIME" = 1 ] && PROV+=(--realtime)
 "$ROOT_DIR/provision-app.sh" "${PROV[@]}"
 APP_ENV="$ROOT_DIR/apps/$NAME/.env"
@@ -146,6 +148,20 @@ for m in "$REPO"/supabase/migrations/*.sql; do
   applied=$((applied + 1))
 done
 echo "  applied $applied, already present $skipped"
+# Realtime: screens join their branch's private channel. Migration 20260925000900 creates this policy
+# only if Realtime's table already existed when it ran; make sure it exists now.
+sa -d "$APP_DB" <<'SQL'
+do $$ begin
+  if to_regclass('realtime.messages') is not null
+     and not exists (select 1 from pg_policies where schemaname = 'realtime' and tablename = 'messages' and policyname = 'branch_topic_read') then
+    create policy branch_topic_read on realtime.messages for select to authenticated
+      using (realtime.messages.extension = 'broadcast' and app.can_join_branch_topic(realtime.topic()));
+    raise notice 'created realtime policy branch_topic_read';
+  end if;
+end $$;
+grant usage on schema app to authenticated;
+grant execute on function app.can_join_branch_topic(text) to authenticated;
+SQL
 
 # ── 4. API login and scheduled job ─────────────────────────────────────────
 say "4. API login role and scheduled job"
@@ -188,17 +204,12 @@ docker compose -p myfood_app --env-file "$APP_ENV" --env-file "$ENVF" \
 
 # ── 7. routing and health ──────────────────────────────────────────────────
 say "7. Routing ${WEB_HOSTS[*]} and health"
-SITE="$ROOT_DIR/compose/caddy-sites/myfood-web.caddy"
+# Replaces the platform's generated site for this host (same file), adding MY FOOD's own routes.
+rm -f "$ROOT_DIR/compose/caddy-sites/myfood-web.caddy"
+SITE="$ROOT_DIR/compose/caddy-sites/$APP_DNS.caddy"
 hosts="$(printf '%s, ' "${WEB_HOSTS[@]}" | sed 's/, $//')"
 [ "$PLAIN" = 1 ] && hosts="$(printf 'http://%s, ' "${WEB_HOSTS[@]}" | sed 's/, $//')"
 sed "s|__WEB_HOSTS__|$hosts|; s|__APP_DNS__|$APP_DNS|g" "$REPO/migration-package/compose/myfood-web.caddy.tmpl" > "$SITE"
-if [ "$PLAIN" = 1 ]; then
-  # Staging runner only: a .test name cannot get a certificate, so the platform's site for the
-  # Supabase-compatible host is served over plain HTTP too (a real server keeps HTTPS).
-  for f in $(grep -l "^$SUPA_HOST {" "$ROOT_DIR"/compose/caddy-sites/*.caddy 2>/dev/null); do
-    sed -i "s|^$SUPA_HOST {|http://$SUPA_HOST {|" "$f"
-  done
-fi
 docker exec central-caddy caddy reload --config /etc/caddy/Caddyfile >/dev/null 2>&1 || docker restart central-caddy >/dev/null
 for _ in $(seq 1 40); do
   [ "$(docker inspect -f '{{.State.Health.Status}}' myfood-api 2>/dev/null)" = healthy ] && break; sleep 3

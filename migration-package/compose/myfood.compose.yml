@@ -32,7 +32,6 @@ services:
     # on the private network (deploy.sh), so it never depends on DNS or hairpin routing.
     extra_hosts:
       - "${APP_DOMAIN}:${MYFOOD_HOST_IP:?}"
-      - "${MYFOOD_WEB_HOST:?}:${MYFOOD_HOST_IP:?}"
     deploy:
       resources:
         limits: { memory: 384M }

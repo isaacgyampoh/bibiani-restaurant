@@ -200,6 +200,7 @@ jobs:
         if: always()
         run: |
           mkdir -p evidence && cp /tmp/deploy-*.log /tmp/e2e-*.log /tmp/cors.txt evidence/ 2>/dev/null || true
+          for c in myfood-api myfood.realtime myfood-auth; do sudo docker logs "$c" > "evidence/$c.log" 2>&1 || true; done
           find test-results -name error-context.md 2>/dev/null | while read f; do cp "$f" "evidence/$(basename "$(dirname "$f")").md"; done
           find ~/restaurant-migration -path '*evidence/*' \( -name '*.txt' -o -name '*.log' \) -exec cp {} evidence/ \; 2>/dev/null || true
       - uses: actions/upload-artifact@v4
