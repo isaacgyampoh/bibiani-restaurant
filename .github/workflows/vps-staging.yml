@@ -98,18 +98,18 @@ jobs:
           set -a; . ./.env.vps; set +a
           EMAIL=$(node -p "require('./.vps-accounts.json').accounts.owner.email")
           PASS=$(node -p "require('./.vps-accounts.json').accounts.owner.password"); echo "::add-mask::$PASS"
-          echo "--- CORS preflight from the web origin to the Auth host"
-          curl -s -o /dev/null -D - -X OPTIONS "http://$SUPA/auth/v1/token?grant_type=password" \
+          echo "--- (same origin: no CORS needed) preflight for reference"
+          curl -s -o /dev/null -D - -X OPTIONS "http://$WEB/auth/v1/token?grant_type=password" \
             -H "Origin: http://$WEB" -H 'Access-Control-Request-Method: POST' \
             -H 'Access-Control-Request-Headers: apikey,authorization,content-type,x-client-info,x-supabase-api-version' | tee /tmp/cors.txt
           echo "--- password sign-in as the browser sends it"
-          curl -s -o /tmp/token.json -w '%{http_code}\n' -D /tmp/token-headers.txt -X POST "http://$SUPA/auth/v1/token?grant_type=password" \
+          curl -s -o /tmp/token.json -w '%{http_code}\n' -D /tmp/token-headers.txt -X POST "http://$WEB/auth/v1/token?grant_type=password" \
             -H "Origin: http://$WEB" -H "apikey: $SUPABASE_ANON_KEY" -H 'content-type: application/json' \
             -d "{\"email\":\"$EMAIL\",\"password\":\"$PASS\"}"
           grep -i '^access-control' /tmp/token-headers.txt || echo "(no CORS headers on the sign-in response)"
           node -e 'const j=require("/tmp/token.json");console.log("token keys:",Object.keys(j).join(","),"error:",j.error||j.msg||j.error_description||"none")'
           echo "--- recovery link (admin)"
-          curl -s -X POST "http://$SUPA/auth/v1/admin/generate_link" -H "apikey: $SUPABASE_SECRET_KEY" \
+          curl -s -X POST "http://$WEB/auth/v1/admin/generate_link" -H "apikey: $SUPABASE_SECRET_KEY" \
             -H "Authorization: Bearer $SUPABASE_SECRET_KEY" -H 'content-type: application/json' \
             -d "{\"type\":\"recovery\",\"email\":\"$EMAIL\",\"redirect_to\":\"http://$WEB/set-password\"}" \
             | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);console.log("keys:",Object.keys(j).join(","),"error:",j.msg||j.error||"none",j.code||"")})'
