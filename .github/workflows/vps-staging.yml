@@ -14,6 +14,11 @@ name: VPS staging (throwaway server)
 
 on:
   workflow_dispatch:
+    inputs:
+      specs:
+        description: 'Only these e2e files (space separated); empty = the full suite'
+        required: false
+        default: ''
   push:
     branches: [main]
     paths:
@@ -28,7 +33,7 @@ defaults:
 jobs:
   staging:
     runs-on: ubuntu-24.04
-    timeout-minutes: 75
+    timeout-minutes: 150
     env:
       SUPA: supabase-myfood.staging.test
       WEB: www-myfood.staging.test
@@ -117,7 +122,7 @@ jobs:
         run: |
           npx playwright install --with-deps chromium >/dev/null
           E2E_BASE_URL="http://$WEB" E2E_INSECURE_ORIGIN="http://$WEB" ACCOUNTS_FILE=.vps-accounts.json \
-            node --env-file=.env.vps node_modules/@playwright/test/cli.js test 2>&1 | tee /tmp/e2e-1.log
+            node --env-file=.env.vps node_modules/@playwright/test/cli.js test --reporter=line ${{ github.event.inputs.specs }} 2>&1 | tee /tmp/e2e-1.log
           test "${PIPESTATUS[0]}" = 0
 
       - name: 4. Logins carried over as rows work on the self-hosted Auth
@@ -195,7 +200,7 @@ jobs:
         if: always()
         run: |
           mkdir -p evidence && cp /tmp/deploy-*.log /tmp/e2e-*.log /tmp/cors.txt evidence/ 2>/dev/null || true
-          find test-results -name error-context.md 2>/dev/null | head -20 | while read f; do cp "$f" "evidence/$(basename "$(dirname "$f")").md"; done
+          find test-results -name error-context.md 2>/dev/null | while read f; do cp "$f" "evidence/$(basename "$(dirname "$f")").md"; done
           find ~/restaurant-migration -path '*evidence/*' \( -name '*.txt' -o -name '*.log' \) -exec cp {} evidence/ \; 2>/dev/null || true
       - uses: actions/upload-artifact@v4
         if: always()
